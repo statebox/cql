@@ -113,14 +113,7 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "\nsyms = " ++ show syms ++
     "\neqs = "  ++ show eqs
 
---example typeside one sort Dom { c0 ,..., c100 }
-typesideDom :: Eq var => Typeside var String String
-typesideDom = Typeside (Set.singleton "Dom") sym Set.empty (\ctx (EQ (lhs,rhs)) -> lhs == rhs)
- where sym = sym' 100
-       sym' 0 = Map.empty
-       sym' n = Map.insert ("c" ++ (show n)) ([], "Dom") $ sym' (n-1)
-
--------------------
+--------------------------------------------------------------------------------
 
 data Schema var ty sym en fk att
   = Schema
@@ -303,8 +296,7 @@ evalSchema
   :: SchemaExp var ty sym en fk att
   -> Either String (Schema var ty sym en fk att)
 evalSchema (SchemaLiteral schema)   = pure schema
-evalSchema (SchemaInitial typeside) = pure schema
-  where schema = Schema typeside Set.empty Map.empty Map.empty Set.empty Set.empty             undefined
+evalSchema (SchemaInitial typeside) = pure (Schema typeside Set.empty Map.empty Map.empty Set.empty Set.empty undefined)
 evalSchema (SchemaCoProd s1 s2) = Left "todo"
 --todo: additional schema functions
 
@@ -361,13 +353,12 @@ data ErrEval = ErrSchemaMismatch | ErrQueryEvalTodo | ErrMappingEvalTodo | ErrIn
 evalInstance
   :: InstanceExp var ty sym en fk att gen sk x y
   -> Either ErrEval (Instance var ty sym en fk att gen sk x y)
-evalInstance (InstanceDelta f' i') =
- do f <- evalMapping  f'
-    i <- evalInstance i'
-    if ((dst f) == (schema i))
-      then pure $ evalDeltaInst f i
-      -- TODO no stringy errors
-      else Left ErrSchemaMismatch --todo: mapping has dst " ++ (show $ dst f) ++ " but insts schema is " ++ (show $ schema i)
+evalInstance (InstanceDelta f' i') = do
+  f <- evalMapping  f'
+  i <- evalInstance i'
+  if dst f == schema i
+    then pure $ evalDeltaInst f i
+    else Left ErrSchemaMismatch --todo: mapping has dst " ++ (show $ dst f) ++ " but insts schema is " ++ (show $ schema i)
 evalInstance (InstanceLiteral inst)   = pure inst
 evalInstance (InstanceInitial schema) = pure $
   Instance schema
@@ -426,24 +417,24 @@ data TransformExp :: * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * ->
     -> TransformExp var ty sym en fk' att' gen' sk x y gen' sk' x' y'
 
   TransformDelta
-    :: MappingExp   var ty sym en fk att en' fk' att'
+    :: MappingExp   var ty sym en  fk  att  en' fk' att'
     -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
     -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
   TransformSigma
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: MappingExp   var ty sym en  fk  att  en' fk' att'
+    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
     -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
   TransformPi
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: MappingExp   var ty sym en  fk  att  en' fk' att'
+    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
     -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
   TransformCoEval
-    :: QueryExp     var ty sym en fk att en' fk' att'
+    :: QueryExp     var ty sym en  fk  att  en' fk' att'
     -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
   TransformEval
-    :: QueryExp     var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: QueryExp     var ty sym en  fk  att  en' fk' att'
+    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
     -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
 
 evalTransform

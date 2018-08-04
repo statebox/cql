@@ -30,6 +30,13 @@ schemaTwo =
                          , ("B_att", ("B", "Dom"))
                          ]
 
+--example typeside one sort Dom { c0 ,..., c100 }
+typesideDom :: Eq var => Typeside var String String
+typesideDom = Typeside (Set.singleton "Dom") sym Set.empty (\ctx (EQ (lhs,rhs)) -> lhs == rhs)
+  where sym = sym' 100
+        sym' 0 = Map.empty
+        sym' n = Map.insert ("c" ++ show n) ([], "Dom") $ sym' (n-1)
+
 --------------------------------------------------------------------------------
 
 -- instanceOne = Instance schemaOne
