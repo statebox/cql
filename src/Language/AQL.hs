@@ -3,11 +3,10 @@
 module Language.AQL where
 
 import Prelude hiding (EQ)
-import Data.Typeable
 import Data.Set as Set
 import Data.Map.Strict as Map
 import Data.Void
-import Data.List as List
+import Data.List (intercalate)
 
 --  Terms and theories --------------------------------------
 
