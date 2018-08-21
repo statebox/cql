@@ -1,4 +1,5 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators #-}
+{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
+,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances #-}
 
 module Language.AQL where
 
@@ -7,6 +8,7 @@ import Data.Set as Set
 import Data.Map.Strict as Map
 import Data.Void
 import Data.List (intercalate)
+
 
 -- kinds ---------------
 data Kind = 
@@ -72,7 +74,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
 
 data Collage var ty sym en fk att gen sk
   = Collage
-  { eqs  :: EQ var ty sym en fk att gen sk
+  { ceqs  :: Set (EQ var ty sym en fk att gen sk)
   , tys  :: Set ty
   , ens  :: Set en
   , fks  :: Map fk (en, en)
@@ -98,11 +100,29 @@ typeOf' col ctx (Var varName) =
   
 -- Theorem proving ------------------------------------------------
 
-data Prover = Free | Congruence | Orthogonal | KB
+data ProverName = Free | Congruence | Orthogonal | KB | Auto
 
--- https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
--- http://hackage.haskell.org/package/twee
--- http://hackage.haskell.org/package/term-rewriting
+data Prover var ty sym en fk att gen sk = Prover {
+  collage :: Collage var ty sym en fk att gen sk
+  , prove :: Ctx var (Either ty en) -> EQ var ty sym en fk att gen sk
+   -> Bool
+}
+
+freeProver col = if (Set.size (ceqs col) == 0) 
+                 then return $ Prover col p
+                 else Left "Cannot use free prover when there are equations" 
+ where p ctx (EQ (lhs, rhs)) = lhs == rhs
+
+createProver ::  (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) => ProverName -> Collage var ty sym en fk att gen sk 
+  -> Either String (Prover var ty sym en fk att gen sk) 
+createProver Free col = freeProver col
+createProver _ _ = Left "Prover not available"
+                           
+--todo  
+
+-- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
+-- for arbitrary theories: http://hackage.haskell.org/package/twee
+-- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
 
 --  Semantics -----------------------------------------------------------------
@@ -120,6 +140,13 @@ data Typeside var ty sym
   --}
   }
 
+-- We should probably give serious thought to Idris, because Haskell's records and existentials
+-- are broken, and AQL is innately dependently typed.  Anyway, the syntax types are highly parametric
+-- to be helpful during manipulation, but they need to be 'sealed' at the top level in an AQL program,
+-- so we have to build a wrapper like this bc of issues w impredicativity and RankN and whatnot. 
+data TypesideEx :: * where  
+ TypesideEx :: forall var ty sym. Typeside var ty sym -> TypesideEx
+ 
 instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
   (==) (Typeside tys  syms  eqs  eq)
        (Typeside tys' syms' eqs' eq')
@@ -149,6 +176,10 @@ data Schema var ty sym en fk att
   , obs_eqs  :: Set (en, EQ () ty   sym  en fk att  Void Void)
   , eq       :: en -> EQ () ty sym en fk att Void Void -> Bool
   }
+
+
+data SchemaEx :: * where
+  SchemaEx :: forall var ty sym en fk att. Schema var ty sym en fk att -> SchemaEx
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att)
   => Eq (Schema var ty sym en fk att) where
@@ -208,6 +239,10 @@ data Instance var ty sym en fk att gen sk x y
   , algebra :: Algebra var ty sym en fk att gen sk x y
   }
 
+data InstanceEx :: * where
+  InstanceEx :: forall var ty sym en fk att gen sk x y. Instance var ty sym en fk att gen sk x y -> InstanceEx
+
+
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y)
   => Show (Instance var ty sym en fk att gen sk x y) where
   show (Instance _ gens sks eqs eq _) =
@@ -248,6 +283,9 @@ data Mapping var ty sym en fk att en' fk' att'
   , fks  :: Map fk  (Term () Void Void en' fk' Void Void Void)
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
+  
+data MappingEx :: * where
+  MappingEx :: forall var ty sym en fk att en' fk' att'. Mapping var ty sym en fk att en' fk' att' -> MappingEx
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Mapping var ty sym en fk att en' fk' att') where
@@ -282,6 +320,10 @@ data Query var ty sym en fk att en' fk' att'
   , atts :: Map att' (Term var ty   sym  en fk att  Void Void)
   }
 
+
+data QueryEx :: * where
+  QueryEx :: forall var ty sym en fk att en' fk' att'. Query var ty sym en fk att en' fk' att' -> QueryEx
+
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Query var ty sym en fk att en' fk' att') where
   show (Query _ _ ens fks atts) =
@@ -309,6 +351,10 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   , sks  :: Map sk  (Term var  ty   sym  en fk att  gen' sk')
   }
 
+data TransformEx :: * where
+  TransformEx :: forall var ty sym en fk att gen sk x y gen' sk' x' y' . 
+    Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> TransformEx
+  
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y')
   => Show (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   show (Transform _ _ gens sks) =
@@ -340,124 +386,131 @@ class Syntax c t col where
   deps :: c -> [(String,Kind)]
   
 data Env = Env {
-    typesides' :: forall var ty sym. Ctx String (Typeside var ty sym)
-  , schemas' :: forall var ty sym en fk att. Ctx String (Schema var ty sym en fk att)
-  , instances' :: forall var ty sym en fk att gen sk x y. Ctx String (Instance var ty sym en fk att gen sk x y)
-  , mappings' :: forall var ty sym en fk att en' fk' att'. Ctx String (Mapping var ty sym en fk att en' fk' att')
-  , queries' :: forall var ty sym en fk att en' fk' att'. Ctx String (Query var ty sym en fk att en' fk' att')
-  , transforms' :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. Ctx String (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
+    typesides' :: Ctx String (TypesideEx)
+  , schemas' :: Ctx String (SchemaEx)
+  , instances' :: Ctx String (InstanceEx)
+  , mappings' :: Ctx String (MappingEx)
+  , queries' :: Ctx String (QueryEx)
+  , transforms' :: Ctx String (TransformEx)
 }  
 
 newEnv = Env m m m m m m
  where m = Map.empty
 
 data Program = Program {
-    order :: [(String,Kind)]
-  , typesides :: forall var ty sym. Ctx String (TypesideExp var ty sym)
-  , schemas :: forall var ty sym en fk att. Ctx String (SchemaExp var ty sym en fk att)
-  , instances :: forall var ty sym en fk att gen sk x y. Ctx String (InstanceExp var ty sym en fk att gen sk x y)
-  , mappings :: forall var ty sym en fk att en' fk' att'. Ctx String (MappingExp var ty sym en fk att en' fk' att')
-  , queries :: forall var ty sym en fk att en' fk' att'. Ctx String (QueryExp var ty sym en fk att en' fk' att')
-  , transforms :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. Ctx String (TransformExp var ty sym en fk att gen sk x y gen' sk' x' y')
+    typesides :: Ctx String (TypesideExp)
+  , schemas ::  Ctx String (SchemaExp)
+  , instances ::  Ctx String (InstanceExp)
+  , mappings ::  Ctx String (MappingExp)
+  , queries ::  Ctx String (QueryExp )
+  , transforms ::  Ctx String (TransformExp )
 } 
 
---todo: help
-lookupProg :: (Syntax c t col) => Program -> (String,Kind) -> Either String c
-lookupProg p (v,k) = case k of
-  TYPESIDE -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ typesides p
-  SCHEMA -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas p
-  INSTANCE -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances p
-  MAPPING -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings p
-  TRANSFORM -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms p
-  QUERY -> note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ queries p
-  
-newProg = Program [] m m m m m m
+data Val :: * where
+  Val :: (Semantics c t col) => c -> Val 
+   
+newProg = Program m m m m m m
  where m = Map.empty
 
---todo: check acyclicit
-runAqlProgram :: Program -> Either String Env
-runAqlProgram p = case order p of 
-                    [] -> pure newEnv
-                    (v,k):l -> undefined
+--todo: check acyclic
+evalAqlProgram :: [(String,Kind)] -> Program -> Env -> Either String Env
+evalAqlProgram [] prog env = pure env
+evalAqlProgram ((v,k):l) prog (env@(Env a b c d e f)) = 
+ case k of 
+  TYPESIDE -> do exp <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v (typesides prog)
+                 ts <- evalTypeside prog env exp 
+                 case ts of
+                   TypesideEx ts2 -> let ts' = Map.insert v (TypesideEx ts2) $ typesides' env  in
+                                      evalAqlProgram l prog $ env { typesides' = ts' }
+  _ -> Left "Not implemented yet"
 
-data TypesideExp :: * -> * -> * -> * where
-  TypesideVar :: String -> TypesideExp var ty sym
-  TypesideLiteral :: Typeside var ty sym -> TypesideExp var ty sym
-  TypesideInitial :: TypesideExp Void Void Void
+---------------------------------------------------------------------------------------- 
+
+data TypesideExp where
+  TypesideVar :: String -> TypesideExp
+  TypesideInitial :: TypesideExp 
   
+--typesideUnEx :: UNTYPABLE!
+--typesideUnEx (TypesideExpEx x) = x --should be TypesideExpEx -> exists var ty sym. TypesideExp var ty sym
+ 
+deriving instance (Eq var, Eq sym, Eq ty) => Eq (TypesideExp )
+deriving instance (Show var, Show sym, Show ty) => Show (TypesideExp )
 
-deriving instance (Eq var, Eq sym, Eq ty) => Eq (TypesideExp var ty sym)
-deriving instance (Show var, Show sym, Show ty) => Show (TypesideExp var ty sym)
+evalTypeside :: Program -> Env -> TypesideExp -> Either String (TypesideEx)
+evalTypeside p env (TypesideVar v) = case Map.lookup v $ typesides' env of
+  Nothing -> Left "todo"
+  Just (TypesideEx e) -> Right $ TypesideEx e
+evalTypeside p env TypesideInitial = pure $ TypesideEx $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
 
-evalTypeside :: Program -> TypesideExp var ty sym -> Either String (Typeside var ty sym)
-evalTypeside p (TypesideVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ typesides p 
-                                    evalTypeside p n
-evalTypeside p (TypesideLiteral typeside) = pure typeside
-evalTypeside p  TypesideInitial           = pure $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
-
-instance Syntax (TypesideExp var ty sym) () (Typeside var ty sym) where
+instance Syntax (TypesideExp) () (Typeside var ty sym) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = TYPESIDE
   deps = undefined
   
-data SchemaExp :: * -> * -> * -> * -> * -> * -> * where
-  SchemaVar :: String -> SchemaExp var ty sym en fk att
-  SchemaLiteral :: Schema var ty sym en fk att -> SchemaExp var ty sym en fk att
-  SchemaInitial :: Typeside var ty sym -> SchemaExp var ty sym en fk att
-  SchemaCoProd  :: (SchemaExp var ty sym en                      fk              att)
-                -> (SchemaExp var ty sym en'                        fk'              att')
-                ->  SchemaExp var ty sym (Either en en') (Either fk fk') (Either att att')
+------------------
 
-evalSchema ctx (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas ctx 
-                                  evalSchema ctx n
-evalSchema ctx (SchemaLiteral schema)   = pure schema
-evalSchema ctx (SchemaInitial typeside) = pure (Schema typeside Set.empty Map.empty Map.empty Set.empty Set.empty undefined)
-evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
+data SchemaExp where
+  SchemaVar :: String -> SchemaExp 
+  SchemaLiteral :: Schema var ty sym en fk att -> SchemaExp
+  SchemaInitial :: TypesideExp -> SchemaExp 
+  SchemaCoProd  :: (SchemaExp )
+                -> (SchemaExp )
+                ->  SchemaExp 
+                
+  
+evalSchema prog env (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas' env 
+                                       pure n
+evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts 
+                                            case ts' of                                              
+                                             TypesideEx ts'' -> 
+                                               pure $ SchemaEx $ (Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined)
+--evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
 --todo: additional schema functions
 
-instance Syntax (SchemaExp var ty sym en fk att) (TypesideExp var ty sym) (Schema var ty sym en fk att) where
+instance Syntax (SchemaExp ) (TypesideExp ) (Schema var ty sym en fk att) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = SCHEMA
   deps = undefined
   
-data InstanceExp :: * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * where
+data InstanceExp where
   InstanceVar
     :: String
-    -> InstanceExp var ty sym en fk att gen sk x y
+    -> InstanceExp 
   InstanceLiteral
     :: Instance var ty sym en fk att gen sk x y
-    -> InstanceExp var ty sym en fk att gen sk x y
+    -> InstanceExp 
   InstanceInitial
-    :: Schema var ty sym en fk att
-    -> InstanceExp var ty sym en fk att Void Void Void Void
+    :: SchemaExp 
+    -> InstanceExp 
 
   InstanceDelta
-    :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
-    => MappingExp var ty sym en fk att en' fk' att'
-    -> InstanceExp var ty sym en' fk' att' gen sk x y
-    -> InstanceExp var ty sym en fk att (en',gen) sk (en',x) y
+    :: MappingExp 
+    -> InstanceExp 
+    -> InstanceExp 
 
   InstanceSigma
-    :: MappingExp  var ty sym en fk att en' fk' att'
-    -> InstanceExp var ty sym en fk att gen sk x y
-    -> InstanceExp var ty sym en fk att gen' sk' x' y'
+    :: MappingExp  
+    -> InstanceExp 
+    -> InstanceExp 
   InstancePi
-    :: MappingExp  var ty sym en fk att en' fk' att'
-    -> InstanceExp var ty sym en fk att gen sk x y
-    -> InstanceExp var ty sym en fk att gen' sk' x' y'
+    :: MappingExp  
+    -> InstanceExp 
+    -> InstanceExp 
   InstanceEval
-    :: QueryExp    var ty sym en fk att en' fk' att'
-    -> InstanceExp var ty sym en fk att gen sk x y
-    -> InstanceExp var ty sym en fk att gen' sk' x' y'
+    :: QueryExp    
+    -> InstanceExp 
+    -> InstanceExp 
   InstanceCoEval
-    :: MappingExp  var ty sym en fk att en' fk' att'
-    -> InstanceExp var ty sym en fk att gen' sk' x' y'
-    -> InstanceExp var ty sym en fk att gen sk x y
+    :: MappingExp  
+    -> InstanceExp 
+    -> InstanceExp 
 
+--data InstanceExpEx :: * where 
+ -- InstanceExpEx :: forall var ty sym en fk att gen sk x y. InstanceExp var ty sym en fk att gen sk x y -> InstanceExpEx 
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
@@ -476,128 +529,108 @@ evalDeltaInst = undefined --todo
 -- TODO all of these need to be changed at once
 --data ErrEval = ErrSchemaMismatch | ErrQueryEvalTodo | ErrMappingEvalTodo | ErrInstanceEvalTodo
 
--- requires type signature for some reason
-evalInstance :: Program -> InstanceExp var ty sym en fk att gen sk x y -> Either String (Instance var ty sym en fk att gen sk x y)
-evalInstance ctx (InstanceVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances ctx 
-                                      evalInstance ctx n
-evalInstance ctx (InstanceDelta f' i') = do
-  f <- evalMapping  ctx f'
-  i <- evalInstance ctx i'
-  if dst f == schema i
-    then undefined --pure $ evalDeltaInst f i
-    else Left $ "mapping has dst " -- todo ++ (show $ dst f) ++ " but insts schema is " ++ (show $ schema i)
-evalInstance ctx (InstanceLiteral inst)   = pure inst
-evalInstance ctx (InstanceInitial schema) = pure $
-  Instance schema
-           Map.empty Map.empty Set.empty undefined $ Algebra schema
-           (Map.empty) undefined undefined
-           undefined undefined undefined undefined
-           --todo: undefineds can be replaced with actually non effectful code
-evalInstance _ _ = Left ""
+evalInstance prog env (InstanceVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances' env 
+                                           pure n
+evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s 
+                                               case ts' of                                              
+                                                 SchemaEx ts'' -> 
+                                                  pure $ InstanceEx $ Instance ts''
+                                                         Map.empty Map.empty Set.empty undefined $ Algebra ts''
+                                                        (Map.empty) undefined undefined undefined undefined undefined undefined
 
-instance Syntax (InstanceExp var ty sym en fk att gen sk x y) (Schema var ty sym en fk att) (Instance var ty sym en fk att gen sk x y) where
+
+instance Syntax (InstanceExp) (Schema var ty sym en fk att) (Instance var ty sym en fk att gen sk x y) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = INSTANCE
   deps = undefined
 
-data MappingExp  :: * -> * -> * -> * -> * -> * -> * -> * -> * -> * where
-  MappingVar     :: String -> MappingExp var ty sym en fk att en' fk' att'
-  MappingId      :: SchemaExp var ty sym en fk att              -> MappingExp var ty sym en fk att en  fk  att
-  MappingLiteral :: Mapping   var ty sym en fk att en' fk' att' -> MappingExp var ty sym en fk att en' fk' att'
+data MappingExp   where
+  MappingVar     :: String -> MappingExp 
+  MappingId      :: SchemaExp         -> MappingExp
 
-evalMapping ctx (MappingVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings ctx 
-                                    evalMapping ctx n
-evalMapping ctx (MappingId schema) = Left "" --todo
-evalMapping ctx (MappingLiteral l) = pure l
+data QueryExp where
+  QueryVar     :: String -> QueryExp 
+  QueryId      :: SchemaExp              -> QueryExp 
+  QueryLiteral :: Query     var ty sym en fk att en' fk' att' -> QueryExp 
 
-data QueryExp :: * -> * -> * -> * -> * -> * -> * -> * -> * -> * where
-  QueryVar     :: String -> QueryExp var ty sym en fk att en' fk' att'
-  QueryId      :: SchemaExp var ty sym en fk att              -> QueryExp var ty sym en fk att en  fk  att
-  QueryLiteral :: Query     var ty sym en fk att en' fk' att' -> QueryExp var ty sym en fk att en' fk' att'
-
-evalQuery
-  :: Program -> QueryExp var ty sym en fk att en' fk' att'
-  -> Either String (Query var ty sym en fk att en' fk' att')
-evalQuery ctx (QueryVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ queries ctx 
-                                evalQuery ctx n
-evalQuery ctx (QueryId schema) = Left "" --todo
-evalQuery ctx (QueryLiteral q) = pure q
+evalMapping prog env (QueryVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings' env 
+                                       pure n
 
 
-instance Syntax (QueryExp var ty sym en fk att en' fk' att') (Schema var ty sym en fk att, Schema var ty sym en' fk' att') (Query var ty sym en fk att en' fk' att') where
+
+
+instance Syntax (QueryExp) (Schema var ty sym en fk att, Schema var ty sym en' fk' att') (Query var ty sym en fk att en' fk' att') where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = QUERY
   deps = undefined
 
-data TransformExp :: * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * -> * where
+data TransformExp  where
   TransformVar
-    :: String -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: String -> TransformExp 
   TransformId
-    :: InstanceExp  var ty sym en fk att gen sk x y
-    -> TransformExp var ty sym en fk att gen sk x y gen sk x y
+    :: InstanceExp  
+    -> TransformExp 
   TransformLiteral
     :: Transform    var ty sym en fk att gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    -> TransformExp 
 
   --these types could be a little off
   TransformSigmaDeltaUnit
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
   TransformSigmaDeltaCoUnit
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk' att' gen' sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
   TransformDeltaPiUnit
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk' att' gen' sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
   TransformDeltaPiCoUnit
-    :: MappingExp   var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
   TransformQueryUnit
-    :: QueryExp     var ty sym en fk att en' fk' att'
-    -> TransformExp var ty sym en fk att gen sk x y gen' sk' x' y'
+    :: QueryExp     
+    -> TransformExp 
   TransformQueryCoUnit
-    :: MappingExp   var ty sym en fk  att  en' fk' att'
-    -> TransformExp var ty sym en fk' att' gen' sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp
 
   TransformDelta
-    :: MappingExp   var ty sym en  fk  att  en' fk' att'
-    -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
+    -> TransformExp 
   TransformSigma
-    :: MappingExp   var ty sym en  fk  att  en' fk' att'
-    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
+    -> TransformExp 
   TransformPi
-    :: MappingExp   var ty sym en  fk  att  en' fk' att'
-    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
+    :: MappingExp   
+    -> TransformExp 
+    -> TransformExp 
   TransformCoEval
-    :: QueryExp     var ty sym en  fk  att  en' fk' att'
-    -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
+    :: QueryExp     
+    -> TransformExp 
+    -> TransformExp 
   TransformEval
-    :: QueryExp     var ty sym en  fk  att  en' fk' att'
-    -> TransformExp var ty sym en  fk  att  gen sk x y gen' sk' x' y'
-    -> TransformExp var ty sym en' fk' att' gen sk x y gen' sk' x' y'
+    :: QueryExp     
+    -> TransformExp 
+    -> TransformExp 
 
-evalTransform
-  :: Program -> TransformExp             var ty sym en fk att gen sk x y gen' sk' x' y'
-  -> Either String (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
-evalTransform ctx (TransformVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms ctx 
-                                        evalTransform ctx n
-evalTransform ctx (TransformId inst  ) = Left "todo" --todo
-evalTransform ctx (TransformLiteral h) = pure h
-
-instance Syntax (TransformExp var ty sym en fk att gen sk x y gen' sk' x' y') (InstanceExp var ty sym en fk att gen sk x y, InstanceExp var ty sym en fk att gen' sk' x' y') (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
+instance Syntax (TransformExp) (InstanceExp , InstanceExp) (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = TRANSFORM
   deps = undefined
+  
+
+evalTransform prog env (TransformVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env 
+                                             pure n
+
+
 
 --------------------------------------------------------------------------------
 
