@@ -1,5 +1,5 @@
 {-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances #-}
+,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
 
 module Language.AQL where
 
@@ -7,34 +7,51 @@ import Prelude hiding (EQ)
 import Data.Set as Set
 import Data.Map.Strict as Map
 import Data.Void
-import Data.List (intercalate)
+import Data.List (intercalate) 
+
+--main = undefined
+
+-- helpers
+
+type a + b = Either a b
+
+fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v) 
+fromList' ((k,v):l) = do l' <- fromList' l 
+                         if Map.member k l' 
+                         then Left $ "Duplicate binding: " ++ (show k)
+                         else pure $ Map.insert k v l'
+
+fromList'' :: (Show k, Ord k) => [k] -> Err (Set k) 
+fromList'' (k:l) = do l' <- fromList'' l 
+                      if Set.member k l' 
+                      then Left $ "Duplicate binding: " ++ (show k)
+                      else pure $ Set.insert k l' 
+
+
+-- top level stuff
+
+-- simple three phase evaluation and reporting
+runProg :: String -> Err (Prog, Types, Env)
+runProg p = do p1 <- parseAqlProgram p
+               o  <- findOrder p1
+               p2 <- typecheckAqlProgram o p1
+               p3 <- evalAqlProgram o p1 newEnv 
+               return (p1, p2, p3)
+             
+parseAqlProgram :: String -> Err Prog
+parseAqlProgram = undefined -- can be filled in now
 
 
 -- kinds ---------------
-data Kind = 
- --  CONSTRAINTS
-   TYPESIDE
- | SCHEMA
- | INSTANCE
- | MAPPING
- | TRANSFORM
- | QUERY 
- -- | COMMAND 
- -- | GRAPH
- -- | COMMENT
- -- | SCHEMA_COLIMIT
+data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
  
 -- operations defined across all AQL semantic objects of all kinds
-class Semantics c t col where
-  typeOf :: c -> t  
-  validate :: c -> Maybe String 
-  toCollage :: c -> col 
-  kind :: Kind
-  
-
-
-   
-type a + b = Either a b
+class Semantics c  where
+ -- typeOf :: c -> t  
+  validate :: c -> Err () 
+ -- toCollage :: c -> col 
+ -- kind :: Kind for now these aren't coming up
+     
 
 -- Terms and theories --------------------------------------
 
@@ -64,23 +81,23 @@ deriving instance (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, O
 -- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever put twice
 type Ctx k v = Map k v
 
+-- Our own pair type for pretty printing purposes
 newtype EQ var ty sym en fk att gen sk
-  = EQ ( Term var ty sym en fk att gen sk
-       , Term var ty sym en fk att gen sk
-       ) deriving Eq
+  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord,Eq)
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) => Show (EQ var ty sym en fk att gen sk) where
   show (EQ (lhs,rhs)) = show lhs ++ " = " ++ show rhs
 
 data Collage var ty sym en fk att gen sk
   = Collage
-  { ceqs  :: Set (EQ var ty sym en fk att gen sk)
-  , tys  :: Set ty
-  , ens  :: Set en
-  , fks  :: Map fk (en, en)
-  , atts :: Map att (en, ty)
-  , gens :: Map gen en
-  , sks  :: Map sk ty
+  { ceqs  :: Set (Ctx var (ty+sym), EQ var ty sym en fk att gen sk)
+  , ctys  :: Set ty
+  , cens  :: Set en
+  , csyms :: Map sym ([ty],ty)
+  , cfks  :: Map fk (en, en)
+  , catts :: Map att (en, ty)
+  , cgens :: Map gen en
+  , csks  :: Map sk ty
   } deriving (Eq, Show)
 
 -- TODO
@@ -113,8 +130,9 @@ freeProver col = if (Set.size (ceqs col) == 0)
                  else Left "Cannot use free prover when there are equations" 
  where p ctx (EQ (lhs, rhs)) = lhs == rhs
 
-createProver ::  (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) => ProverName -> Collage var ty sym en fk att gen sk 
-  -> Either String (Prover var ty sym en fk att gen sk) 
+createProver ::  (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) 
+ => ProverName -> Collage var ty sym en fk att gen sk 
+  -> Err (Prover var ty sym en fk att gen sk) 
 createProver Free col = freeProver col
 createProver _ _ = Left "Prover not available"
                            
@@ -158,11 +176,106 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "\nsyms = " ++ show syms ++
     "\neqs = "  ++ show eqs
 
-instance Semantics (Typeside var ty sym) () (Collage var ty sym Void Void Void Void Void) where
-  typeOf = undefined -- todo
-  validate = undefined 
-  toCollage = undefined
-  kind = TYPESIDE
+instance Semantics (Typeside var ty sym) where
+  validate = undefined -- todo: typecheck
+ 
+data RawTerm = RawApp String [RawTerm]
+ deriving Eq
+ 
+instance Show RawTerm where
+ show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
+  
+--todo: make validating Typeside function
+
+--todo: parser should target these
+data TypesideRaw' = TypesideRaw' {
+--  tsraw_imports :: [TypesideExp -> Either String TypesideEx]  these are going to be nasty bc of the type system
+   tsraw_tys  :: [String]
+  , tsraw_syms :: [(String, ([String], String))]
+  , tsraw_eqs  :: [([(String, String)], RawTerm, RawTerm)] 
+  , tsraw_options :: [(String, String)]
+} deriving (Eq, Show)
+
+tsToCol :: (Ord var, Ord ty, Ord sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
+ where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
+
+proverStringToName :: Map String String -> Err ProverName
+proverStringToName m = case Map.lookup "prover" m of
+ (Just "auto") -> pure Auto
+ (Just "kb") -> pure KB
+ (Just "program") -> pure Orthogonal
+ (Just "congruence") -> pure Congruence
+ (Just x) -> Left $ "Not a prover: " ++ x
+ Nothing -> pure Auto
+
+evalTypesideRaw :: TypesideRaw' -> Err TypesideEx
+evalTypesideRaw t = 
+ do r <- evalTypesideRaw' t
+    o <- fromList' $ tsraw_options t
+    n <- proverStringToName o
+    p <- createProver n (tsToCol r)   
+    pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
+ where 
+  f p ctx eq = prove p (Map.map Left ctx) eq    
+
+evalTypesideRaw' :: TypesideRaw' -> Err (Typeside String String String)
+evalTypesideRaw' (TypesideRaw' tys syms eqs ops) = 
+  do tys' <- fromList'' tys
+     syms' <- fromList' syms 
+     eqs' <- f syms' eqs
+     pure $ Typeside tys' syms' eqs' undefined -- leave prover blank
+ where f syms' [] = pure $ Set.empty
+       f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
+                                           lhs' <- g syms' ctx' lhs  
+                                           rhs' <- g syms' ctx' rhs
+                                           rest <- f syms' eqs'
+                                           pure $ Set.insert (ctx', EQ (lhs', rhs')) rest
+       g syms' ctx (RawApp v []) | Map.member v ctx = pure $ Var v 
+       g syms' ctx (RawApp v l) = do l' <- mapM (g syms' ctx) l
+                                     pure $ Sym v l'        
+       check [] = pure Map.empty
+       check ((v,t):l) = if elem v tys then do {x <- check l; pure $ Map.insert v t x} else Left $ "Not a type: " ++ (show t)                                  
+
+
+-- there are practical haskell type system related reasons to not want this to be a gadt 
+data TypesideExp where
+  TypesideVar :: String -> TypesideExp
+  TypesideInitial :: TypesideExp 
+  TypesideRaw :: TypesideRaw' -> TypesideExp
+  
+--typesideUnEx :: UNTYPABLE!
+--typesideUnEx (TypesideExpEx x) = x --should be TypesideExpEx -> exists var ty sym. TypesideExp var ty sym
+ 
+deriving instance (Eq var, Eq sym, Eq ty) => Eq TypesideExp
+deriving instance (Show var, Show sym, Show ty) => Show TypesideExp
+
+evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
+evalTypeside p env (TypesideRaw r) = evalTypesideRaw r
+evalTypeside p env (TypesideVar v) = case Map.lookup v $ typesides env of
+  Nothing -> Left $ "Undefined typeside: " ++ show v
+  Just (TypesideEx e) -> Right $ TypesideEx e
+evalTypeside p env TypesideInitial = pure $ TypesideEx $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
+
+
+class Syntax c t col | c -> t, c -> col where
+  typeOf'' :: c -> t  
+  validate' :: c -> Err () 
+  eval :: Prog -> Env -> c -> Err col 
+  kind' :: Kind
+  deps :: c -> [(String,Kind)]
+
+instance Syntax TypesideExp () TypesideEx where
+  typeOf'' = undefined
+  validate' = undefined
+  eval = evalTypeside 
+  
+  kind' = TYPESIDE
+  
+  deps (TypesideVar v) = [(v, TYPESIDE)]
+  deps TypesideInitial = []
+  deps (TypesideRaw r) = []
+
   
 --------------------------------------------------------------------------------
 
@@ -196,12 +309,9 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
     "\nfks = " ++ (show fks) ++ "\natts = " ++ (show atts) ++
     "\npath_eqs = " ++ (show path_eqs) ++ "\nobs_eqs = " ++ (show obs_eqs)
 
-instance Semantics (Schema var ty sym en fk att) (Typeside var ty sym)  (Collage var ty sym en fk att Void Void) where
-  typeOf = undefined -- todo
-  validate = undefined 
-  toCollage = undefined
-  kind = SCHEMA
-
+instance Semantics (Schema var ty sym en fk att)  where
+ validate = undefined 
+ 
 --------------------------------------------------------------------------------
 
 data Algebra var ty sym en fk att gen sk x y
@@ -230,11 +340,11 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
 
 data Instance var ty sym en fk att gen sk x y
   = Instance
-  { schema  :: Schema var ty sym en fk att
-  , gens    :: Map gen en
-  , sks     :: Map sk ty
-  , eqs     :: Set (EQ Void ty sym en fk att gen sk)
-  , eq      :: EQ var ty sym en fk att gen sk -> Bool
+  { ischema  :: Schema var ty sym en fk att
+  , igens    :: Map gen en
+  , isks     :: Map sk ty
+  , ieqs     :: Set (EQ Void ty sym en fk att gen sk)
+  , ieq      :: EQ var ty sym en fk att gen sk -> Bool
 
   , algebra :: Algebra var ty sym en fk att gen sk x y
   }
@@ -260,12 +370,9 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Instance schema gens sks eqs _ _) (Instance schema' gens' sks' eqs' _ _)
     = (schema == schema') && (gens == gens') && (sks == sks') && (eqs == eqs')
     
-instance Semantics (Instance var ty sym en fk att gen sk x y) (Schema var ty sym en fk att) (Collage var ty sym en fk att gen sk) where
-  typeOf = undefined -- todo
+instance Semantics (Instance var ty sym en fk att gen sk x y)  where
   validate = undefined 
-  toCollage = undefined
-  kind = INSTANCE
-
+ 
 -- adds one equation per fact in the algebra.
 algebraToInstance
   :: Algebra var ty sym en fk att gen sk x y 
@@ -302,12 +409,9 @@ validateMapping :: Mapping var ty sym en fk att en' fk' att' -> Maybe String
 validateMapping = undefined
 
 -- the type of the collage isn't quite right here
-instance Semantics (Mapping var ty sym en fk att en' fk' att') (Schema var ty sym en fk att, Schema var ty sym en' fk' att') (Collage var ty sym (en+en') (fk+fk') (att+att') Void Void) where
-  typeOf = undefined -- todo
+instance Semantics (Mapping var ty sym en fk att en' fk' att')  where
   validate = undefined 
-  toCollage = undefined
-  kind = MAPPING
-
+ 
 --------------------------------------------------------------------------------
 
 data Query var ty sym en fk att en' fk' att'
@@ -335,12 +439,9 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   (==) (Query s1 s2 ens fks atts) (Query s1' s2' ens' fks' atts')
     = (s1 == s1') && (s2 == s2') && (ens == ens') && (fks == fks') && (atts == atts')
     
-instance Semantics (Query var ty sym en fk att en' fk' att') (Schema var ty sym en fk att, Schema var ty sym en' fk' att') (Collage var ty sym (en+en') (fk+fk') (att+att') Void Void) where
-  typeOf = undefined -- todo
+instance Semantics (Query var ty sym en fk att en' fk' att')  where
   validate = undefined 
-  toCollage = undefined
-  kind = QUERY
-
+ 
 --------------------------------------------------------------------------------
 
 data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
@@ -355,7 +456,8 @@ data TransformEx :: * where
   TransformEx :: forall var ty sym en fk att gen sk x y gen' sk' x' y' . 
     Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> TransformEx
   
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y')
+instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, 
+          Show x, Show y, Show gen', Show sk', Show x', Show y')
   => Show (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   show (Transform _ _ gens sks) =
     "gens = " ++ (show gens) ++
@@ -366,88 +468,73 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Transform s1 s2 gens sks) (Transform s1' s2' gens' sks')
     = (s1 == s1') && (s2 == s2') && (gens == gens') && (sks == sks')
 
-instance Semantics (Transform var ty sym en fk att gen sk x y gen' sk' x' y') (Instance var ty sym en fk att gen sk x y, Instance var ty sym en fk att gen' sk' x' y') (Collage var ty sym (en+en') (fk+fk') (att+att') (gen+gen') (sk+sk')) where
-  typeOf = undefined -- todo
+instance Semantics (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   validate = undefined 
-  toCollage = undefined
-  kind = TRANSFORM
   
 -- Syntax ----------------------------------------------------------------------
 
 -- todo: raw string based syntax with type inference, etc
-
--- todo: this recomputes the expressions associated with variables
-
-class Syntax c t col where
-  typeOf'' :: c -> t  
-  validate' :: c -> Maybe String 
-  eval :: c -> Program -> Env -> Either String col 
-  kind' :: Kind
-  deps :: c -> [(String,Kind)]
   
-data Env = Env {
-    typesides' :: Ctx String (TypesideEx)
-  , schemas' :: Ctx String (SchemaEx)
-  , instances' :: Ctx String (InstanceEx)
-  , mappings' :: Ctx String (MappingEx)
-  , queries' :: Ctx String (QueryEx)
-  , transforms' :: Ctx String (TransformEx)
-}  
+data KindCtx ts s i m q t o = KindCtx {
+    typesides :: Ctx String ts
+  , schemas ::  Ctx String s
+  , instances ::  Ctx String i
+  , mappings ::  Ctx String m
+  , queries ::  Ctx String q
+  , transforms ::  Ctx String t
+  , other :: o
+}
 
-newEnv = Env m m m m m m
+--todo: store exception info in other field
+type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx ()
+
+--todo: store line numbers in other field
+type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String,Kind)]
+
+type Types = KindCtx () TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
+
+newEnv = KindCtx m m m m m m ()
  where m = Map.empty
-
-data Program = Program {
-    typesides :: Ctx String (TypesideExp)
-  , schemas ::  Ctx String (SchemaExp)
-  , instances ::  Ctx String (InstanceExp)
-  , mappings ::  Ctx String (MappingExp)
-  , queries ::  Ctx String (QueryExp )
-  , transforms ::  Ctx String (TransformExp )
-} 
-
-data Val :: * where
-  Val :: (Semantics c t col) => c -> Val 
    
-newProg = Program m m m m m m
+newProg = KindCtx m m m m m m []
+ where m = Map.empty
+ 
+newTypes = KindCtx m m m m m m ()
  where m = Map.empty
 
---todo: check acyclic
-evalAqlProgram :: [(String,Kind)] -> Program -> Env -> Either String Env
+type Err = Either String
+
+lookup' m v = f $ Map.lookup m v
+ where f (Just x) = x
+
+--todo: might look nicer in state monad
+
+-- some ordering - could be program order, but not necessarily
+typecheckAqlProgram :: [(String,Kind)] -> Prog -> Err Types
+typecheckAqlProgram [] prog = pure newTypes 
+typecheckAqlProgram ((v,TYPESIDE):l) prog = do ts <- note ("Undefined AQL typeside: " ++ show v) $ Map.lookup v $ typesides prog
+                                               typecheckAqlProgram l prog
+
+validateAqlProgram :: [(String,Kind)] -> Prog -> Err ()
+validateAqlProgram [] prog = pure ()
+validateAqlProgram ((v,TYPESIDE):l) prog =  do x <- validate' $ lookup' v $ typesides prog
+                                               validateAqlProgram l prog
+                                                                                            
+
+--todo: check acyclic with Data.Graph.DAG
+evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalAqlProgram [] prog env = pure env
-evalAqlProgram ((v,k):l) prog (env@(Env a b c d e f)) = 
- case k of 
-  TYPESIDE -> do exp <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v (typesides prog)
-                 ts <- evalTypeside prog env exp 
-                 case ts of
-                   TypesideEx ts2 -> let ts' = Map.insert v (TypesideEx ts2) $ typesides' env  in
-                                      evalAqlProgram l prog $ env { typesides' = ts' }
-  _ -> Left "Not implemented yet"
+evalAqlProgram ((v,TYPESIDE):l) prog env = case lookup' v $ typesides env of
+                                               TypesideEx ts2 -> let ts' = Map.insert v (TypesideEx ts2) $ typesides env  in
+                                                                     evalAqlProgram l prog $ env { typesides = ts' }
+ 
+
+
+findOrder :: Prog -> Err [(String, Kind)]
+findOrder p = pure $ other p --todo: for now
+
 
 ---------------------------------------------------------------------------------------- 
-
-data TypesideExp where
-  TypesideVar :: String -> TypesideExp
-  TypesideInitial :: TypesideExp 
-  
---typesideUnEx :: UNTYPABLE!
---typesideUnEx (TypesideExpEx x) = x --should be TypesideExpEx -> exists var ty sym. TypesideExp var ty sym
- 
-deriving instance (Eq var, Eq sym, Eq ty) => Eq (TypesideExp )
-deriving instance (Show var, Show sym, Show ty) => Show (TypesideExp )
-
-evalTypeside :: Program -> Env -> TypesideExp -> Either String (TypesideEx)
-evalTypeside p env (TypesideVar v) = case Map.lookup v $ typesides' env of
-  Nothing -> Left "todo"
-  Just (TypesideEx e) -> Right $ TypesideEx e
-evalTypeside p env TypesideInitial = pure $ TypesideEx $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
-
-instance Syntax (TypesideExp) () (Typeside var ty sym) where
-  typeOf'' = undefined
-  validate' = undefined
-  eval = undefined 
-  kind' = TYPESIDE
-  deps = undefined
   
 ------------------
 
@@ -460,7 +547,7 @@ data SchemaExp where
                 ->  SchemaExp 
                 
   
-evalSchema prog env (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas' env 
+evalSchema prog env (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env 
                                        pure n
 evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts 
                                             case ts' of                                              
@@ -469,48 +556,25 @@ evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
 --evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
 --todo: additional schema functions
 
-instance Syntax (SchemaExp ) (TypesideExp ) (Schema var ty sym en fk att) where
+instance Syntax (SchemaExp ) (TypesideEx ) (SchemaEx) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
   kind' = SCHEMA
   deps = undefined
   
+----------------------------------------------------------------------------------------------------------------------
+
 data InstanceExp where
-  InstanceVar
-    :: String
-    -> InstanceExp 
-  InstanceLiteral
-    :: Instance var ty sym en fk att gen sk x y
-    -> InstanceExp 
-  InstanceInitial
-    :: SchemaExp 
-    -> InstanceExp 
+  InstanceVar :: String -> InstanceExp 
+  InstanceInitial :: SchemaExp -> InstanceExp 
 
-  InstanceDelta
-    :: MappingExp 
-    -> InstanceExp 
-    -> InstanceExp 
-
-  InstanceSigma
-    :: MappingExp  
-    -> InstanceExp 
-    -> InstanceExp 
-  InstancePi
-    :: MappingExp  
-    -> InstanceExp 
-    -> InstanceExp 
-  InstanceEval
-    :: QueryExp    
-    -> InstanceExp 
-    -> InstanceExp 
-  InstanceCoEval
-    :: MappingExp  
-    -> InstanceExp 
-    -> InstanceExp 
-
---data InstanceExpEx :: * where 
- -- InstanceExpEx :: forall var ty sym en fk att gen sk x y. InstanceExp var ty sym en fk att gen sk x y -> InstanceExpEx 
+  InstanceDelta :: MappingExp -> InstanceExp -> InstanceExp 
+  InstanceSigma :: MappingExp -> InstanceExp -> InstanceExp  
+  InstancePi :: MappingExp -> InstanceExp -> InstanceExp 
+  
+  InstanceEval :: QueryExp -> InstanceExp -> InstanceExp 
+  InstanceCoEval :: MappingExp -> InstanceExp -> InstanceExp 
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
@@ -529,7 +593,7 @@ evalDeltaInst = undefined --todo
 -- TODO all of these need to be changed at once
 --data ErrEval = ErrSchemaMismatch | ErrQueryEvalTodo | ErrMappingEvalTodo | ErrInstanceEvalTodo
 
-evalInstance prog env (InstanceVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances' env 
+evalInstance prog env (InstanceVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env 
                                            pure n
 evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s 
                                                case ts' of                                              
@@ -539,7 +603,7 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                                         (Map.empty) undefined undefined undefined undefined undefined undefined
 
 
-instance Syntax (InstanceExp) (Schema var ty sym en fk att) (Instance var ty sym en fk att gen sk x y) where
+instance Syntax (InstanceExp) (SchemaEx) (InstanceEx) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
@@ -555,13 +619,13 @@ data QueryExp where
   QueryId      :: SchemaExp              -> QueryExp 
   QueryLiteral :: Query     var ty sym en fk att en' fk' att' -> QueryExp 
 
-evalMapping prog env (QueryVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings' env 
+evalMapping prog env (QueryVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env 
                                        pure n
 
 
 
 
-instance Syntax (QueryExp) (Schema var ty sym en fk att, Schema var ty sym en' fk' att') (Query var ty sym en fk att en' fk' att') where
+instance Syntax (QueryExp) (SchemaEx, SchemaEx) (QueryEx) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
@@ -619,7 +683,7 @@ data TransformExp  where
     -> TransformExp 
     -> TransformExp 
 
-instance Syntax (TransformExp) (InstanceExp , InstanceExp) (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
+instance Syntax (TransformExp) (InstanceExp , InstanceExp) (TransformEx) where
   typeOf'' = undefined
   validate' = undefined
   eval = undefined 
