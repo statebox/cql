@@ -7,7 +7,7 @@ import Prelude hiding (EQ)
 import Data.Set as Set
 import Data.Map.Strict as Map
 import Data.Void
-import Data.List (intercalate) 
+import Data.List (intercalate)
 
 --main = undefined
 
@@ -48,7 +48,7 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
 -- operations defined across all AQL semantic objects of all kinds
 class Semantics c  where
  -- typeOf :: c -> t  
-  validate :: c -> Err () 
+ -- validate :: c -> Err () 
  -- toCollage :: c -> col 
  -- kind :: Kind for now these aren't coming up
      
@@ -90,7 +90,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
 
 data Collage var ty sym en fk att gen sk
   = Collage
-  { ceqs  :: Set (Ctx var (ty+sym), EQ var ty sym en fk att gen sk)
+  { ceqs  :: Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   , ctys  :: Set ty
   , cens  :: Set en
   , csyms :: Map sym ([ty],ty)
@@ -105,16 +105,67 @@ data Err1 t
   = CannotFindVar t
   | Undefined t
 
--- this is a non-Stringly typed version of typeOf
+-- I've given up on non string based error handling for now
 typeOf'
-  :: (Ord var)
+  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
   => Collage var ty sym en fk att gen sk
-  -> Ctx var (Either ty en)
+  -> Ctx var (ty + en)
   -> Term    var ty sym en fk att gen sk
-  -> Either (Err1 (Term var ty sym en fk att gen sk)) (Either ty en)
-typeOf' col ctx (Var varName) =
-  note (CannotFindVar (Var varName)) (Map.lookup varName ctx)
-  
+  -> Err (ty + en)
+typeOf' col ctx (Var v) = note ("Unbound variable: " ++ show v) $ Map.lookup v ctx
+typeOf' col ctx (Gen g) = case Map.lookup g $ cgens col of
+  Nothing -> Left $ "Unknown generator: " ++ show g
+  Just t -> pure $ Right t
+typeOf' col ctx (Sk s) = case Map.lookup s $ csks col of
+  Nothing -> Left $ "Unknown labelled null: " ++ show s
+  Just t -> pure $ Left t
+typeOf' col ctx (Fk f a) = case Map.lookup f $ cfks col of
+  Nothing -> Left $ "Unknown foreign key: " ++ show f
+  Just (s, t) -> do s' <- typeOf' col ctx a 
+                    if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
+                     show s ++ " but given " ++ show s' 
+typeOf' col ctx (Att f a) = case Map.lookup f $ catts col of
+  Nothing -> Left $ "Unknown attribute: " ++ show f
+  Just (s, t) -> do s' <- typeOf' col ctx a 
+                    if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
+                     show s ++ " but given " ++ show s' 
+typeOf' col ctx (Sym f a) = case Map.lookup f $ csyms col of
+  Nothing -> Left $ "Unknown function symbol: " ++ show f
+  Just (s, t) -> do s' <- mapM (typeOf' col ctx) a 
+                    if length s' == length s
+                    then if (fmap Left s) == s' 
+                         then pure $ Left t
+                         else Left $ "Expected arguments to have types " ++
+                     show s ++ " but given " ++ show s' 
+                    else Left $ "Expected argument to have arity " ++
+                     show (length s) ++ " but given " ++ show (length s') 
+                     
+typeOfEq'
+  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  => Collage var ty sym en fk att gen sk
+  -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
+  -> Err (ty + en)
+typeOfEq' col (ctx, EQ (lhs, rhs)) = do lhs' <- typeOf' col ctx lhs
+                                        rhs' <- typeOf' col ctx rhs
+                                        if lhs' == rhs'
+                                        then pure lhs'
+                                        else Left $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs' 
+
+checkDoms :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  => Collage var ty sym en fk att gen sk
+  -> Err ()
+checkDoms col = undefined  
+
+typeOfCol
+  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  => Collage var ty sym en fk att gen sk
+  -> Err ()
+typeOfCol col = do checkDoms col 
+                   x <- mapM (typeOfEq' col) $ Set.toList $ ceqs col 
+                   pure () 
+
+--Set is not Traversable! Lame                 
+
 -- Theorem proving ------------------------------------------------
 
 data ProverName = Free | Congruence | Orthogonal | KB | Auto
@@ -176,8 +227,8 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "\nsyms = " ++ show syms ++
     "\neqs = "  ++ show eqs
 
-instance Semantics (Typeside var ty sym) where
-  validate = undefined -- todo: typecheck
+--instance Semantics (Typeside var ty sym) where
+validateTypeside = typeOfCol . tsToCol
  
 data RawTerm = RawApp String [RawTerm]
  deriving Eq
@@ -196,7 +247,7 @@ data TypesideRaw' = TypesideRaw' {
   , tsraw_options :: [(String, String)]
 } deriving (Eq, Show)
 
-tsToCol :: (Ord var, Ord ty, Ord sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
@@ -309,8 +360,8 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
     "\nfks = " ++ (show fks) ++ "\natts = " ++ (show atts) ++
     "\npath_eqs = " ++ (show path_eqs) ++ "\nobs_eqs = " ++ (show obs_eqs)
 
-instance Semantics (Schema var ty sym en fk att)  where
- validate = undefined 
+--instance Semantics (Schema var ty sym en fk att)  where
+ --validate = undefined 
  
 --------------------------------------------------------------------------------
 
@@ -370,8 +421,8 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Instance schema gens sks eqs _ _) (Instance schema' gens' sks' eqs' _ _)
     = (schema == schema') && (gens == gens') && (sks == sks') && (eqs == eqs')
     
-instance Semantics (Instance var ty sym en fk att gen sk x y)  where
-  validate = undefined 
+--instance Semantics (Instance var ty sym en fk att gen sk x y)  where
+ -- validate = undefined 
  
 -- adds one equation per fact in the algebra.
 algebraToInstance
@@ -409,8 +460,8 @@ validateMapping :: Mapping var ty sym en fk att en' fk' att' -> Maybe String
 validateMapping = undefined
 
 -- the type of the collage isn't quite right here
-instance Semantics (Mapping var ty sym en fk att en' fk' att')  where
-  validate = undefined 
+--instance Semantics (Mapping var ty sym en fk att en' fk' att')  where
+--  validate = undefined 
  
 --------------------------------------------------------------------------------
 
@@ -439,8 +490,8 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   (==) (Query s1 s2 ens fks atts) (Query s1' s2' ens' fks' atts')
     = (s1 == s1') && (s2 == s2') && (ens == ens') && (fks == fks') && (atts == atts')
     
-instance Semantics (Query var ty sym en fk att en' fk' att')  where
-  validate = undefined 
+--instance Semantics (Query var ty sym en fk att en' fk' att')  where
+--  validate = undefined 
  
 --------------------------------------------------------------------------------
 
@@ -468,8 +519,8 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Transform s1 s2 gens sks) (Transform s1' s2' gens' sks')
     = (s1 == s1') && (s2 == s2') && (gens == gens') && (sks == sks')
 
-instance Semantics (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
-  validate = undefined 
+--instance Semantics (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
+--  validate = undefined 
   
 -- Syntax ----------------------------------------------------------------------
 
