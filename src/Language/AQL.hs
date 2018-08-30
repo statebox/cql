@@ -9,7 +9,7 @@ import Data.Map.Strict as Map
 import Data.Void
 import Data.List (intercalate)
 
---main = undefined
+-- main = undefined
 
 -- helpers
 
@@ -101,9 +101,9 @@ data Collage var ty sym en fk att gen sk
   } deriving (Eq, Show)
 
 -- TODO
-data Err1 t
-  = CannotFindVar t
-  | Undefined t
+--data Err1 t
+--  = CannotFindVar t
+--  | Undefined t
 
 -- I've given up on non string based error handling for now
 typeOf'
@@ -154,7 +154,25 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do lhs' <- typeOf' col ctx lhs
 checkDoms :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
   => Collage var ty sym en fk att gen sk
   -> Err ()
-checkDoms col = undefined  
+checkDoms col = do mapM f $ Map.elems $ csyms col
+                   mapM g $ Map.elems $ cfks  col
+                   mapM h $ Map.elems $ catts col 
+                   mapM isEn $ Map.elems $ cgens col
+                   mapM isTy $ Map.elems $ csks  col
+                   pure ()
+ where f (t1,t2) = do mapM isTy t1
+                      isTy t2
+       g (e1,e2) = do isEn e1 
+                      isEn e2                     
+       h (e,t) = do isEn e
+                    isTy t
+       isEn x = if Set.member x $ cens col
+                then pure () 
+                else Left $ "Not an entity: " ++ show x 
+       isTy x = if Set.member x $ ctys col 
+                then pure () 
+                else Left $ "Not a type: " ++ show x 
+
 
 typeOfCol
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
@@ -209,10 +227,7 @@ data Typeside var ty sym
   --}
   }
 
--- We should probably give serious thought to Idris, because Haskell's records and existentials
--- are broken, and AQL is innately dependently typed.  Anyway, the syntax types are highly parametric
--- to be helpful during manipulation, but they need to be 'sealed' at the top level in an AQL program,
--- so we have to build a wrapper like this bc of issues w impredicativity and RankN and whatnot. 
+
 data TypesideEx :: * where  
  TypesideEx :: forall var ty sym. Typeside var ty sym -> TypesideEx
  
@@ -295,8 +310,6 @@ data TypesideExp where
   TypesideInitial :: TypesideExp 
   TypesideRaw :: TypesideRaw' -> TypesideExp
   
---typesideUnEx :: UNTYPABLE!
---typesideUnEx (TypesideExpEx x) = x --should be TypesideExpEx -> exists var ty sym. TypesideExp var ty sym
  
 deriving instance (Eq var, Eq sym, Eq ty) => Eq TypesideExp
 deriving instance (Show var, Show sym, Show ty) => Show TypesideExp
@@ -329,6 +342,96 @@ instance Syntax TypesideExp () TypesideEx where
 
   
 --------------------------------------------------------------------------------
+
+
+data SchemaExp where
+  SchemaVar :: String -> SchemaExp 
+  SchemaInitial :: TypesideExp -> SchemaExp 
+  SchemaCoProd  :: SchemaExp -> SchemaExp -> SchemaExp 
+  SchemaRaw :: SchemaExpRaw' -> SchemaExp
+                
+  
+evalSchema prog env (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env 
+                                       pure n
+evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts 
+                                            case ts' of                                              
+                                             TypesideEx ts'' -> 
+                                               pure $ SchemaEx $ (Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined)
+--evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
+--todo: additional schema functions
+
+instance Syntax (SchemaExp ) (TypesideEx ) (SchemaEx) where
+  typeOf'' = undefined
+  validate' = undefined
+  eval = undefined 
+  kind' = SCHEMA
+  deps = undefined
+
+validateSchema = typeOfCol . schToCol
+{--
+data Collage var ty sym en fk att gen sk
+  = Collage
+  { ceqs  :: Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+  , ctys  :: Set ty
+  , cens  :: Set en
+  , csyms :: Map sym ([ty],ty)
+  , cfks  :: Map fk (en, en)
+  , catts :: Map att (en, ty)
+  , cgens :: Map gen en
+  , csks  :: Map sk ty
+  } deriving (Eq, Show)
+  --}
+  
+schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att) => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
+schToCol (Schema ts ens fks atts path_eqs obs_eqs _) = 
+ Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol) 
+  ens (csyms tscol) fks atts Map.empty Map.empty
+   where tscol = tsToCol ts
+         e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (up3 l, up3 r))) path_eqs
+         e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (up2 l, up2 r))) obs_eqs
+         e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (up1 l, up1 r))) $ ceqs tscol
+         
+   
+up2 :: Term () ty sym en fk att Void Void -> Term (()+var) ty sym en fk att x y
+up2 (Var v) = Var $ Left () 
+up2 (Sym f x) = Sym f $ Prelude.map up2 x
+up2 (Fk f a) = Fk f $ up2 a   
+up2 (Att f a) = Att f $ up2 a 
+up2 (Gen f) = absurd f   
+up2 (Sk f) = absurd f    
+     
+         
+up3 :: Term () Void Void en fk Void Void Void -> Term (()+var) ty sym en fk att x y
+up3 (Var v) = Var $ Left () 
+up3 (Sym f x) = absurd f
+up3 (Fk f a) = Fk f $ up3 a   
+up3 (Att f a) = absurd f 
+up3 (Gen f) = absurd f   
+up3 (Sk f) = absurd f      
+     
+up1 :: Term var ty sym Void Void Void Void Void -> Term (()+var) ty sym en fk att x y
+up1 (Var v) = Var $ Right v 
+up1 (Sym f x) = Sym f $ Prelude.map up1 x
+up1 (Fk f a) = absurd f   
+up1 (Att f a) = absurd f 
+up1 (Gen f) = absurd f   
+up1 (Sk f) = absurd f   
+
+up1Ctx :: (Ord var) => Ctx var (ty+Void) -> Ctx (()+var) (ty+x)
+up1Ctx g = Map.map (\x -> case x of 
+  Left ty -> Left ty 
+  Right v -> absurd v) $ Map.mapKeys Right g
+
+  
+
+data SchemaExpRaw' = SchemaExpRaw' {
+    schraw_ens  :: [String]
+  , schraw_fks :: [(String, (String, String))]
+  , schraw_atts:: [(String, (String, String))]
+  , schraw_peqs  :: [(String, [String])] 
+  , schraw_oeqs  :: [(String, (String, String, RawTerm))] 
+  , schraw_options :: [(String, String)]
+} deriving (Eq, Show)
 
 data Schema var ty sym en fk att
   = Schema
@@ -395,7 +498,7 @@ data Instance var ty sym en fk att gen sk x y
   , igens    :: Map gen en
   , isks     :: Map sk ty
   , ieqs     :: Set (EQ Void ty sym en fk att gen sk)
-  , ieq      :: EQ var ty sym en fk att gen sk -> Bool
+  , ieq      :: EQ Void ty sym en fk att gen sk -> Bool
 
   , algebra :: Algebra var ty sym en fk att gen sk x y
   }
@@ -403,6 +506,32 @@ data Instance var ty sym en fk att gen sk x y
 data InstanceEx :: * where
   InstanceEx :: forall var ty sym en fk att gen sk x y. Instance var ty sym en fk att gen sk x y -> InstanceEx
 
+
+instToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, 
+  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
+   => Instance var ty sym en fk att gen sk x y -> Collage (()+var) ty sym en fk att gen sk
+instToCol (Instance sch gens sks eqs _ _) = 
+ Collage (Set.union e1 e2) (ctys schcol) 
+  (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens sks
+   where schcol = schToCol sch
+         e1 = Set.map (\(EQ (l,r)) -> (Map.empty, EQ (up4 l, up4 r))) eqs
+         e2 = Set.map (\(g, EQ (l,r))->(g, EQ (up5 l, up5 r))) $ ceqs schcol
+         
+up4 :: Term Void ty sym en fk att gen sk -> Term x ty sym en fk att gen sk
+up4 (Var v) = absurd v
+up4 (Sym f x) = Sym f $ Prelude.map up4 x
+up4 (Fk f a) = Fk f $ up4 a   
+up4 (Att f a) = Att f $ up4 a 
+up4 (Gen f) = Gen f   
+up4 (Sk f) = Sk f    
+
+up5 :: Term var ty sym en fk att Void Void -> Term var ty sym en fk att gen sk
+up5 (Var v) = Var v
+up5 (Sym f x) = Sym f $ Prelude.map up5 x
+up5 (Fk f a) = Fk f $ up5 a   
+up5 (Att f a) = Att f $ up5 a 
+up5 (Gen f) = absurd f   
+up5 (Sk f) = absurd f    
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y)
   => Show (Instance var ty sym en fk att gen sk x y) where
@@ -584,36 +713,7 @@ evalAqlProgram ((v,TYPESIDE):l) prog env = case lookup' v $ typesides env of
 findOrder :: Prog -> Err [(String, Kind)]
 findOrder p = pure $ other p --todo: for now
 
-
----------------------------------------------------------------------------------------- 
-  
-------------------
-
-data SchemaExp where
-  SchemaVar :: String -> SchemaExp 
-  SchemaLiteral :: Schema var ty sym en fk att -> SchemaExp
-  SchemaInitial :: TypesideExp -> SchemaExp 
-  SchemaCoProd  :: (SchemaExp )
-                -> (SchemaExp )
-                ->  SchemaExp 
-                
-  
-evalSchema prog env (SchemaVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env 
-                                       pure n
-evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts 
-                                            case ts' of                                              
-                                             TypesideEx ts'' -> 
-                                               pure $ SchemaEx $ (Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined)
---evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
---todo: additional schema functions
-
-instance Syntax (SchemaExp ) (TypesideEx ) (SchemaEx) where
-  typeOf'' = undefined
-  validate' = undefined
-  eval = undefined 
-  kind' = SCHEMA
-  deps = undefined
-  
+-----------  
 ----------------------------------------------------------------------------------------------------------------------
 
 data InstanceExp where
@@ -626,6 +726,15 @@ data InstanceExp where
   
   InstanceEval :: QueryExp -> InstanceExp -> InstanceExp 
   InstanceCoEval :: MappingExp -> InstanceExp -> InstanceExp 
+  
+  InstanceRaw :: InstExpRaw' -> InstanceExp
+  
+data InstExpRaw' = InstExpRaw' {
+    instraw_gens  :: [(String, String)]
+  , instraw_sks :: [(String, String)]
+  , instraw_oeqs  :: [(RawTerm, RawTerm)] 
+  , instraw_options :: [(String, String)]
+} deriving (Eq, Show)
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
@@ -663,12 +772,31 @@ instance Syntax (InstanceExp) (SchemaEx) (InstanceEx) where
 
 data MappingExp   where
   MappingVar     :: String -> MappingExp 
-  MappingId      :: SchemaExp         -> MappingExp
+  MappingId      :: SchemaExp -> MappingExp
+  MappingRaw     :: MapExpRaw' -> MappingExp
+
+data MapExpRaw' = MapExpRaw' {
+    mapraw_ens  :: [(String, String)]
+  , mapraw_fks :: [(String, [String])]
+  , mapraw_atts  :: [(String, (String, String, RawTerm))] 
+  , mapraw_options :: [(String, String)]
+} deriving (Eq, Show)
+
 
 data QueryExp where
   QueryVar     :: String -> QueryExp 
-  QueryId      :: SchemaExp              -> QueryExp 
-  QueryLiteral :: Query     var ty sym en fk att en' fk' att' -> QueryExp 
+  QueryId      :: SchemaExp -> QueryExp 
+  QueryRaw     :: QueryExpRaw' -> QueryExp 
+
+
+--old school queries without overlapping names across entities
+data QueryExpRaw' = QueryExpRaw' {
+    qraw_ens  :: [(String, ([(String,String)],[(RawTerm,RawTerm)]))]
+  , qraw_fks :: [(String, [(String,RawTerm)])] 
+  , qraw_atts  :: [(String, RawTerm)] 
+  , qraw_options :: [(String, String)]
+} deriving (Eq, Show)
+
 
 evalMapping prog env (QueryVar v) = do n <- note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env 
                                        pure n
@@ -684,55 +812,27 @@ instance Syntax (QueryExp) (SchemaEx, SchemaEx) (QueryEx) where
   deps = undefined
 
 data TransformExp  where
-  TransformVar
-    :: String -> TransformExp 
-  TransformId
-    :: InstanceExp  
-    -> TransformExp 
-  TransformLiteral
-    :: Transform    var ty sym en fk att gen sk x y gen' sk' x' y'
-    -> TransformExp 
+  TransformVar :: String -> TransformExp 
+  TransformId :: InstanceExp -> TransformExp 
+  TransformSigmaDeltaUnit :: MappingExp -> TransformExp 
+  TransformSigmaDeltaCoUnit :: MappingExp -> TransformExp 
+  TransformDeltaPiUnit :: MappingExp -> TransformExp 
+  TransformDeltaPiCoUnit :: MappingExp -> TransformExp 
+  TransformQueryUnit :: QueryExp -> TransformExp 
+  TransformQueryCoUnit :: MappingExp -> TransformExp
+  TransformDelta :: MappingExp -> TransformExp -> TransformExp 
+  TransformSigma :: MappingExp -> TransformExp -> TransformExp 
+  TransformPi :: MappingExp -> TransformExp -> TransformExp 
+  TransformCoEval :: QueryExp -> TransformExp -> TransformExp 
+  TransformEval :: QueryExp -> TransformExp -> TransformExp 
+  TransformRaw :: TransExpRaw' -> TransformExp    
 
-  --these types could be a little off
-  TransformSigmaDeltaUnit
-    :: MappingExp   
-    -> TransformExp 
-  TransformSigmaDeltaCoUnit
-    :: MappingExp   
-    -> TransformExp 
-  TransformDeltaPiUnit
-    :: MappingExp   
-    -> TransformExp 
-  TransformDeltaPiCoUnit
-    :: MappingExp   
-    -> TransformExp 
-  TransformQueryUnit
-    :: QueryExp     
-    -> TransformExp 
-  TransformQueryCoUnit
-    :: MappingExp   
-    -> TransformExp
+data TransExpRaw' = TransExpRaw' {
+    transraw_gens  :: [(String, RawTerm)]
+  , transraw_sks :: [(String, RawTerm)] 
+  , transraw_options :: [(String, String)]
+} deriving (Eq, Show)
 
-  TransformDelta
-    :: MappingExp   
-    -> TransformExp 
-    -> TransformExp 
-  TransformSigma
-    :: MappingExp   
-    -> TransformExp 
-    -> TransformExp 
-  TransformPi
-    :: MappingExp   
-    -> TransformExp 
-    -> TransformExp 
-  TransformCoEval
-    :: QueryExp     
-    -> TransformExp 
-    -> TransformExp 
-  TransformEval
-    :: QueryExp     
-    -> TransformExp 
-    -> TransformExp 
 
 instance Syntax (TransformExp) (InstanceExp , InstanceExp) (TransformEx) where
   typeOf'' = undefined
