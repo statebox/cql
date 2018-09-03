@@ -17,3 +17,6 @@ identifier = (lexeme . try) (p >>= check)
 
 constant :: String -> Parser String
 constant = L.symbol spaceConsumer
+
+braces :: Parser a -> Parser a
+braces = between (constant "{") (constant "}")

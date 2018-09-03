@@ -30,3 +30,6 @@ spec = do
         specify "parses correctly a GetSchemaColimit schema" $
             forAll identifierGen $
                 \name -> parse schemaExpParser "" ("getSchema " ++ name) == Right (SchemaExpGetSchemaColimit name)
+    describe "schemaLiteralSectionParser" $ do
+        specify "parses correctly a SchemaLiteralSection" $
+            forAll

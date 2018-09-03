@@ -5,8 +5,8 @@ import Language.Parser.Parser
 import Language.Parser.Types
 import Language.Parser.Typeside
 
--- base
-import Control.Applicative ((<|>))
+-- megaparsec
+import           Text.Megaparsec
 
 schemaExpParser :: Parser SchemaExp
 schemaExpParser
@@ -23,7 +23,16 @@ schemaExpParser
     <|> SchemaExpGetSchemaColimit <$> do
         constant "getSchema"
         identifier
-    <|> SchemaExpLiteral <$> do
+    <|> do
         constant "literal"
         constant ":"
-        typesideKindParser
+        typeside <- typesideKindParser
+        schemaLiteral <- try (braces schemaLiteralSectionParser)
+        pure $ SchemaExpLiteral typeside schemaLiteral
+
+schemaLiteralSectionParser :: Parser SchemaLiteralSection
+schemaLiteralSectionParser = do
+    imports <- try $ do
+        constant "imports"
+        many typesideImportParser
+    pure $ SchemaLiteralSection imports [] [] [] [] []

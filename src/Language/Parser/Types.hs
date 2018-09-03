@@ -8,6 +8,7 @@ import Data.Scientific (Scientific)
 -- OPTIONS
 
 data AllOptions = AllOptions [OptionsDeclaration]
+    deriving (Eq)
 
 data OptionsDeclaration
     = NumThreadsOption Integer
@@ -35,6 +36,7 @@ data OptionsDeclaration
     | ImportJoinedOption Bool
     | CompletionPresedenceOption String
     | PrependEntityOnIds Bool
+    deriving (Eq)
 
 data CsvOptions
     = CsvFieldDelimChar Char
@@ -42,6 +44,7 @@ data CsvOptions
     | CsvQuoteChar Char
     | CsvFileExtension String
     | CsvGenerateIds Bool
+    deriving (Eq)
 
 data ProverOptions
     = Prover ProverType
@@ -51,6 +54,7 @@ data ProverOptions
     | CompletionCompose Bool
     | CompletionFilterSubsumed Bool
     | CompletionSyntacticAc Bool
+    deriving (Eq)
 
 data ProverType
     = ProverTypeAuto
@@ -61,12 +65,14 @@ data ProverType
     | ProverTypeMonoidal
     | ProverTypeProgram
     | ProverTypeCompletion
+    deriving (Eq)
 
 data GuiOptions
     = GuiMaxTableSize Integer
     | GuiMaxGraphSize Integer
     | GuiMaxStringSize Integer
     | GuiRowsToDisplay Integer
+    deriving (Eq)
 
 data EvalOptions
     = EvalMaxTempSize Integer
@@ -76,10 +82,12 @@ data EvalOptions
     | EvalUseIndices Bool
     | EvalApproxSqlUnsafe Bool
     | EvalSqlPersistentIndices Bool
+    deriving (Eq)
 
 data CoproductOptions
     = CoproductAllowEntityType Bool
     | CoproductAllowType Bool
+    deriving (Eq)
 
 -- TYPESIDE
 
@@ -103,15 +111,18 @@ data TypesideLiteralSection
 data TypesideImport
     = TypesideImportSql
     | TypesideImportRef TypesideRef
+    deriving (Eq)
 
 data TypesideTypeId
     = TypesideTypeIdTrue
     | TypesideTypeIdFalse
     | TypesideTypeId String
+    deriving (Eq)
 
 data TypesideFnName
     = TypesideFnNameBool Bool
     | TypesideFnNameString String
+    deriving (Eq)
 
 -- SCHEMA
 
@@ -128,7 +139,7 @@ data SchemaExp
     | SchemaExpOfImportAll
     -- | SchemaExpOfInstance
     | SchemaExpGetSchemaColimit SchemaColimitRef
-    | SchemaExpLiteral TypesideKind
+    | SchemaExpLiteral TypesideKind SchemaLiteralSection
     deriving (Eq)
 
 type SchemaColimitRef = String
@@ -140,6 +151,7 @@ data SchemaLiteralSection = SchemaLiteralSection
     [SchemaPathEqnSig]
     [SchemaAttributeSig]
     [SchemaObservationEquationSig]
+    deriving (Eq)
 
 type SchemaEntityId = String
 
@@ -147,33 +159,39 @@ data SchemaForeignSig = SchemaForeignSig
     SchemaForeignId
     SchemaEntityId
     SchemaEntityId
+    deriving (Eq)
 
 type SchemaForeignId = String
 
-data SchemaPathEqnSig = SchemaPathEqnSig
-    SchemaPath
-    SchemaPath
+data SchemaPathEqnSig = SchemaPathEqnSig SchemaPath SchemaPath
+    deriving (Eq)
 
 data SchemaPath
     = SchemaPathArrowId SchemaArrowId
     | SchemaPathDotted SchemaPath SchemaArrowId
     | SchemaPathParen SchemaArrowId SchemaPath
+    deriving (Eq)
 
 data SchemaArrowId
     = SchemaArrowIdEntity SchemaEntityId
     | SchemaArrowIdForeign SchemaForeignId
+    deriving (Eq)
 
 data SchemaAttributeSig = SchemaAttributeSig [SchemaAttributeId] SchemaEntityId TypesideTypeId
+    deriving (Eq)
 
 type SchemaAttributeId = String
 
 data SchemaObservationEquationSig
     = SchemaObserveForall SchemaEquationSig
     | SchemaObserveEquation SchemaPath SchemaPath
+    deriving (Eq)
 
 data SchemaEquationSig = SchemaEquationSig SchemaGen [SchemaGen] EvalSchemaFn EvalSchemaFn
+    deriving (Eq)
 
 data SchemaGen = SchemaGen String SchemaGenType
+    deriving (Eq)
 
 type SchemaGenType = String
 
@@ -182,14 +200,17 @@ data EvalSchemaFn
     | EvalSchemaFnGen SchemaGen
     | EvalSchemaFnParen SchemaFn EvalSchemaFn [EvalSchemaFn]
     | EvalSchemaFnDotted EvalSchemaFn SchemaFn
+    deriving (Eq)
 
 data SchemaLiteralValue
     = SchemaLiteralValueInt Integer
     | SchemaLiteralValueReal Scientific
     | SchemaLiteralValueBool Bool
     | SchemaLiteralValueText String
+    deriving (Eq)
 
 data SchemaFn
     = SchemaFnTypeside TypesideFnName
     | SchemaFnAttr SchemaAttributeId
     | SchemaFnFk SchemaForeignId
+    deriving (Eq)

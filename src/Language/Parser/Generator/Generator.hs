@@ -1,12 +1,15 @@
 module Language.Parser.Generator.Generator where
 
 import           Language.Parser.ReservedWords
+import           Language.Parser.Types
 
 -- base
-import           Control.Applicative ((<|>))
+import           Control.Applicative           ((<|>))
 
 -- QuickCheck
 import           Test.QuickCheck.Gen
+
+-- BASIC
 
 lowerCharGen :: Gen Char
 lowerCharGen = elements ['a' .. 'z']
@@ -39,3 +42,8 @@ identifierGen = (oneof
     , upperIdGen
     , specialIdGen
     ]) `suchThat` (\s -> not (s `elem` reservedWords))
+
+-- TYPESIDE
+
+typesideImportGen :: Gen TypesideImport
+typesideImportGen = undefined
