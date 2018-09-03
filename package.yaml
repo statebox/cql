@@ -24,6 +24,7 @@ dependencies:
 - containers
 - megaparsec
 - QuickCheck
+- scientific
 
 library:
   source-dirs: src

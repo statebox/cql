@@ -1,3 +1,7 @@
 module Language.Parser.Typeside where
 
-type TypesideRef = String
+import Language.Parser.LexerRules
+import Language.Parser.Types
+
+typesideKindParser :: Parser TypesideKind
+typesideKindParser = undefined

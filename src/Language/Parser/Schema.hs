@@ -2,21 +2,14 @@ module Language.Parser.Schema where
 
 import Language.Parser.LexerRules
 import Language.Parser.Parser
+import Language.Parser.Types
 import Language.Parser.Typeside
 
 -- base
 import Control.Applicative ((<|>))
 
-type SchemaRef = String
-
-data SchemaExp
-    = SchemaExpIdentity SchemaRef
-    | SchemaExpEmpty TypesideRef
-    | SchemaExpOfImportAll
-    deriving (Eq)
-
-schemaParser :: Parser SchemaExp
-schemaParser
+schemaExpParser :: Parser SchemaExp
+schemaExpParser
     = SchemaExpIdentity <$> do
         constant "identity"
         identifier
@@ -27,3 +20,10 @@ schemaParser
     <|> (\s -> SchemaExpOfImportAll) <$> do
         constant "schemaOf"
         constant "import_all"
+    <|> SchemaExpGetSchemaColimit <$> do
+        constant "getSchema"
+        identifier
+    <|> SchemaExpLiteral <$> do
+        constant "literal"
+        constant ":"
+        typesideKindParser

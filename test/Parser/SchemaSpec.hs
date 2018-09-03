@@ -5,6 +5,7 @@ module Parser.SchemaSpec where
 import Language.Parser.Generator.Generator
 import Language.Parser.Schema
 import Language.Parser.ReservedWords
+import Language.Parser.Types
 
 -- hspec
 import           Test.Hspec
@@ -20,9 +21,12 @@ spec = do
     describe "schemaParser" $ do
         specify "parses correctly an Identity schema" $
             forAll identifierGen $
-                \name -> parse schemaParser "" ("identity " ++ name) == Right (SchemaExpIdentity name)
+                \name -> parse schemaExpParser "" ("identity " ++ name) == Right (SchemaExpIdentity name)
         specify "parses correctly an Empty schema" $
             forAll identifierGen $
-                \name -> parse schemaParser "" ("empty : " ++ name) == Right (SchemaExpEmpty name)
+                \name -> parse schemaExpParser "" ("empty : " ++ name) == Right (SchemaExpEmpty name)
         it "parses correctly an OfImportAll schema" $
-            parse schemaParser "" ("schemaOf import_all") == Right SchemaExpOfImportAll
+            parse schemaExpParser "" ("schemaOf import_all") == Right SchemaExpOfImportAll
+        specify "parses correctly a GetSchemaColimit schema" $
+            forAll identifierGen $
+                \name -> parse schemaExpParser "" ("getSchema " ++ name) == Right (SchemaExpGetSchemaColimit name)
