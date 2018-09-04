@@ -31,6 +31,8 @@ spec = do
             forAll identifierGen $
                 \name -> parse schemaExpParser "" ("getSchema " ++ name) == Right (SchemaExpGetSchemaColimit name)
     describe "schemaLiteralSectionParser" $ do
+        it "parses correctly an empty SchemaLiteralSection" $
+            parse schemaLiteralSectionParser "" "" == Right (SchemaLiteralSection [] [] [] [] [] [])
         specify "parses correctly a SchemaLiteralSection with imports" $
             forAll (listOf typesideImportGen) $
                 \typesideImports -> parse schemaLiteralSectionParser "" ("imports " ++ (unwords $ map show typesideImports))

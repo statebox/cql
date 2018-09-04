@@ -1,9 +1,12 @@
 module Language.Parser.Schema where
 
-import Language.Parser.LexerRules
-import Language.Parser.Parser
-import Language.Parser.Types
-import Language.Parser.Typeside
+import           Language.Parser.LexerRules
+import           Language.Parser.Parser
+import           Language.Parser.Types
+import           Language.Parser.Typeside
+
+-- base
+import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
@@ -32,7 +35,7 @@ schemaExpParser
 
 schemaLiteralSectionParser :: Parser SchemaLiteralSection
 schemaLiteralSectionParser = do
-    imports <- try $ do
+    maybeImports <- optional $ do
         constant "imports"
         many typesideImportParser
-    pure $ SchemaLiteralSection imports [] [] [] [] []
+    pure $ SchemaLiteralSection (fromMaybe [] maybeImports) [] [] [] [] []
