@@ -1,9 +1,9 @@
-{-# LANGUAGE EmptyDataDeriving #-} -- TODO: remove
+{-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Parser.Types where
 
 -- scientific
-import Data.Scientific (Scientific)
+import           Data.Scientific (Scientific)
 
 -- OPTIONS
 
@@ -112,6 +112,10 @@ data TypesideImport
     = TypesideImportSql
     | TypesideImportRef TypesideRef
     deriving (Eq)
+
+instance Show TypesideImport where
+    show (TypesideImportSql)             = "sql"
+    show (TypesideImportRef typesideRef) = typesideRef
 
 data TypesideTypeId
     = TypesideTypeIdTrue

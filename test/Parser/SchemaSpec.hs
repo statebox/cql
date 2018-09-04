@@ -2,10 +2,10 @@
 
 module Parser.SchemaSpec where
 
-import Language.Parser.Generator.Generator
-import Language.Parser.Schema
-import Language.Parser.ReservedWords
-import Language.Parser.Types
+import           Language.Parser.Generator.Generator
+import           Language.Parser.ReservedWords
+import           Language.Parser.Schema
+import           Language.Parser.Types
 
 -- hspec
 import           Test.Hspec
@@ -31,5 +31,7 @@ spec = do
             forAll identifierGen $
                 \name -> parse schemaExpParser "" ("getSchema " ++ name) == Right (SchemaExpGetSchemaColimit name)
     describe "schemaLiteralSectionParser" $ do
-        specify "parses correctly a SchemaLiteralSection" $
-            forAll
+        specify "parses correctly a SchemaLiteralSection with imports" $
+            forAll (listOf typesideImportGen) $
+                \typesideImports -> parse schemaLiteralSectionParser "" ("imports " ++ (unwords $ map show typesideImports))
+                    == Right (SchemaLiteralSection typesideImports [] [] [] [] [])

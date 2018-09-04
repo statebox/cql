@@ -2,12 +2,12 @@
 
 module Parser.ParserSpec where
 
-import Language.Parser.Generator.Generator
-import Language.Parser.Parser
-import Language.Parser.ReservedWords
+import           Language.Parser.Generator.Generator
+import           Language.Parser.Parser
+import           Language.Parser.ReservedWords
 
 -- base
-import           Data.Either (isLeft)
+import           Data.Either                         (isLeft)
 
 -- hspec
 import           Test.Hspec
@@ -36,4 +36,4 @@ spec = do
             forAll ((:) <$> (elements ['!', '"', '£', '%', '&', '/', '(', ')', '=', '?']) <*> listOf (oneof [idCharGen, digitCharGen])) $ \s -> isLeft $ parse identifier "" s
         specify "does not parse a reserved word" $
             forAll (elements reservedWords) $ \s -> isLeft $ parse identifier "" s
-            
+

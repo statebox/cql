@@ -1,8 +1,8 @@
 module Parser.TypesideSpec where
 
-import Language.Parser.Generator.Generator
-import Language.Parser.Types
-import Language.Parser.Typeside
+import           Language.Parser.Generator.Generator
+import           Language.Parser.Types
+import           Language.Parser.Typeside
 
 -- hspec
 import           Test.Hspec

@@ -28,10 +28,10 @@ digitCharGen :: Gen Char
 digitCharGen = elements ['0' .. '9']
 
 upperIdGen :: Gen String
-upperIdGen = (:) <$> upperCharGen <*> listOf (oneof [idCharGen, digitCharGen])
+upperIdGen = ((:) <$> upperCharGen <*> listOf (oneof [idCharGen, digitCharGen])) `suchThat` (\s -> not (s `elem` reservedWords))
 
 lowerIdGen :: Gen String
-lowerIdGen = (:) <$> lowerCharGen <*> listOf (oneof [idCharGen, digitCharGen])
+lowerIdGen = ((:) <$> lowerCharGen <*> listOf (oneof [idCharGen, digitCharGen])) `suchThat` (\s -> not (s `elem` reservedWords))
 
 specialIdGen :: Gen String
 specialIdGen = (:) <$> idCharGen <*> listOf (oneof [idCharGen, digitCharGen])
@@ -41,9 +41,12 @@ identifierGen = (oneof
     [ lowerIdGen
     , upperIdGen
     , specialIdGen
-    ]) `suchThat` (\s -> not (s `elem` reservedWords))
+    ])
 
 -- TYPESIDE
 
 typesideImportGen :: Gen TypesideImport
-typesideImportGen = undefined
+typesideImportGen = oneof
+    [ pure TypesideImportSql
+    , TypesideImportRef <$> (identifierGen `suchThat` (/= "sql"))
+    ]
