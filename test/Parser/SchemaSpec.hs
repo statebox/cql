@@ -37,3 +37,12 @@ spec = do
             forAll (listOf typesideImportGen) $
                 \typesideImports -> parse schemaLiteralSectionParser "" ("imports " ++ (unwords $ map show typesideImports))
                     == Right (SchemaLiteralSection typesideImports [] [] [] [] [])
+        specify "parses correctly a SchemaLiteralSection with entities" $
+            forAll (listOf identifierGen) $
+                \identifiers -> parse schemaLiteralSectionParser "" ("entities " ++ (unwords $ identifiers))
+                    == Right (SchemaLiteralSection [] identifiers [] [] [] [])
+        specify "parses correctly a SchemaLiteralSection with every piece" $
+            forAll ((\a b -> (a, b)) <$> listOf typesideImportGen <*> listOf identifierGen) $
+                \(typesideImports, identifiers) ->
+                    parse schemaLiteralSectionParser "" ("imports " ++ (unwords $ map show typesideImports) ++ " entities " ++ (unwords $ identifiers))
+                    == Right (SchemaLiteralSection typesideImports identifiers [] [] [] [])

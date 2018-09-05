@@ -38,4 +38,13 @@ schemaLiteralSectionParser = do
     maybeImports <- optional $ do
         constant "imports"
         many typesideImportParser
-    pure $ SchemaLiteralSection (fromMaybe [] maybeImports) [] [] [] [] []
+    maybeEntities <- optional $ do
+        constant "entities"
+        many identifier
+    pure $ SchemaLiteralSection
+        (fromMaybe [] maybeImports)
+        (fromMaybe [] maybeEntities)
+        []
+        []
+        []
+        []
