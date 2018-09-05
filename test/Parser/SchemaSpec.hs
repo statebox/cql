@@ -16,6 +16,9 @@ import           Text.Megaparsec
 -- QuickCheck
 import           Test.QuickCheck
 
+-- semigroups
+import           Data.List.NonEmpty                  (fromList, toList)
+
 spec :: Spec
 spec = do
     describe "schemaParser" $ do
@@ -30,6 +33,7 @@ spec = do
         specify "parses correctly a GetSchemaColimit schema" $
             forAll identifierGen $
                 \name -> parse schemaExpParser "" ("getSchema " ++ name) == Right (SchemaExpGetSchemaColimit name)
+
     describe "schemaLiteralSectionParser" $ do
         it "parses correctly an empty SchemaLiteralSection" $
             parse schemaLiteralSectionParser "" "" == Right (SchemaLiteralSection [] [] [] [] [] [])
@@ -41,8 +45,26 @@ spec = do
             forAll (listOf identifierGen) $
                 \identifiers -> parse schemaLiteralSectionParser "" ("entities " ++ (unwords $ identifiers))
                     == Right (SchemaLiteralSection [] identifiers [] [] [] [])
+        specify "parses correctly a SchemaLiteralSection with foreign keys" $
+            forAll (listOf schemaForeignSigGen) $
+                \schemaForeignSigs -> parse schemaLiteralSectionParser "" ("foreign_keys " ++ (unwords $ map show schemaForeignSigs))
+                    == Right (SchemaLiteralSection [] [] schemaForeignSigs [] [] [])
         specify "parses correctly a SchemaLiteralSection with every piece" $
-            forAll ((\a b -> (a, b)) <$> listOf typesideImportGen <*> listOf identifierGen) $
-                \(typesideImports, identifiers) ->
-                    parse schemaLiteralSectionParser "" ("imports " ++ (unwords $ map show typesideImports) ++ " entities " ++ (unwords $ identifiers))
-                    == Right (SchemaLiteralSection typesideImports identifiers [] [] [] [])
+            forAll ((\a b c -> (a, b, c)) <$> listOf typesideImportGen <*> listOf identifierGen <*> listOf schemaForeignSigGen) $
+                \(typesideImports, identifiers, schemaForeignSigs) ->
+                    parse schemaLiteralSectionParser ""
+                        ( "imports "
+                        ++ (unwords $ map show typesideImports)
+                        ++ " entities "
+                        ++ (unwords $ identifiers)
+                        ++ " foreign_keys "
+                        ++ (unwords $ map show schemaForeignSigs)
+                        )
+                    == Right (SchemaLiteralSection typesideImports identifiers schemaForeignSigs [] [] [])
+
+    describe "schemaForeignSigParser" $ do
+        specify "parses correctly a SchemaForeignSig" $
+            forAll ((\a b c -> (a, b, c)) <$> (fromList <$> listOf1 identifierGen) <*> identifierGen <*> identifierGen) $
+                \(schemaForeignIds, originSchemaEntityId, targetSchemaEntityId) ->
+                    parse schemaForeignSigParser "" ((unwords $ toList schemaForeignIds) ++ " : " ++ originSchemaEntityId ++ " -> " ++ targetSchemaEntityId)
+                    == Right (SchemaForeignSig schemaForeignIds originSchemaEntityId targetSchemaEntityId)

@@ -9,6 +9,9 @@ import           Control.Applicative           ((<|>))
 -- QuickCheck
 import           Test.QuickCheck.Gen
 
+-- semigroups
+import           Data.List.NonEmpty            (fromList)
+
 -- BASIC
 
 lowerCharGen :: Gen Char
@@ -50,3 +53,8 @@ typesideImportGen = oneof
     [ pure TypesideImportSql
     , TypesideImportRef <$> (identifierGen `suchThat` (/= "sql"))
     ]
+
+-- SCHEMA
+
+schemaForeignSigGen :: Gen SchemaForeignSig
+schemaForeignSigGen = SchemaForeignSig <$> (fromList <$> listOf1 identifierGen) <*> identifierGen <*> identifierGen

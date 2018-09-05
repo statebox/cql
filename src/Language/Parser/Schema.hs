@@ -11,6 +11,9 @@ import           Data.Maybe
 -- megaparsec
 import           Text.Megaparsec
 
+-- semigroups
+import           Data.List.NonEmpty         (fromList)
+
 schemaExpParser :: Parser SchemaExp
 schemaExpParser
     = SchemaExpIdentity <$> do
@@ -41,10 +44,25 @@ schemaLiteralSectionParser = do
     maybeEntities <- optional $ do
         constant "entities"
         many identifier
+    maybeForeignKeys <- optional $ do
+        constant "foreign_keys"
+        many schemaForeignSigParser
     pure $ SchemaLiteralSection
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
+        (fromMaybe [] maybeForeignKeys)
         []
         []
         []
-        []
+
+schemaForeignSigParser :: Parser SchemaForeignSig
+schemaForeignSigParser = do
+    schemaForeignIds <- some identifier
+    constant ":"
+    originSchemaEntityId <- identifier
+    constant "->"
+    targetSchemaEntityId <- identifier
+    pure $ SchemaForeignSig
+        (fromList schemaForeignIds)
+        originSchemaEntityId
+        targetSchemaEntityId

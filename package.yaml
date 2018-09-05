@@ -25,6 +25,7 @@ dependencies:
 - megaparsec
 - QuickCheck
 - scientific
+- semigroups
 
 library:
   source-dirs: src

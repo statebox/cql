@@ -3,7 +3,10 @@
 module Language.Parser.Types where
 
 -- scientific
-import           Data.Scientific (Scientific)
+import           Data.Scientific    (Scientific)
+
+-- semigroups
+import           Data.List.NonEmpty (NonEmpty, toList)
 
 -- OPTIONS
 
@@ -160,10 +163,13 @@ data SchemaLiteralSection = SchemaLiteralSection
 type SchemaEntityId = String
 
 data SchemaForeignSig = SchemaForeignSig
-    SchemaForeignId
+    (NonEmpty SchemaForeignId)
     SchemaEntityId
     SchemaEntityId
     deriving (Eq)
+
+instance Show SchemaForeignSig where
+    show (SchemaForeignSig foreignIds origin target) = (unwords $ toList foreignIds) ++ " : " ++ origin ++ " -> " ++ target
 
 type SchemaForeignId = String
 
@@ -181,7 +187,10 @@ data SchemaArrowId
     | SchemaArrowIdForeign SchemaForeignId
     deriving (Eq)
 
-data SchemaAttributeSig = SchemaAttributeSig [SchemaAttributeId] SchemaEntityId TypesideTypeId
+data SchemaAttributeSig = SchemaAttributeSig
+    (NonEmpty SchemaAttributeId)
+    SchemaEntityId
+    TypesideTypeId
     deriving (Eq)
 
 type SchemaAttributeId = String
