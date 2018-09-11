@@ -6,10 +6,12 @@ import           Language.Parser.Types
 import           Language.Parser.Typeside
 
 -- base
+import           Data.List                  (foldl')
 import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
+import           Text.Megaparsec.Expr
 
 -- semigroups
 import           Data.List.NonEmpty         (fromList)
@@ -47,6 +49,9 @@ schemaLiteralSectionParser = do
     maybeForeignKeys <- optional $ do
         constant "foreign_keys"
         many schemaForeignSigParser
+    maybePathEquations <- optional $ do
+        constant "path_equations"
+        many schemaPathEqnSigParser
     pure $ SchemaLiteralSection
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
@@ -66,3 +71,22 @@ schemaForeignSigParser = do
         (fromList schemaForeignIds)
         originSchemaEntityId
         targetSchemaEntityId
+
+schemaPathEqnSigParser :: Parser SchemaPathEqnSig
+schemaPathEqnSigParser = do
+    left <- schemaPathParser
+    constant "="
+    right <- schemaPathParser
+    pure $ SchemaPathEqnSig left right
+
+schemaPathParser :: Parser SchemaPath
+schemaPathParser
+    = do
+        prefix <- identifier
+        maybeParen <- optional $ constant "(" *> schemaPathParser <* constant ")"
+        suffixes <- many $ constant "." *> identifier
+        let
+            prefixWithParens = case maybeParen of
+                Just paren -> SchemaPathParen prefix paren
+                Nothing    -> SchemaPathArrowId prefix
+        pure $ foldl' SchemaPathDotted prefixWithParens suffixes

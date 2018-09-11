@@ -1,11 +1,11 @@
 module Language.Parser.Parser where
 
-import Language.Parser.LexerRules
-import Language.Parser.ReservedWords
+import           Language.Parser.LexerRules
+import           Language.Parser.ReservedWords
 
 -- megaparsec
 import           Text.Megaparsec
-import qualified Text.Megaparsec.Char.Lexer as L
+import qualified Text.Megaparsec.Char.Lexer    as L
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)

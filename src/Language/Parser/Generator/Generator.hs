@@ -58,3 +58,10 @@ typesideImportGen = oneof
 
 schemaForeignSigGen :: Gen SchemaForeignSig
 schemaForeignSigGen = SchemaForeignSig <$> (fromList <$> listOf1 identifierGen) <*> identifierGen <*> identifierGen
+
+schemaPathGen :: Gen SchemaPath
+schemaPathGen = oneof
+    [ SchemaPathArrowId <$> identifierGen
+    , SchemaPathDotted <$> schemaPathGen <*> identifierGen
+    , SchemaPathParen <$> identifierGen <*> schemaPathGen
+    ]

@@ -182,10 +182,12 @@ data SchemaPath
     | SchemaPathParen SchemaArrowId SchemaPath
     deriving (Eq)
 
-data SchemaArrowId
-    = SchemaArrowIdEntity SchemaEntityId
-    | SchemaArrowIdForeign SchemaForeignId
-    deriving (Eq)
+instance Show SchemaPath where
+    show (SchemaPathArrowId schemaArrowId) = schemaArrowId
+    show (SchemaPathDotted schemaPath schemaArrowId) = (show schemaPath) ++ "." ++ schemaArrowId
+    show (SchemaPathParen schemaArrowId schemaPath) = schemaArrowId ++ "(" ++ (show schemaPath) ++ ")"
+
+type SchemaArrowId = String
 
 data SchemaAttributeSig = SchemaAttributeSig
     (NonEmpty SchemaAttributeId)

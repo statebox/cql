@@ -7,6 +7,10 @@ import           Language.Parser.ReservedWords
 import           Language.Parser.Schema
 import           Language.Parser.Types
 
+-- base
+import           Data.Either
+import           Data.List
+
 -- hspec
 import           Test.Hspec
 
@@ -68,3 +72,21 @@ spec = do
                 \(schemaForeignIds, originSchemaEntityId, targetSchemaEntityId) ->
                     parse schemaForeignSigParser "" ((unwords $ toList schemaForeignIds) ++ " : " ++ originSchemaEntityId ++ " -> " ++ targetSchemaEntityId)
                     == Right (SchemaForeignSig schemaForeignIds originSchemaEntityId targetSchemaEntityId)
+
+    -- describe "schemaPathEqnSigParser" $ do
+    --     specify "parses correctly a SchemaPathEqnSig" $
+
+    describe "schemaPathParser" $ do
+        specify "parses correctly a SchemaPathArrowId schemaPath" $
+            forAll identifierGen $
+                \name -> parse schemaPathParser "" name == Right (SchemaPathArrowId name)
+        specify "parses correctly a SchemaPathDotted schemaPath" $
+            forAll ((\a b -> (a, b)) <$> schemaPathGen <*> identifierGen) $
+                \(schemaPath, name) ->
+                    parse schemaPathParser "" ((show schemaPath) ++ "." ++ name) ==
+                        Right (SchemaPathDotted schemaPath name)
+        specify "parses correctly a SchemaPathParen schemaPath" $
+            forAll ((\a b -> (a, b)) <$> identifierGen <*> schemaPathGen) $
+                \(name, schemaPath) ->
+                    parse schemaPathParser "" (name ++ "(" ++ (show schemaPath) ++ ")") ==
+                        Right (SchemaPathParen name schemaPath)
