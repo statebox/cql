@@ -56,7 +56,7 @@ schemaLiteralSectionParser = do
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
         (fromMaybe [] maybeForeignKeys)
-        []
+        (fromMaybe [] maybePathEquations)
         []
         []
 

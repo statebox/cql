@@ -65,3 +65,6 @@ schemaPathGen = oneof
     , SchemaPathDotted <$> schemaPathGen <*> identifierGen
     , SchemaPathParen <$> identifierGen <*> schemaPathGen
     ]
+
+schemaPathEqnSigGen :: Gen SchemaPathEqnSig
+schemaPathEqnSigGen = SchemaPathEqnSig <$> schemaPathGen <*> schemaPathGen

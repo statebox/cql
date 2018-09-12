@@ -49,13 +49,17 @@ spec = do
             forAll (listOf identifierGen) $
                 \identifiers -> parse schemaLiteralSectionParser "" ("entities " ++ (unwords $ identifiers))
                     == Right (SchemaLiteralSection [] identifiers [] [] [] [])
-        specify "parses correctly a SchemaLiteralSection with foreign keys" $
+        specify "parses correctly a SchemaLiteralSection with foreign keys" $ withMaxSuccess 30 $
             forAll (listOf schemaForeignSigGen) $
                 \schemaForeignSigs -> parse schemaLiteralSectionParser "" ("foreign_keys " ++ (unwords $ map show schemaForeignSigs))
                     == Right (SchemaLiteralSection [] [] schemaForeignSigs [] [] [])
-        specify "parses correctly a SchemaLiteralSection with every piece" $
-            forAll ((\a b c -> (a, b, c)) <$> listOf typesideImportGen <*> listOf identifierGen <*> listOf schemaForeignSigGen) $
-                \(typesideImports, identifiers, schemaForeignSigs) ->
+        specify "parses correctly a SchemaLiteralSection with path equations" $ withMaxSuccess 30 $
+            forAll (listOf schemaPathEqnSigGen) $
+                \schemaPathEqnSigs -> parse schemaLiteralSectionParser "" ("path_equations" ++ (unwords $ map show schemaPathEqnSigs))
+                    == Right (SchemaLiteralSection [] [] [] schemaPathEqnSigs [] [])
+        specify "parses correctly a SchemaLiteralSection with every piece" $ withMaxSuccess 30 $
+            forAll ((\a b c d -> (a, b, c, d)) <$> listOf typesideImportGen <*> listOf identifierGen <*> listOf schemaForeignSigGen <*> listOf schemaPathEqnSigGen) $
+                \(typesideImports, identifiers, schemaForeignSigs, schemaPathEqnSigs) ->
                     parse schemaLiteralSectionParser ""
                         ( "imports "
                         ++ (unwords $ map show typesideImports)
@@ -63,8 +67,10 @@ spec = do
                         ++ (unwords $ identifiers)
                         ++ " foreign_keys "
                         ++ (unwords $ map show schemaForeignSigs)
+                        ++ " path_equations "
+                        ++ (unwords $ map show schemaPathEqnSigs)
                         )
-                    == Right (SchemaLiteralSection typesideImports identifiers schemaForeignSigs [] [] [])
+                    == Right (SchemaLiteralSection typesideImports identifiers schemaForeignSigs schemaPathEqnSigs [] [])
 
     describe "schemaForeignSigParser" $ do
         specify "parses correctly a SchemaForeignSig" $
@@ -73,8 +79,12 @@ spec = do
                     parse schemaForeignSigParser "" ((unwords $ toList schemaForeignIds) ++ " : " ++ originSchemaEntityId ++ " -> " ++ targetSchemaEntityId)
                     == Right (SchemaForeignSig schemaForeignIds originSchemaEntityId targetSchemaEntityId)
 
-    -- describe "schemaPathEqnSigParser" $ do
-    --     specify "parses correctly a SchemaPathEqnSig" $
+    describe "schemaPathEqnSigParser" $ do
+        specify "parses correctly a SchemaPathEqnSig" $
+            forAll ((\a b -> (a, b)) <$> schemaPathGen <*> schemaPathGen) $
+                \(schemaPathLeft, schemaPathRight) ->
+                    parse schemaPathEqnSigParser "" ((show schemaPathLeft) ++ " = " ++ (show schemaPathRight)) ==
+                        Right (SchemaPathEqnSig schemaPathLeft schemaPathRight)
 
     describe "schemaPathParser" $ do
         specify "parses correctly a SchemaPathArrowId schemaPath" $

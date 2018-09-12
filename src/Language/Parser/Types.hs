@@ -176,6 +176,9 @@ type SchemaForeignId = String
 data SchemaPathEqnSig = SchemaPathEqnSig SchemaPath SchemaPath
     deriving (Eq)
 
+instance Show SchemaPathEqnSig where
+    show (SchemaPathEqnSig schemaPathLeft schemaPathRight) = (show schemaPathLeft) ++ " = " ++ (show schemaPathRight)
+
 data SchemaPath
     = SchemaPathArrowId SchemaArrowId
     | SchemaPathDotted SchemaPath SchemaArrowId
