@@ -1,8 +1,8 @@
 module Language.Parser.Typeside where
 
-import Language.Parser.LexerRules
-import Language.Parser.Parser
-import Language.Parser.Types
+import           Language.Parser.LexerRules
+import           Language.Parser.Parser
+import           Language.Parser.Types
 
 -- megaparsec
 import           Text.Megaparsec
@@ -16,3 +16,9 @@ typesideImportParser
         constant "sql"
         pure TypesideImportSql
     <|> TypesideImportRef <$> identifier
+
+typesideTypeIdParser :: Parser TypesideTypeId
+typesideTypeIdParser
+    = pure TypesideTypeIdTrue <* constant "true"
+    <|> pure TypesideTypeIdFalse <* constant "false"
+    <|> TypesideTypeId <$> identifier

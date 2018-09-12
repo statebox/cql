@@ -21,3 +21,12 @@ spec = do
         specify "parser correctly a TypesideImportRef" $
             forAll (identifierGen `suchThat` (\s -> not (s == "sql"))) $
                 \name -> parse typesideImportParser "" name == Right (TypesideImportRef name)
+
+    describe "typesideTypeIdParser" $ do
+        it "parses correctly a TypesideTypeIdTrue" $
+            parse typesideTypeIdParser "" "true" == Right TypesideTypeIdTrue
+        it "parses correctly a TypesideTypeIdFalse" $
+            parse typesideTypeIdParser "" "false" == Right TypesideTypeIdFalse
+        specify "parses correctly a TypesideTypeId" $
+            forAll (identifierGen `suchThat` (\s -> not (s == "true" || s == "false"))) $
+                \name -> parse typesideTypeIdParser "" name == Right (TypesideTypeId name)

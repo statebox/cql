@@ -54,6 +54,13 @@ typesideImportGen = oneof
     , TypesideImportRef <$> (identifierGen `suchThat` (/= "sql"))
     ]
 
+typesideTypeIdGen :: Gen TypesideTypeId
+typesideTypeIdGen = oneof
+    [ pure TypesideTypeIdTrue
+    , pure TypesideTypeIdFalse
+    , TypesideTypeId <$> identifierGen
+    ]
+
 -- SCHEMA
 
 schemaForeignSigGen :: Gen SchemaForeignSig
@@ -68,3 +75,6 @@ schemaPathGen = oneof
 
 schemaPathEqnSigGen :: Gen SchemaPathEqnSig
 schemaPathEqnSigGen = SchemaPathEqnSig <$> schemaPathGen <*> schemaPathGen
+
+schemaAttributeSigGen :: Gen SchemaAttributeSig
+schemaAttributeSigGen = SchemaAttributeSig <$> (fromList <$> listOf1 identifierGen) <*> identifierGen <*> typesideTypeIdGen

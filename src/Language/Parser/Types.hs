@@ -126,6 +126,11 @@ data TypesideTypeId
     | TypesideTypeId String
     deriving (Eq)
 
+instance Show TypesideTypeId where
+    show TypesideTypeIdTrue    = "true"
+    show TypesideTypeIdFalse   = "false"
+    show (TypesideTypeId name) = name
+
 data TypesideFnName
     = TypesideFnNameBool Bool
     | TypesideFnNameString String
@@ -197,6 +202,9 @@ data SchemaAttributeSig = SchemaAttributeSig
     SchemaEntityId
     TypesideTypeId
     deriving (Eq)
+
+instance Show SchemaAttributeSig where
+    show (SchemaAttributeSig schemaAttributeIds schemaEntityId typesideTypeId) = (unwords $ toList schemaAttributeIds) ++ " : " ++ schemaEntityId ++ " -> " ++ (show typesideTypeId)
 
 type SchemaAttributeId = String
 

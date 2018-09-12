@@ -52,12 +52,15 @@ schemaLiteralSectionParser = do
     maybePathEquations <- optional $ do
         constant "path_equations"
         many schemaPathEqnSigParser
+    maybeAttributes <- optional $ do
+        constant "attributes"
+        many schemaAttributeSigParser
     pure $ SchemaLiteralSection
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
         (fromMaybe [] maybeForeignKeys)
         (fromMaybe [] maybePathEquations)
-        []
+        (fromMaybe [] maybeAttributes)
         []
 
 schemaForeignSigParser :: Parser SchemaForeignSig
@@ -90,3 +93,15 @@ schemaPathParser
                 Just paren -> SchemaPathParen prefix paren
                 Nothing    -> SchemaPathArrowId prefix
         pure $ foldl' SchemaPathDotted prefixWithParens suffixes
+
+schemaAttributeSigParser :: Parser SchemaAttributeSig
+schemaAttributeSigParser = do
+    schemaAttributeIds <- some identifier
+    constant ":"
+    schemaEntityId <- identifier
+    constant "->"
+    typesideTypeId <- typesideTypeIdParser
+    pure $ SchemaAttributeSig
+        (fromList schemaAttributeIds)
+        schemaEntityId
+        typesideTypeId
