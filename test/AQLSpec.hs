@@ -9,6 +9,12 @@ import           Test.Hspec
 
 import           Language.AQL
 
+import Language.Term
+import Language.Typeside
+import Language.Schema
+import Language.Mapping
+import Language.Instance
+
 spec :: Spec
 spec = do
   it "does not test anything" $ True
