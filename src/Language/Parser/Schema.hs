@@ -136,19 +136,23 @@ schemaGenParser = do
 
 evalSchemaFnParser :: Parser EvalSchemaFn -- TODO: write tests
 evalSchemaFnParser
-    = EvalSchemaFnLiteral <$> schemaLiteralValueParser
-    <|> EvalSchemaFnGen <$> schemaGenParser
+    = do
+        prefix <- EvalSchemaFnLiteral <$> schemaLiteralValueParser
+        suffixes <- many $ constant "." *> schemaFnParser
+        pure $ foldl' EvalSchemaFnDotted prefix suffixes
     <|> do
-        schemaFn <- schemaFnParser
-        _ <- constant "("
-        evalSchemaFns <- sepBy1 evalSchemaFnParser $ constant ","
-        _ <- constant ")"
-        pure $ EvalSchemaFnParen schemaFn (fromList evalSchemaFns)
-    <|> do -- TODO: this is left recursive, need to reformat
-        evalSchemaFn <- evalSchemaFnParser
-        _ <- constant "."
-        schemaFn <- schemaFnParser
-        pure $ EvalSchemaFnDotted evalSchemaFn schemaFn
+        prefix <- EvalSchemaFnGen <$> schemaGenParser
+        suffixes <- many $ constant "." *> schemaFnParser
+        pure $ foldl' EvalSchemaFnDotted prefix suffixes
+    <|> do
+        prefix <- do
+            schemaFn <- schemaFnParser
+            _ <- constant "("
+            evalSchemaFns <- sepBy1 evalSchemaFnParser $ constant ","
+            _ <- constant ")"
+            pure $ EvalSchemaFnParen schemaFn (fromList evalSchemaFns)
+        suffixes <- many $ constant "." *> schemaFnParser
+        pure $ foldl' EvalSchemaFnDotted prefix suffixes
 
 schemaLiteralValueParser :: Parser SchemaLiteralValue -- TODO: write tests
 schemaLiteralValueParser
