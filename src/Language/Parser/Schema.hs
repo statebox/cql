@@ -11,7 +11,6 @@ import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
-import           Text.Megaparsec.Expr
 
 -- semigroups
 import           Data.List.NonEmpty         (fromList)
@@ -19,21 +18,21 @@ import           Data.List.NonEmpty         (fromList)
 schemaExpParser :: Parser SchemaExp
 schemaExpParser
     = SchemaExpIdentity <$> do
-        constant "identity"
+        _ <- constant "identity"
         identifier
     <|> SchemaExpEmpty <$> do
-        constant "empty"
-        constant ":"
+        _ <- constant "empty"
+        _ <- constant ":"
         identifier
-    <|> (\s -> SchemaExpOfImportAll) <$> do
-        constant "schemaOf"
+    <|> (\_ -> SchemaExpOfImportAll) <$> do
+        _ <- constant "schemaOf"
         constant "import_all"
     <|> SchemaExpGetSchemaColimit <$> do
-        constant "getSchema"
+        _ <- constant "getSchema"
         identifier
     <|> do
-        constant "literal"
-        constant ":"
+        _ <- constant "literal"
+        _ <- constant ":"
         typeside <- typesideKindParser
         schemaLiteral <- try (braces schemaLiteralSectionParser)
         pure $ SchemaExpLiteral typeside schemaLiteral
@@ -41,34 +40,37 @@ schemaExpParser
 schemaLiteralSectionParser :: Parser SchemaLiteralSection
 schemaLiteralSectionParser = do
     maybeImports <- optional $ do
-        constant "imports"
+        _ <- constant "imports"
         many typesideImportParser
     maybeEntities <- optional $ do
-        constant "entities"
+        _ <- constant "entities"
         many identifier
     maybeForeignKeys <- optional $ do
-        constant "foreign_keys"
+        _ <- constant "foreign_keys"
         many schemaForeignSigParser
     maybePathEquations <- optional $ do
-        constant "path_equations"
+        _ <- constant "path_equations"
         many schemaPathEqnSigParser
     maybeAttributes <- optional $ do
-        constant "attributes"
+        _ <- constant "attributes"
         many schemaAttributeSigParser
+    maybeObservationEquations <- optional $ do
+        _ <- constant "observation_equations"
+        many schemaObservationEquationSigParser
     pure $ SchemaLiteralSection
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
         (fromMaybe [] maybeForeignKeys)
         (fromMaybe [] maybePathEquations)
         (fromMaybe [] maybeAttributes)
-        []
+        (fromMaybe [] maybeObservationEquations)
 
 schemaForeignSigParser :: Parser SchemaForeignSig
 schemaForeignSigParser = do
     schemaForeignIds <- some identifier
-    constant ":"
+    _ <- constant ":"
     originSchemaEntityId <- identifier
-    constant "->"
+    _ <- constant "->"
     targetSchemaEntityId <- identifier
     pure $ SchemaForeignSig
         (fromList schemaForeignIds)
@@ -78,7 +80,7 @@ schemaForeignSigParser = do
 schemaPathEqnSigParser :: Parser SchemaPathEqnSig
 schemaPathEqnSigParser = do
     left <- schemaPathParser
-    constant "="
+    _ <- constant "="
     right <- schemaPathParser
     pure $ SchemaPathEqnSig left right
 
@@ -97,11 +99,66 @@ schemaPathParser
 schemaAttributeSigParser :: Parser SchemaAttributeSig
 schemaAttributeSigParser = do
     schemaAttributeIds <- some identifier
-    constant ":"
+    _ <- constant ":"
     schemaEntityId <- identifier
-    constant "->"
+    _ <- constant "->"
     typesideTypeId <- typesideTypeIdParser
     pure $ SchemaAttributeSig
         (fromList schemaAttributeIds)
         schemaEntityId
         typesideTypeId
+
+schemaObservationEquationSigParser :: Parser SchemaObservationEquationSig -- TODO: write tests
+schemaObservationEquationSigParser
+    = constant "forall" *> (SchemaObserveForall <$> schemaEquationSigParser)
+    <|> do
+        schemaPathLeft <- schemaPathParser
+        _ <- constant "="
+        schemaPathRight <- schemaPathParser
+        pure $ SchemaObserveEquation schemaPathLeft schemaPathRight
+
+schemaEquationSigParser :: Parser SchemaEquationSig -- TODO: write tests
+schemaEquationSigParser = do
+    schemaGens <- sepBy1 schemaGenParser $ constant ","
+    _ <- constant "."
+    evalSchemaFnLeft <- evalSchemaFnParser
+    _ <- constant "="
+    evalSchemaFnRight <- evalSchemaFnParser
+    pure $ SchemaEquationSig (fromList schemaGens) evalSchemaFnLeft evalSchemaFnRight
+
+schemaGenParser :: Parser SchemaGen -- TODO: write tests
+schemaGenParser = do
+    name <- identifier
+    maybeSchemaGenType <- optional $ do
+        _ <- constant ":"
+        identifier
+    pure $ SchemaGen name maybeSchemaGenType
+
+evalSchemaFnParser :: Parser EvalSchemaFn -- TODO: write tests
+evalSchemaFnParser
+    = EvalSchemaFnLiteral <$> schemaLiteralValueParser
+    <|> EvalSchemaFnGen <$> schemaGenParser
+    <|> do
+        schemaFn <- schemaFnParser
+        _ <- constant "("
+        evalSchemaFns <- sepBy1 evalSchemaFnParser $ constant ","
+        _ <- constant ")"
+        pure $ EvalSchemaFnParen schemaFn (fromList evalSchemaFns)
+    <|> do -- TODO: this is left recursive, need to reformat
+        evalSchemaFn <- evalSchemaFnParser
+        _ <- constant "."
+        schemaFn <- schemaFnParser
+        pure $ EvalSchemaFnDotted evalSchemaFn schemaFn
+
+schemaLiteralValueParser :: Parser SchemaLiteralValue -- TODO: write tests
+schemaLiteralValueParser
+    = SchemaLiteralValueInt <$> integerParser
+    <|> SchemaLiteralValueReal <$> scientificParser
+    <|> SchemaLiteralValueBool <$> boolParser
+    <|> SchemaLiteralValueText <$> textParser
+
+schemaFnParser :: Parser SchemaFn
+schemaFnParser
+    = SchemaFnTypeside <$> typesideFnNameParser
+    <|> SchemaFnAttr <$> identifier
+    <|> SchemaFnFk <$> identifier

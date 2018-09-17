@@ -136,6 +136,11 @@ data TypesideFnName
     | TypesideFnNameString String
     deriving (Eq)
 
+instance Show TypesideFnName where
+    show (TypesideFnNameBool True)   = "true"
+    show (TypesideFnNameBool False)  = "false"
+    show (TypesideFnNameString name) = name
+
 -- SCHEMA
 
 data SchemaKind
@@ -163,6 +168,7 @@ data SchemaLiteralSection = SchemaLiteralSection
     [SchemaPathEqnSig]
     [SchemaAttributeSig]
     [SchemaObservationEquationSig]
+    -- options
     deriving (Eq)
 
 type SchemaEntityId = String
@@ -213,10 +219,10 @@ data SchemaObservationEquationSig
     | SchemaObserveEquation SchemaPath SchemaPath
     deriving (Eq)
 
-data SchemaEquationSig = SchemaEquationSig SchemaGen [SchemaGen] EvalSchemaFn EvalSchemaFn
+data SchemaEquationSig = SchemaEquationSig (NonEmpty SchemaGen) EvalSchemaFn EvalSchemaFn
     deriving (Eq)
 
-data SchemaGen = SchemaGen String SchemaGenType
+data SchemaGen = SchemaGen String (Maybe SchemaGenType)
     deriving (Eq)
 
 type SchemaGenType = String
@@ -224,7 +230,7 @@ type SchemaGenType = String
 data EvalSchemaFn
     = EvalSchemaFnLiteral SchemaLiteralValue
     | EvalSchemaFnGen SchemaGen
-    | EvalSchemaFnParen SchemaFn EvalSchemaFn [EvalSchemaFn]
+    | EvalSchemaFnParen SchemaFn (NonEmpty EvalSchemaFn)
     | EvalSchemaFnDotted EvalSchemaFn SchemaFn
     deriving (Eq)
 

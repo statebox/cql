@@ -3,9 +3,6 @@ module Language.Parser.Generator.Generator where
 import           Language.Parser.ReservedWords
 import           Language.Parser.Types
 
--- base
-import           Control.Applicative           ((<|>))
-
 -- QuickCheck
 import           Test.QuickCheck.Gen
 
@@ -46,6 +43,12 @@ identifierGen = (oneof
     , specialIdGen
     ])
 
+boolGen :: Gen Bool
+boolGen = oneof
+    [ pure True
+    , pure False
+    ]
+
 -- TYPESIDE
 
 typesideImportGen :: Gen TypesideImport
@@ -59,6 +62,12 @@ typesideTypeIdGen = oneof
     [ pure TypesideTypeIdTrue
     , pure TypesideTypeIdFalse
     , TypesideTypeId <$> identifierGen
+    ]
+
+typesideFnNameGen :: Gen TypesideFnName
+typesideFnNameGen = oneof
+    [ TypesideFnNameBool <$> boolGen
+    , TypesideFnNameString <$> identifierGen
     ]
 
 -- SCHEMA

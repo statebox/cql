@@ -13,7 +13,7 @@ typesideKindParser = undefined
 typesideImportParser :: Parser TypesideImport
 typesideImportParser
     = do
-        constant "sql"
+        _ <- constant "sql"
         pure TypesideImportSql
     <|> TypesideImportRef <$> identifier
 
@@ -22,3 +22,8 @@ typesideTypeIdParser
     = pure TypesideTypeIdTrue <* constant "true"
     <|> pure TypesideTypeIdFalse <* constant "false"
     <|> TypesideTypeId <$> identifier
+
+typesideFnNameParser :: Parser TypesideFnName
+typesideFnNameParser
+    = TypesideFnNameBool <$> boolParser
+    <|> TypesideFnNameString <$> identifier

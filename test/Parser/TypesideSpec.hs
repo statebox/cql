@@ -4,6 +4,9 @@ import           Language.Parser.Generator.Generator
 import           Language.Parser.Types
 import           Language.Parser.Typeside
 
+-- base
+import           Data.Char                           (toLower)
+
 -- hspec
 import           Test.Hspec
 
@@ -30,3 +33,11 @@ spec = do
         specify "parses correctly a TypesideTypeId" $
             forAll (identifierGen `suchThat` (\s -> not (s == "true" || s == "false"))) $
                 \name -> parse typesideTypeIdParser "" name == Right (TypesideTypeId name)
+
+    describe "typesideFnNameParser" $ do
+        specify "parses correctly a TypesideFnNameBool" $
+            forAll arbitrary $
+                \bool -> parse typesideFnNameParser "" (toLower <$> show bool) == Right (TypesideFnNameBool bool)
+        specify "parses correctly a TypesideFnNameString" $
+            forAll (identifierGen `suchThat` (\s -> not (s == "true" || s == "false"))) $
+                \name -> parse typesideFnNameParser "" name == Right (TypesideFnNameString name)

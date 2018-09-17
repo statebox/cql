@@ -23,6 +23,7 @@ spec = do
     describe "constant" $
         specify "parses correctly a constant" $
             property $ \(anyConstant :: String) -> parse (constant anyConstant) "" anyConstant == Right anyConstant
+
     describe "identifier" $ do
         specify "parses correctly a string starting with a lowercase character" $
             forAll lowerIdGen $ \s -> parse identifier "" s == Right s
@@ -36,4 +37,10 @@ spec = do
             forAll ((:) <$> (elements ['!', '"', '£', '%', '&', '/', '(', ')', '=', '?']) <*> listOf (oneof [idCharGen, digitCharGen])) $ \s -> isLeft $ parse identifier "" s
         specify "does not parse a reserved word" $
             forAll (elements reservedWords) $ \s -> isLeft $ parse identifier "" s
+
+    describe "boolParser" $ do
+        it "parses correctly a false" $
+            parse boolParser "" "false" == Right False
+        it "parses correctly a true" $
+            parse boolParser "" "true" == Right True
 

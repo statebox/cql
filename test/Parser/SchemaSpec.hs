@@ -3,13 +3,8 @@
 module Parser.SchemaSpec where
 
 import           Language.Parser.Generator.Generator
-import           Language.Parser.ReservedWords
 import           Language.Parser.Schema
 import           Language.Parser.Types
-
--- base
-import           Data.Either
-import           Data.List
 
 -- hspec
 import           Test.Hspec
@@ -123,4 +118,10 @@ spec = do
                 \(schemaAttributeIds, schemaEntityId, typesideTypeId) ->
                     parse schemaAttributeSigParser "" ((unwords $ toList schemaAttributeIds) ++ " : " ++ schemaEntityId ++ " -> " ++ (show typesideTypeId))
                     == Right (SchemaAttributeSig schemaAttributeIds schemaEntityId typesideTypeId)
+
+    describe "schemaFnParser" $ do
+        specify "parses correctly a SchemaFnTypeside" $
+            forAll typesideFnNameGen $
+                \typesideFnName ->
+                    parse schemaFnParser "" (show typesideFnName) == Right (SchemaFnTypeside typesideFnName)
 
