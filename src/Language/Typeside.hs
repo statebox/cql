@@ -2,7 +2,7 @@
 ,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
  
 module Language.Typeside where
-import Prelude hiding (EQ)	
+import Prelude hiding (EQ)
 import Data.Set as Set	
 import Data.Map.Strict as Map
 import Language.Common
