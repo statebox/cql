@@ -2,8 +2,8 @@
 ,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
  
 module Language.Schema where
-import Prelude hiding (EQ)	
-import Data.Set as Set	
+import Prelude hiding (EQ)
+import Data.Set as Set
 import Data.Map.Strict as Map
 import Language.Common
 import Language.Term
