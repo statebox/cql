@@ -23,6 +23,9 @@ dependencies:
 - base >= 4.7 && < 5
 - containers
 - megaparsec
+- QuickCheck
+- scientific
+- semigroups
 
 library:
   source-dirs: src
@@ -49,3 +52,4 @@ tests:
     dependencies:
     - aql
     - hspec
+    - QuickCheck
