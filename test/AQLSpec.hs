@@ -1,19 +1,16 @@
 module AQLSpec where
 
-import           Data.Map.Strict as Map
-import           Data.Set        as Set
-import           Prelude         hiding (EQ)
+import           Data.Map.Strict   as Map
+import           Data.Set          as Set
+import           Prelude           hiding (EQ)
 
 -- hspec
 import           Test.Hspec
 
-import           Language.AQL
+import           Language.Schema
+import           Language.Term
+import           Language.Typeside
 
-import Language.Term
-import Language.Typeside
-import Language.Schema
-import Language.Mapping
-import Language.Instance
 
 spec :: Spec
 spec = do
@@ -28,23 +25,25 @@ spec = do
 
 schemaOne :: (Eq var, Eq fk) => Schema var String String String fk String
 schemaOne =
-  Schema typesideDom (Set.singleton "A") Map.empty atts' Set.empty Set.empty (\en (EQ (lhs, rhs)) -> lhs == rhs)
+  Schema typesideDom (Set.singleton "A") Map.empty atts' Set.empty Set.empty (\_ (EQ (lhs, rhs)) -> lhs == rhs)
   where
     atts' = Map.fromList [ ("A_att", ("A", "Dom")) ]
 
 schemaTwo :: Eq var => Schema var String String String String String
 schemaTwo =
-  Schema typesideDom (Set.fromList ["A", "B"]) atts atts' Set.empty Set.empty (\en (EQ (lhs, rhs)) -> lhs == rhs)
+  Schema typesideDom (Set.fromList ["A", "B"]) atts' atts'' Set.empty Set.empty (\_ (EQ (lhs, rhs)) -> lhs == rhs)
   where
-    atts  = Map.fromList [ ("f"    , ("A", "B"  )) ]
-    atts' = Map.fromList [ ("A_att", ("A", "Dom"))
+    atts'  = Map.fromList [ ("f"    , ("A", "B"  )) ]
+    atts'' = Map.fromList [ ("A_att", ("A", "Dom"))
                          , ("B_att", ("B", "Dom"))
                          ]
 
 --example typeside one sort Dom { c0 ,..., c100 }
 typesideDom :: Eq var => Typeside var String String
-typesideDom = Typeside (Set.singleton "Dom") sym Set.empty (\ctx (EQ (lhs,rhs)) -> lhs == rhs)
+typesideDom = Typeside (Set.singleton "Dom") sym Set.empty (\_ (EQ (lhs,rhs)) -> lhs == rhs)
   where sym = sym' 100
+
+        sym' :: Integer -> Map String ([String], String)
         sym' 0 = Map.empty
         sym' n = Map.insert ("c" ++ show n) ([], "Dom") $ sym' (n-1)
 
