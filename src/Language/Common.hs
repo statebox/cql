@@ -12,3 +12,5 @@ note :: b -> Maybe a -> Either b a
 note n x = maybe (Left n) Right x 
 
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
+
+type ID = Integer

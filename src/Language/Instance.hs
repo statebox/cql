@@ -2,8 +2,8 @@
 ,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
  
 module Language.Instance where
-import Prelude hiding (EQ)	
-import Data.Set as Set	
+import Prelude hiding (EQ)
+import Data.Set as Set
 import Data.Map.Strict as Map
 import Language.Common
 import Language.Term
@@ -41,10 +41,10 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
 data Instance var ty sym en fk att gen sk x y
   = Instance
   { ischema  :: Schema var ty sym en fk att
-  , igens    :: Map gen en
-  , isks     :: Map sk ty
-  , ieqs     :: Set (EQ Void ty sym en fk att gen sk)
-  , ieq      :: EQ Void ty sym en fk att gen sk -> Bool
+  , gens    :: Map gen en
+  , sks     :: Map sk ty
+  , eqs     :: Set (EQ Void ty sym en fk att gen sk)
+  , eq      :: EQ Void ty sym en fk att gen sk -> Bool
 
   , algebra :: Algebra var ty sym en fk att gen sk x y
   }
@@ -105,6 +105,36 @@ algebraToInstance
   -> Instance var ty sym en fk att gen sk x y  
 algebraToInstance alg = undefined 
 
+initialAlgebra :: Schema var ty sym en fk att -> Map gen en -> Map sk ty ->
+ Set (EQ Void ty sym en fk att gen sk) -> (EQ Void ty sym en fk att gen sk -> Bool) ->
+ Algebra var ty sym en fk att gen sk ID ID
+initialAlgebra sch gens sks eqs dp = undefined
+	--Algebra sch ens fks atts nf repr nf' repr'
+
+close :: Schema var ty sym en fk att -> Term Void Void Void en fk Void gen Void -> Set (Term Void Void Void en fk Void gen Void)
+close sch gens t = undefined
+
+close1 :: Schema var ty sym en fk att -> Term Void Void Void en fk Void gen Void -> Set (Term Void Void Void en fk Void gen Void)
+close1 sch gens t =  
+	where t' = typeOf sch t
+
+{--
+
+ 
+  , ens     :: Map en (Set x)
+  , fks     :: Map fk (Map x x)
+  , atts    :: Map att (Map x (Term Void ty sym Void Void Void Void y))
+
+  , nf      :: Term Void Void Void en fk Void gen Void -> x
+  , repr    :: x -> Term Void Void Void en fk Void gen Void
+
+  , nf'     :: Term var ty sym en fk att gen sk ->
+               Term Void ty sym Void Void Void Void y
+
+  , repr'   :: Term Void ty sym Void Void Void Void y ->
+               Term var ty sym en fk att gen sk
+  } -- omit Eq, doesn't seem to be necessary for now
+--}
 --------------------------------------------------------------------------------
 
 
