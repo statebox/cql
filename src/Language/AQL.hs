@@ -98,7 +98,7 @@ validateAqlProgram _ _ = undefined
 
 validate' :: a
 validate' = undefined
-
+ 
 --todo: check acyclic with Data.Graph.DAG
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalAqlProgram [] _ env = pure env
@@ -127,7 +127,7 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                                case ts' of
                                                  SchemaEx ts'' ->
                                                   pure $ InstanceEx $ Instance ts''
-                                                         Map.empty Map.empty Set.empty undefined $ Algebra ts''
+                                                         (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra 
                                                         (Map.empty) undefined undefined undefined undefined undefined undefined
 evalInstance _ _ _ = undefined
 

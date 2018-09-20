@@ -84,10 +84,6 @@ data Schema var ty sym en fk att
   , eq       :: en -> EQ () ty sym en fk att Void Void -> Bool
   }
 
-fksFrom :: Eq en => Schema var ty sym en fk att -> en -> [fk]
-fksFrom sch en = f $ Map.assocs $ fks sch
-  where f [] = []
-        f ((fk,(en1,en2)):l) = if en1 == en then fk : (f l) else f l
 
 data SchemaEx :: * where
   SchemaEx :: forall var ty sym en fk att. Schema var ty sym en fk att -> SchemaEx

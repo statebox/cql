@@ -14,8 +14,7 @@ data ProverName = Free | Congruence | Orthogonal | KB | Auto
 
 data Prover var ty sym en fk att gen sk = Prover {
   collage :: Collage var ty sym en fk att gen sk
-  , prove :: Ctx var (Either ty en) -> EQ var ty sym en fk att gen sk
-   -> Bool
+  , prove :: Ctx var (ty+en) -> EQ var ty sym en fk att gen sk -> Bool
 }
 
 
