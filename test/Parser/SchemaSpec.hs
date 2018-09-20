@@ -2,8 +2,8 @@
 
 module Parser.SchemaSpec where
 
+import           Language.Parser.AQLParser
 import           Language.Parser.Generator.Generator
-import           Language.Parser.Schema
 import           Language.Parser.Types
 
 -- hspec

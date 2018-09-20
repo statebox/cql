@@ -111,7 +111,16 @@ data TypesideExp
   | TypesideExpLiteral (Maybe TypesideLiteralSection)
   deriving (Eq)
 
-data TypesideLiteralSection
+data TypesideLiteralSection = TypesideLiteralSection
+  [TypesideImport]
+  [TypesideTypeSig]
+  [TypesideConstantSig]
+  [TypesideFunctionSig]
+  -- java types
+  -- java constants
+  -- java functions
+  [TypesideEquationSig]
+  -- options
   deriving (Eq)
 
 data TypesideImport
@@ -122,6 +131,8 @@ data TypesideImport
 instance Show TypesideImport where
   show (TypesideImportSql)             = "sql"
   show (TypesideImportRef typesideRef) = typesideRef
+
+type TypesideTypeSig = TypesideTypeId
 
 data TypesideTypeId
   = TypesideTypeIdTrue
@@ -134,6 +145,25 @@ instance Show TypesideTypeId where
   show TypesideTypeIdFalse   = "false"
   show (TypesideTypeId name) = name
 
+data TypesideConstantSig = TypesideConstantSig
+  (NonEmpty TypesideConstantId)
+  TypesideTypeId
+  deriving (Eq)
+
+data TypesideConstantId
+  = TypesideConstantIdBool Bool
+  | TypesideConstantIdString String
+  | TypesideConstantIdInteger Integer
+  | TypesideConstantIdLowerId String
+  | TypesideConstantIdUpperId String
+  deriving (Eq)
+
+data TypesideFunctionSig = TypesideFunctionSig
+  TypesideFnName
+  TypesideFnLocal
+  TypesideFnTarget
+  deriving (Eq)
+
 data TypesideFnName
   = TypesideFnNameBool Bool
   | TypesideFnNameString String
@@ -143,6 +173,32 @@ instance Show TypesideFnName where
   show (TypesideFnNameBool True)   = "true"
   show (TypesideFnNameBool False)  = "false"
   show (TypesideFnNameString name) = name
+
+type TypesideFnLocal = String
+
+type TypesideFnTarget = String
+
+data TypesideEquationSig
+  = TypesideEquationSigForAll (NonEmpty TypesideLocal) TypesideEval TypesideEval
+  | TypesideEquationSigEq TypesideEval TypesideEval
+  deriving (Eq)
+
+data TypesideLocal = TypesideLocal String (Maybe TypesideLocalType)
+  deriving (Eq)
+
+type TypesideLocalType = String
+
+data TypesideEval
+  = TypesideEvalNumber Scientific
+  | TypesideEvalGen TypesideLiteral
+  | TypesideEvalInfix TypesideEval TypesideFnName TypesideEval
+  | TypesideEvalParen TypesideFnName [TypesideEval]
+  deriving (Eq)
+
+data TypesideLiteral
+  = TypesideLiteralLowerId
+  | TypesideLiteralUpperId
+  deriving (Eq)
 
 -- SCHEMA
 data SchemaKind
@@ -164,14 +220,14 @@ data SchemaExp
 
 type SchemaColimitRef = String
 
-data SchemaLiteralSection =
-  SchemaLiteralSection [TypesideImport]
-                       [SchemaEntityId]
-                       [SchemaForeignSig]
-                       [SchemaPathEqnSig]
-                       [SchemaAttributeSig]
-                       [SchemaObservationEquationSig]
-    -- options
+data SchemaLiteralSection = SchemaLiteralSection
+  [TypesideImport]
+  [SchemaEntityId]
+  [SchemaForeignSig]
+  [SchemaPathEqnSig]
+  [SchemaAttributeSig]
+  [SchemaObservationEquationSig]
+  -- options
   deriving (Eq)
 
 type SchemaEntityId = String

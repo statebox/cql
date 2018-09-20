@@ -1,8 +1,8 @@
 module Parser.TypesideSpec where
 
+import           Language.Parser.AQLParser
 import           Language.Parser.Generator.Generator
 import           Language.Parser.Types
-import           Language.Parser.Typeside
 
 -- base
 import           Data.Char                           (toLower)
