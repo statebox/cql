@@ -127,8 +127,8 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                                case ts' of
                                                  SchemaEx ts'' ->
                                                   pure $ InstanceEx $ Instance ts''
-                                                         (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra 
-                                                        (Map.empty) undefined undefined undefined undefined undefined undefined
+                                                         (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra ts''
+                                                        undefined undefined undefined undefined undefined undefined undefined undefined undefined
 evalInstance _ _ _ = undefined
 
 

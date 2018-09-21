@@ -17,26 +17,58 @@ import Data.Void
 
 data Algebra var ty sym en fk att gen sk x y
   = Algebra { 
-    ens     :: Map en (Set x)
-  , fks     :: Map fk (Map x x)
-  , atts    :: Map att (Map x (Term Void ty sym Void Void Void Void y))
+   schema :: Schema var ty sym en fk att
 
-  , nf      :: Term Void Void Void en fk Void gen Void -> x
-  , repr    :: x -> Term Void Void Void en fk Void gen Void
+  , en    :: en  -> (Set x)
+  , gen   :: gen -> x  
+  , fk    :: fk  -> x -> x
+  , att   :: att -> x -> (Term Void ty sym Void Void Void Void y)
+  , repr  :: x   -> Term Void Void Void en fk Void gen Void
 
-  , nf'     :: Term var ty sym en fk att gen sk ->
-               Term Void ty sym Void Void Void Void y
+  , ty    :: ty -> (Set y)
+  , sk    :: sk -> Term Void ty sym Void Void Void Void y 
+  , repr' :: y  -> Term Void ty sym en fk att gen sk
+  , teqs  :: Set (EQ Void ty sym Void Void Void Void y)
 
-  , repr'   :: Term Void ty sym Void Void Void Void y ->
-               Term var ty sym en fk att gen sk
   } -- omit Eq, doesn't seem to be necessary for now
+
+nf :: Algebra var ty sym en fk att gen sk x y -> Term Void Void Void en fk Void gen Void -> x
+nf alg (Gen g) = gen alg g
+nf alg (Fk f a) = fk alg f $ nf alg a
+nf alg (Sk f) = absurd f
+nf alg (Att f a) = absurd f
+nf alg (Var f) = absurd f
+nf alg (Sym f as) = absurd f
+
+
+nf' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk att gen sk ->
+               Term Void ty sym Void Void Void Void y
+nf' alg (Gen g) = undefined -- impossible
+nf' alg (Fk f a) = undefined -- impossible
+nf' alg (Sk f) = sk alg f
+--nf' alg (Att f a) = att alg f $ nf alg a  
+nf' alg (Var f) = absurd f
+nf' alg (Sym f as) = Sym f $ Prelude.map (nf' alg) as
+
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y)
   => Show (Algebra var ty sym en fk att gen sk x y) where
-  show (Algebra ens' fks' atts' _ _ _ _) =
+  show (Algebra sch en gen fk att repr ty sk repr' teqs) = undefined 
+  {--
     "ens = " ++ show ens' ++
     "\nfks = " ++ show fks' ++ "\natts = " ++ show atts'
 
+  en    :: en  -> (Set x)
+  , gen   :: gen -> x  
+  , fk    :: fk  -> x -> x
+  , att   :: att -> x -> (Term Void ty sym Void Void Void Void y)
+  , repr  :: x   -> Term Void Void Void en fk Void gen Void
+
+  , ty    :: ty -> (Set y)
+  , sk    :: sk -> Term Void ty sym Void Void Void Void y 
+  , repr' :: y  -> Term Void ty sym en fk att gen sk
+  , teqs  :: Set (EQ Void ty sym Void Void Void Void y)
+--}
 data Presentation var ty sym en fk att gen sk 
  = Presentation {
     gens    :: Map gen en
@@ -118,12 +150,25 @@ algebraToInstance _ = undefined
 
 lookup2 m x = case Map.lookup m x of Just y -> y 
 
+
 initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
  => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool) 
  -> Schema var ty sym en fk att ->
- Algebra var ty sym en fk att gen sk (GTerm en fk gen) ID
-initialAlgebra p dp sch = Algebra ens fks atts nf repr nf' repr'
+ Algebra var ty sym en fk att gen sk (GTerm en fk gen) (TTerm en fk att gen sk)
+initialAlgebra p dp sch = Algebra sch en gen fk att repr ty sk repr' teqs 
+ where col = instToCol sch p
+       ens  = assembleGens col (close col dp)
+       en k = lookup2 k ens
+       gen  = undefined
+       fk   = undefined
+       att  = undefined
+       repr = undefined
+       ty   = undefined
+       sk   = undefined
+       repr'= undefined
+       teqs = undefined
+{--
  where col = instToCol sch p
        ens = assembleGens col (close col dp)
        fks = undefined
@@ -135,27 +180,32 @@ initialAlgebra p dp sch = Algebra ens fks atts nf repr nf' repr'
        repr e = e
        nf' = undefined
        repr'= undefined
+}
+
+--}
 
 {--
- , fks     :: Map fk (Map x x)
-  , atts    :: Map att (Map x (Term Void ty sym Void Void Void Void y))
+         en    :: en  -> (Set x)
+  , gen   :: gen -> x  
+  , fk    :: fk  -> x -> x
+  , att   :: att -> x -> (Term Void ty sym Void Void Void Void y)
+  , repr  :: x   -> Term Void Void Void en fk Void gen Void
 
-  , nf      :: Term Void Void Void en fk Void gen Void -> x
-  , repr    :: x -> Term Void Void Void en fk Void gen Void
+  , ty    :: ty -> (Set y)
+  , sk    :: sk -> Term Void ty sym Void Void Void Void y 
+  , repr' :: y  -> Term Void ty sym en fk att gen sk
+  , teqs  :: Set (EQ Void ty sym Void Void Void Void y)
+--}
+type GTerm en fk gen = Term Void Void Void en fk Void gen Void
 
-  , nf'     :: Term var ty sym en fk att gen sk ->
-               Term Void ty sym Void Void Void Void y
+type TTerm en fk att gen sk = Either sk (GTerm en fk gen, att)
 
-  , repr'   :: Term Void ty sym Void Void Void Void y ->
-               Term var ty sym en fk att gen sk
-               --}
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [fk]
 fksFrom sch en = f $ Map.assocs $ cfks sch
   where f [] = []
         f ((fk,(en1,_)):l) = if en1 == en then fk : (f l) else f l
 
-type GTerm en fk gen = Term Void Void Void en fk Void gen Void
 
 assembleGens :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en) 
  => Collage var ty sym en fk att gen sk -> [ GTerm en fk gen ] -> Map en (Set (GTerm en fk gen))

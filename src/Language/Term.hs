@@ -10,13 +10,15 @@ import Data.Void
 import Data.List (intercalate)
 import Language.Common
  
+
+
 data Term var ty sym en fk att gen sk
   = Var var
   | Sym sym  [Term var ty sym en fk att gen sk]
-  | Fk  fk   (Term var ty sym en fk att gen sk)
-  | Att att  (Term var ty sym en fk att gen sk)
+  | Fk  fk   (Term var Void Void en fk Void gen Void)
+  | Att att  (Term var Void Void en fk Void gen Void)
   | Gen gen
-  | Sk  sk
+  | Sk  sk 
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
   Show (Term var ty sym en fk att gen sk)
@@ -76,12 +78,12 @@ typeOf' col ctx (Sk s) = case Map.lookup s $ csks col of
   Just t -> pure $ Left t
 typeOf' col ctx (Fk f a) = case Map.lookup f $ cfks col of
   Nothing -> Left $ "Unknown foreign key: " ++ show f
-  Just (s, t) -> do s' <- typeOf' col ctx a 
+  Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
                     if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' 
 typeOf' col ctx (Att f a) = case Map.lookup f $ catts col of
   Nothing -> Left $ "Unknown attribute: " ++ show f
-  Just (s, t) -> do s' <- typeOf' col ctx a 
+  Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
                     if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' 
 typeOf' col ctx (Sym f a) = case Map.lookup f $ csyms col of
@@ -144,4 +146,20 @@ data RawTerm = RawApp String [RawTerm]
 instance Show RawTerm where
  show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
   
+upTerm
+ :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
+upTerm
+ (Var v) = Var v
+upTerm
+ (Fk f a) = Fk f $ upTerm
+ a 
+upTerm
+ (Gen g) = Gen g
+upTerm
+ (Sym f as) = absurd f
+upTerm
+ (Sk f) = absurd f
+upTerm
+ (Att f a) = absurd f
+
 --Set is not Traversable! Lame                 
