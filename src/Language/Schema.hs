@@ -73,6 +73,7 @@ data SchemaExpRaw' = SchemaExpRaw' {
   , schraw_options :: [(String, String)]
 } deriving (Eq, Show)
 
+
 data Schema var ty sym en fk att
   = Schema
   { typeside :: Typeside var ty sym
