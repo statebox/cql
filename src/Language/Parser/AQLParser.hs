@@ -39,7 +39,28 @@ typesideKindParser
   <|> TypesideKindExp <$> (constant "(" *> typesideExpParser <* constant ")")
 
 typesideLiteralSectionParser :: Parser TypesideLiteralSection -- TODO: write tests
-typesideLiteralSectionParser = undefined
+typesideLiteralSectionParser = do
+  maybeImports <- optional $ do
+    _ <- constant "imports"
+    many typesideImportParser
+  maybeTypes <- optional $ do
+    _ <- constant "types"
+    many typesideTypeIdParser
+  maybeConstants <- optional $ do
+    _ <- constant "constants"
+    many typesideConstantSigParser
+  maybeFunctions <- optional $ do
+    _ <- constant "functions"
+    many typesideFunctionSigParser
+  maybeEquations <- optional $ do
+    _ <- constant "equations"
+    many typesideEquationSigParser
+  pure $ TypesideLiteralSection
+    (fromMaybe [] maybeImports)
+    (fromMaybe [] maybeTypes)
+    (fromMaybe [] maybeConstants)
+    (fromMaybe [] maybeFunctions)
+    (fromMaybe [] maybeEquations)
 
 typesideImportParser :: Parser TypesideImport
 typesideImportParser
@@ -59,9 +80,89 @@ typesideFnNameParser
   = TypesideFnNameBool <$> boolParser
   <|> TypesideFnNameString <$> identifier
 
+typesideConstantSigParser :: Parser TypesideConstantSig -- TODO: write tests
+typesideConstantSigParser = do
+  typesideConstantIds <- some typesideConstantIdParser
+  _ <- constant ":"
+  typesideTypeId <- typesideTypeIdParser
+  pure $ TypesideConstantSig (fromList typesideConstantIds) typesideTypeId
+
+typesideConstantIdParser :: Parser TypesideConstantId -- TODO: write tests
+typesideConstantIdParser
+  = TypesideConstantIdBool <$> boolParser
+  <|> TypesideConstantIdText <$> textParser
+  <|> TypesideConstantIdInteger <$> integerParser
+  <|> TypesideConstantIdLowerId <$> lowerId
+  <|> TypesideConstantIdUpperId <$> upperId
+
+typesideFunctionSigParser :: Parser TypesideFunctionSig -- TODO: write tests
+typesideFunctionSigParser = do
+  typesideFnName <- typesideFnNameParser
+  _ <- constant ":"
+  typesideFnLocals <- sepBy1 identifier (constant ",")
+  _ <- constant "->"
+  typesideFnTarget <- identifier
+  pure $ TypesideFunctionSig
+    typesideFnName
+    (fromList typesideFnLocals)
+    typesideFnTarget
+
+typesideEquationSigParser :: Parser TypesideEquationSig -- TODO: write tests
+typesideEquationSigParser
+  = do
+    _ <- constant "forall"
+    typesideLocals <- sepBy1 typesideLocalParser (constant "," <|> constant " ")
+    _ <- constant "."
+    typesideEvalLeft <- typesideEvalParser
+    typesideEvalRight <- typesideEvalParser
+    pure $ TypesideEquationSigForAll
+      (fromList typesideLocals)
+      typesideEvalLeft
+      typesideEvalRight
+  <|> do
+    typesideEvalLeft <- typesideEvalParser
+    typesideEvalRight <- typesideEvalParser
+    pure $ TypesideEquationSigEq
+      typesideEvalLeft
+      typesideEvalRight
+
+typesideLocalParser :: Parser TypesideLocal -- TODO: write tests
+typesideLocalParser = TypesideLocal
+  <$> identifier
+  <*> (optional $ constant ":" *> identifier)
+
+typesideEvalParser :: Parser TypesideEval -- TODO: write tests
+typesideEvalParser
+  = TypesideEvalNumber <$> scientificParser
+  <|> TypesideEvalGen <$> typesideLiteralParser
+  <|> do
+    _ <- constant "("
+    typesideEvalLeft <- typesideEvalParser
+    typesideFnName <- typesideFnNameParser
+    typesideEvalRight <- typesideEvalParser
+    pure $ TypesideEvalInfix
+      typesideEvalLeft
+      typesideFnName
+      typesideEvalRight
+  <|> do
+    typesideFnName <- typesideFnNameParser
+    _ <- constant "("
+    typesideEvals <- sepBy1 typesideEvalParser (constant ",")
+    _ <- constant ")"
+    pure $ TypesideEvalParen typesideFnName (fromList typesideEvals)
+
+typesideLiteralParser :: Parser TypesideLiteral -- TODO: write tests
+typesideLiteralParser
+  = TypesideLiteralLowerId <$> lowerId
+  <|> TypesideLiteralUpperId <$> upperId
+
+
 -- SCHEMA
 schemaKindParser :: Parser SchemaKind -- TODO: write tests
-schemaKindParser = undefined
+schemaKindParser
+  = SchemaKindRef <$> identifier
+  <|> SchemaKindExp <$> schemaExpParser
+  <|> constant "(" *> (SchemaKindExp <$> schemaExpParser) <* constant ")"
 
 schemaExpParser :: Parser SchemaExp
 schemaExpParser

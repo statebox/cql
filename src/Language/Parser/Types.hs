@@ -152,7 +152,7 @@ data TypesideConstantSig = TypesideConstantSig
 
 data TypesideConstantId
   = TypesideConstantIdBool Bool
-  | TypesideConstantIdString String
+  | TypesideConstantIdText String
   | TypesideConstantIdInteger Integer
   | TypesideConstantIdLowerId String
   | TypesideConstantIdUpperId String
@@ -160,7 +160,7 @@ data TypesideConstantId
 
 data TypesideFunctionSig = TypesideFunctionSig
   TypesideFnName
-  TypesideFnLocal
+  (NonEmpty TypesideFnLocal)
   TypesideFnTarget
   deriving (Eq)
 
@@ -192,12 +192,12 @@ data TypesideEval
   = TypesideEvalNumber Scientific
   | TypesideEvalGen TypesideLiteral
   | TypesideEvalInfix TypesideEval TypesideFnName TypesideEval
-  | TypesideEvalParen TypesideFnName [TypesideEval]
+  | TypesideEvalParen TypesideFnName (NonEmpty TypesideEval)
   deriving (Eq)
 
 data TypesideLiteral
-  = TypesideLiteralLowerId
-  | TypesideLiteralUpperId
+  = TypesideLiteralLowerId String
+  | TypesideLiteralUpperId String
   deriving (Eq)
 
 -- SCHEMA
