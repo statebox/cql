@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/statebox/aql.svg?branch=master)](https://travis-ci.com/statebox/aql)
+
 # AQL
 
 ## Building
