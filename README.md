@@ -2,6 +2,8 @@
 
 # AQL
 
+Algebraic Query Language implementation in Haskell
+
 ## Building
 
 The package can be built/tested/installed the following ways.

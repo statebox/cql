@@ -17,6 +17,7 @@ mkDerivation {
     hpack
   '';
 
-  homepage = "https://github.com/statebox/aql#readme";
+  homepage = "https://github.com/statebox/aql";
+  description = "AQL - Algebraic Query Language implementation in Haskell";
   license = stdenv.lib.licenses.bsd3;
 }
