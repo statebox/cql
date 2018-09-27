@@ -62,4 +62,5 @@ let
 
 in {
   aql = usepkgs.haskellPackages.callPackage ./aql.nix { };
+  aql-js = usepkgs.haskell.packages.ghcjs.callPackage ./aql-js.nix { };
 }
