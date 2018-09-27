@@ -1,4 +1,7 @@
-{ mkDerivation, stdenv, hpack, base, containers, hspec, megaparsec, multiset, union-find-array, term-rewriting }:
+{ mkDerivation, stdenv, hpack
+, base, containers, hspec, megaparsec
+, multiset, union-find-array, term-rewriting }:
+
 mkDerivation {
   pname = "aql";
   version = "0.1.0.0";
@@ -8,10 +11,19 @@ mkDerivation {
   isExecutable = true;
   doCheck = true;
 
+  libraryHaskellDepends = [
+    base containers megaparsec
+    multiset union-find-array term-rewriting
+  ];
+  executableHaskellDepends = [
+    base containers megaparsec
+    multiset union-find-array term-rewriting
+  ];
+  testHaskellDepends = [
+    base containers hspec megaparsec
+    multiset union-find-array term-rewriting
+  ];
   buildDepends = [ hpack ];
-  libraryHaskellDepends = [ base containers megaparsec multiset union-find-array term-rewriting ];
-  executableHaskellDepends = [ base containers megaparsec multiset union-find-array term-rewriting ];
-  testHaskellDepends = [ base containers hspec megaparsec multiset union-find-array term-rewriting ];
 
   preConfigure = ''
     hpack
