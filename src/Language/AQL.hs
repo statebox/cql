@@ -15,19 +15,13 @@ import Language.Typeside
 import Language.Transform
 import Language.Query
 
--- main = undefined
-
--- helpers
-
-
-
--- top level stuff
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
 runProg p = do p1 <- parseAqlProgram p
                o  <- findOrder p1
                p2 <- typecheckAqlProgram o p1
+               _ <- validateAqlProgram o p1
                p3 <- evalAqlProgram o p1 newEnv
                return (p1, p2, p3)
 
@@ -36,13 +30,6 @@ parseAqlProgram = undefined -- can be filled in now
 
 
 -- kinds ---------------
-
--- operations defined across all AQL semantic objects of all kinds
---class Semantics c  where
- -- typeOf :: c -> t
- -- validate :: c -> Err ()
- -- toCollage :: c -> col
- -- kind :: Kind for now these aren't coming up
 
 -- todo: raw string based syntax with type inference, etc
 
@@ -113,7 +100,7 @@ findOrder p = pure $ other p --todo: for now
 -----------
 ----------------------------------------------------------------------------------------------------------------------
 
-
+ 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
 evalTypeside _ _ (TypesideRaw r) = evalTypesideRaw r
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of

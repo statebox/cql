@@ -15,6 +15,8 @@ import           Text.Megaparsec
 -- semigroups
 import           Data.List.NonEmpty         (fromList)
 
+--import Language.Schema as X
+
 schemaExpParser :: Parser SchemaExp
 schemaExpParser
     = SchemaExpIdentity <$> do

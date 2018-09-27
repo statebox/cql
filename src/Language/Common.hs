@@ -2,6 +2,7 @@
 ,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
 
 module Language.Common where 
+import Data.Map.Strict as Map
 
 type a + b = Either a b   
 
@@ -14,3 +15,6 @@ note n x = maybe (Left n) Right x
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
 
 type ID = Integer
+
+
+lookup2 m x = case Map.lookup m x of Just y -> y

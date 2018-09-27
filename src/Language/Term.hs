@@ -4,8 +4,8 @@
 module Language.Term where
 
 import Prelude hiding (EQ) 
-import Data.Set as Set
-import Data.Map.Strict as Map
+import Data.Set as Set hiding (size, foldr)
+import Data.Map.Strict as Map hiding (size, foldr)
 import Data.Void
 import Data.List (intercalate)
 import Language.Common
@@ -19,6 +19,27 @@ data Term var ty sym en fk att gen sk
   | Att att  (Term var Void Void en fk Void gen Void)
   | Gen gen
   | Sk  sk 
+
+type Head ty sym en fk att gen sk = sym + (fk + (att + (gen + sk)))   
+
+size :: Term var ty sym en fk att gen sk -> Integer
+size (Var v) = 1
+size (Gen v) = 1
+size (Sk v) = 1
+size (Att f a) = 1 + size a
+size (Fk f a) = 1 + size a
+size (Sym f as) = 1 + (foldr (\x y -> (size x) + y) 0 as)
+
+
+vars :: Term var ty sym en fk att gen sk -> [var]
+vars (Var v) = [v]
+vars (Gen v) = []
+vars (Sk v) = []
+vars (Att f a) = vars a
+vars (Fk f a) = vars a
+vars (Sym f as) = concatMap vars as 
+
+
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
   Show (Term var ty sym en fk att gen sk)
@@ -56,6 +77,33 @@ data Collage var ty sym en fk att gen sk
   , cgens :: Map gen en
   , csks  :: Map sk ty
   } deriving (Eq, Show)
+
+initGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) 
+initGround col = (me', mt') 
+ where me = Map.fromList $ Prelude.map (\en -> (en, False)) $ Set.toList $ cens col
+       mt = Map.fromList $ Prelude.map (\ty -> (ty, False)) $ Set.toList $ ctys col
+       me' = Prelude.foldr (\(gen, en) m -> Map.insert en True m) me $ Map.toList $ cgens col
+       mt' = Prelude.foldr (\(sk, ty) m -> Map.insert ty True m) mt $ Map.toList $ csks col
+
+
+closeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
+closeGround col (me, mt) = (me', mt'')
+ where mt''= Prelude.foldr (\(sym, (tys,ty)) m -> if and (Prelude.map (\ty->lookup2 ty mt') tys) then Map.insert ty True m else m) mt' $ Map.toList $ csyms col 
+       mt' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me' then Map.insert ty True m else m) mt' $ Map.toList $ catts col
+       me' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me then Map.insert en True m else m) me $ Map.toList $ cfks col
+
+iterGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
+iterGround col r = if r == r' then r else iterGround col r'
+ where r' = closeGround col r
+
+computeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) 
+computeGround col = iterGround col $ initGround col
+
+allSortsInhabited :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited col = t && f
+ where (me, mt) = computeGround col
+       t = and $ Map.elems me
+       f = and $ Map.elems mt
 
 -- TODO
 --data Err1 t
@@ -151,8 +199,7 @@ upTerm
 upTerm
  (Var v) = Var v
 upTerm
- (Fk f a) = Fk f $ upTerm
- a 
+ (Fk f a) = Fk f $ upTerm a 
 upTerm
  (Gen g) = Gen g
 upTerm

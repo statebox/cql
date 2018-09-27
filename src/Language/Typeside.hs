@@ -39,10 +39,7 @@ data Typeside var ty sym
   , eqs  :: Set (Ctx var ty, EQ var ty sym Void Void Void Void Void)
   , eq   :: Ctx var ty -> EQ var ty sym Void Void Void Void Void -> Bool
 
-  {-- since we're in Haskell, a different DSL embedding strategy might be called for than the java version
-  , hakell_tys   :: Map ty String
-  , haskell_syms :: Map sym String
-  --}
+  
   }
 
 

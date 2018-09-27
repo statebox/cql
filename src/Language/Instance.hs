@@ -240,8 +240,6 @@ reify :: (Ord x, Ord en) => (en -> Set x) -> Set en -> [ (x, en) ]
 reify f s = concat $ Set.toList $ Set.map (\en-> Set.toList $ Set.map (\x->(x,en)) $ f en) $ s
 
 
-lookup2 m x = case Map.lookup m x of Just y -> y 
-
 initialInstance :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
  => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool) 

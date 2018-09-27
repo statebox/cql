@@ -3,10 +3,14 @@
 
 module Language.Prover where
 import Language.Common
-import Language.Term
+import Language.Term as S
 import Data.Set as Set
 import Data.Map.Strict as Map
 import Prelude hiding (EQ)
+import Data.Rewriting.Term as T
+import Data.Rewriting.CriticalPair
+import Data.Rewriting.Rule as R
+import Data.Rewriting.Rules as Rs
 
 -- Theorem proving ------------------------------------------------
 
@@ -35,15 +39,69 @@ freeProver col = if (Set.size (ceqs col) == 0)
                  else Left "Cannot use free prover when there are equations"
  where p _ (EQ (lhs, rhs)) = lhs == rhs
 
-createProver ::  (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
+createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en)
  => ProverName -> Collage var ty sym en fk att gen sk
   -> Err (Prover var ty sym en fk att gen sk)
 createProver Free col = freeProver col
+createProver Orthogonal col = orthProver col
 createProver _ _ = Left "Prover not available"
-
+ 
 --todo
 
 -- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
+
+-------------------------------------------------------------------------------------------
+
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
+
+orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en) =>
+                    Collage var ty sym en fk att gen sk
+                    -> Err (Prover var ty sym en fk att gen sk)
+orthProver col = if isDecreasing eqs1 
+                 then if noOverlaps  eqs2
+	                  then if allSortsInhabited col  
+	           	           then pure $ Prover col p
+	           	    	   else Left "Rewriting Error: contains uninhabited sorts"
+	           	      else Left "Rewriting Error: not orthogonal"
+	             else Left "Rewriting Error: not size decreasing"	     	 
+
+ where p _ (EQ (lhs, rhs)) = nf (convert lhs) == nf (convert rhs)
+       eqs1 = Prelude.map snd $ Set.toList $ ceqs col
+       eqs2 = Prelude.map convert' eqs1
+       nf x = case outerRewrite eqs2 x of
+       		   [] -> x
+       		   y:_ -> nf $ result y 
+
+convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
+convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)
+
+noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
+noOverlaps x = y && (Prelude.null $ cps' x)
+ where y = and $ Prelude.map R.isLeftLinear x
+
+isDecreasing [] = True
+isDecreasing (EQ (lhs, rhs) : tl) = S.size lhs > S.size rhs && isDecreasing tl
+
+convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var 
+convert (S.Var v) = T.Var v 
+convert (S.Gen g) = T.Fun (Right $ Right $ Right $ Left  g) []
+convert (S.Sk  g) = T.Fun (Right $ Right $ Right $ Right g) []
+convert (S.Att g a) = T.Fun (Right $ Right $ Left g) [convert $ upTerm a]
+convert (S.Fk  g a) = T.Fun (Right $ Left g) [convert $ upTerm a]
+convert (S.Sym g as) = T.Fun (Left g) $ Prelude.map convert as
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

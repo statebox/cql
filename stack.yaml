@@ -38,7 +38,7 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps: [multiset-0.3.4, union-find-array-0.1.0.2, term-rewriting-0.2.1.1]
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -63,3 +63,5 @@ packages:
 #
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
+
+
