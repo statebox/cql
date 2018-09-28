@@ -26,6 +26,7 @@ dependencies:
 - QuickCheck
 - scientific
 - semigroups
+- term-rewriting
 
 library:
   source-dirs: src
