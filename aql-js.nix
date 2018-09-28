@@ -1,6 +1,8 @@
-{ mkDerivation, stdenv, hpack, ghcjs-base, base, containers, hspec, megaparsec }:
+{ mkDerivation, stdenv, hpack, hspec
+, ghcjs-base, base, containers, megaparsec, term-rewriting }:
+
 mkDerivation {
-  pname = "aql-js";
+  pname = "aql";
   version = "0.1.0.0";
   src = ./.;
 
@@ -8,10 +10,16 @@ mkDerivation {
   isExecutable = true;
   doCheck = true;
 
+  libraryHaskellDepends = [
+    ghcjs-base base containers megaparsec term-rewriting
+  ];
+  executableHaskellDepends = [
+    ghcjs-base base containers megaparsec term-rewriting
+  ];
+  testHaskellDepends = [
+    ghcjs-base base containers megaparsec term-rewriting hspec
+  ];
   buildDepends = [ hpack ];
-  libraryHaskellDepends = [ ghcjs-base base containers megaparsec ];
-  executableHaskellDepends = [ ghcjs-base base containers megaparsec ];
-  testHaskellDepends = [ ghcjs-base base containers hspec megaparsec ];
 
   preConfigure = ''
     hpack
