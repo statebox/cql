@@ -54,14 +54,14 @@ typesideImportGen =
 typesideTypeIdGen :: Gen TypesideTypeId
 typesideTypeIdGen =
   oneof
-    [ pure TypesideTypeIdTrue
-    , pure TypesideTypeIdFalse
-    , TypesideTypeId <$> identifierGen
+    [ --pure TypesideTypeIdTrue
+   -- , pure TypesideTypeIdFalse ,
+     TypesideTypeId <$> identifierGen
     ]
 
 typesideFnNameGen :: Gen TypesideFnName
 typesideFnNameGen =
-  oneof [TypesideFnNameBool <$> boolGen, TypesideFnNameString <$> identifierGen]
+  oneof [{-- TypesideFnNameBool <$> boolGen , --} TypesideFnNameString <$> identifierGen]
 
 -- SCHEMA
 schemaForeignSigGen :: Gen SchemaForeignSig
@@ -87,4 +87,4 @@ schemaAttributeSigGen =
   SchemaAttributeSig
     <$> (fromList <$> listOf1 identifierGen)
     <*> identifierGen
-    <*> typesideTypeIdGen
+    <*> identifierGen -- <*> typesideTypeIdGen change by ryan

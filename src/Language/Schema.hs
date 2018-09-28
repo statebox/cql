@@ -16,7 +16,7 @@ data SchemaExp where
   SchemaInitial :: TypesideExp -> SchemaExp
   SchemaCoProd  :: SchemaExp -> SchemaExp -> SchemaExp
   SchemaRaw :: SchemaExpRaw' -> SchemaExp
-
+ deriving Show
 
 
 validateSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en) => Schema var ty en sym fk att -> Err ()
@@ -65,11 +65,12 @@ up1Ctx g = Map.map (\x -> case x of
 
 
 data SchemaExpRaw' = SchemaExpRaw' {
-    schraw_ens  :: [String]
+    schraw_ts :: TypesideExp
+  , schraw_ens  :: [String]
   , schraw_fks :: [(String, (String, String))]
   , schraw_atts:: [(String, (String, String))]
-  , schraw_peqs  :: [(String, [String])]
-  , schraw_oeqs  :: [(String, (String, String, RawTerm))]
+  , schraw_peqs  :: [([String], [String])]
+  , schraw_oeqs  :: [(String, String, RawTerm, RawTerm)]
   , schraw_options :: [(String, String)]
 } deriving (Eq, Show)
 
@@ -87,7 +88,11 @@ data Schema var ty sym en fk att
 
 
 data SchemaEx :: * where
-  SchemaEx :: forall var ty sym en fk att. Schema var ty sym en fk att -> SchemaEx
+  SchemaEx :: forall var ty sym en fk att. 
+    (Show var, Show ty, Show sym, Show en, Show fk, Show att) =>
+    Schema var ty sym en fk att -> SchemaEx
+
+deriving instance Show (SchemaEx)     
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att)
   => Eq (Schema var ty sym en fk att) where

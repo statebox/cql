@@ -44,7 +44,14 @@ data Typeside var ty sym
 
 
 data TypesideEx :: * where
- TypesideEx :: forall var ty sym. Typeside var ty sym -> TypesideEx
+ TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym) =>
+  Typeside var ty sym -> TypesideEx
+
+--f :: Show var => TypesideEx -> String
+--f (TypesideEx x) = show x
+
+deriving instance Show (TypesideEx) 
+
 
 instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
   (==) (Typeside tys'  syms'  eqs'  _)

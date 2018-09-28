@@ -2,7 +2,7 @@ module Language.Parser.Schema where
 
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
-import           Language.Parser.Types
+import           Language.Parser.Types as T
 import           Language.Parser.Typeside
 
 -- base
@@ -13,30 +13,52 @@ import           Data.Maybe
 import           Text.Megaparsec
 
 -- semigroups
-import           Data.List.NonEmpty         (fromList)
+import           Data.List.NonEmpty         (fromList, toList)
 
---import Language.Schema as X
+import Language.Schema as X
+import Language.Term
+import Language.Typeside as Y
+import Language.Parser.Typeside
 
-schemaExpParser :: Parser SchemaExp
-schemaExpParser
-    = SchemaExpIdentity <$> do
-        _ <- constant "identity"
-        identifier
-    <|> SchemaExpEmpty <$> do
+obsEqParser :: Parser (String, String, RawTerm, RawTerm)
+obsEqParser = do _ <- constant "forall"
+                 i <- identifier
+                 j <- optional $ do { _ <- constant "."; identifier }
+                 _ <- constant "."
+                 l <- rawTermParser
+                 _ <- constant "="
+                 r <- rawTermParser
+                 case j of
+                    Nothing -> error $ "Type inference not supported for now"
+                    Just s' -> return (i,s',l,r)
+
+schemaExpParser' :: Parser X.SchemaExp
+schemaExpParser' = do x <- schemaExpParser
+                      return $ convSchemaExp x
+
+-- todo: braces around this
+schemaExpParser :: Parser T.SchemaExp
+schemaExpParser = 
+ --   = SchemaExpIdentity <$> do
+ --       _ <- constant "identity"
+ --       identifier
+  --  <|> 
+       do
         _ <- constant "empty"
         _ <- constant ":"
-        identifier
-    <|> (\_ -> SchemaExpOfImportAll) <$> do
-        _ <- constant "schemaOf"
-        constant "import_all"
-    <|> SchemaExpGetSchemaColimit <$> do
-        _ <- constant "getSchema"
-        identifier
+        x <- typesideExpParser'
+        return $ SchemaExpEmpty x
+  --  <|> (\_ -> SchemaExpOfImportAll) <$> do
+  --      _ <- constant "schemaOf"
+  --      constant "import_all"
+ --   <|> SchemaExpGetSchemaColimit <$> do
+  --      _ <- constant "getSchema"
+  --      identifier
     <|> do
         _ <- constant "literal"
         _ <- constant ":"
-        typeside <- typesideKindParser
-        schemaLiteral <- try (braces schemaLiteralSectionParser)
+        typeside <- typesideExpParser'
+        schemaLiteral <- (braces schemaLiteralSectionParser) --why try here? question by ryan
         pure $ SchemaExpLiteral typeside schemaLiteral
 
 schemaLiteralSectionParser :: Parser SchemaLiteralSection
@@ -58,7 +80,10 @@ schemaLiteralSectionParser = do
         many schemaAttributeSigParser
     maybeObservationEquations <- optional $ do
         _ <- constant "observation_equations"
-        many schemaObservationEquationSigParser
+        many obsEqParser
+    maybeOptions <- optional $ do
+        _ <- constant "options"
+        many optionParser
     pure $ SchemaLiteralSection
         (fromMaybe [] maybeImports)
         (fromMaybe [] maybeEntities)
@@ -66,6 +91,7 @@ schemaLiteralSectionParser = do
         (fromMaybe [] maybePathEquations)
         (fromMaybe [] maybeAttributes)
         (fromMaybe [] maybeObservationEquations)
+        (fromMaybe [] maybeOptions)
 
 schemaForeignSigParser :: Parser SchemaForeignSig
 schemaForeignSigParser = do
@@ -104,20 +130,20 @@ schemaAttributeSigParser = do
     _ <- constant ":"
     schemaEntityId <- identifier
     _ <- constant "->"
-    typesideTypeId <- typesideTypeIdParser
+    typesideTypeId <- identifier --change by ryan
     pure $ SchemaAttributeSig
         (fromList schemaAttributeIds)
         schemaEntityId
         typesideTypeId
 
-schemaObservationEquationSigParser :: Parser SchemaObservationEquationSig -- TODO: write tests
-schemaObservationEquationSigParser
-    = constant "forall" *> (SchemaObserveForall <$> schemaEquationSigParser)
-    <|> do
-        schemaPathLeft <- schemaPathParser
-        _ <- constant "="
-        schemaPathRight <- schemaPathParser
-        pure $ SchemaObserveEquation schemaPathLeft schemaPathRight
+--schemaObservationEquationSigParser :: Parser SchemaObservationEquationSig -- TODO: write tests
+--schemaObservationEquationSigParser
+--    = constant "forall" *> (SchemaObserveForall <$> schemaEquationSigParser)
+--    <|> do
+--        schemaPathLeft <- schemaPathParser
+--        _ <- constant "="
+--        schemaPathRight <- schemaPathParser
+--        pure $ SchemaObserveEquation schemaPathLeft schemaPathRight
 
 schemaEquationSigParser :: Parser SchemaEquationSig -- TODO: write tests
 schemaEquationSigParser = do
@@ -168,3 +194,36 @@ schemaFnParser
     = SchemaFnTypeside <$> typesideFnNameParser
     <|> SchemaFnAttr <$> identifier
     <|> SchemaFnFk <$> identifier
+ 
+ ----------------------------------------------------------------------------------
+
+
+convSchemaExp :: T.SchemaExp -> X.SchemaExp
+convSchemaExp (T.SchemaExpEmpty t) = X.SchemaInitial  (convTypesideExp t)
+convSchemaExp (T.SchemaExpLiteral t s) = X.SchemaRaw $ convertRaw s (convTypesideExp t)
+convSchemaExp (T.SchemaExpVar v) = X.SchemaVar v
+
+convertRaw :: SchemaLiteralSection -> Y.TypesideExp -> SchemaExpRaw'
+convertRaw (SchemaLiteralSection is ens' fks' peqs' atts' oeqs' options') t =
+ if Prelude.null is 
+ then SchemaExpRaw' t ens fks atts peqs oeqs options 
+ else error "Ignoring imports for now"
+ where ens :: [String]
+       ens = ens'
+       fks :: [(String, (String, String))]
+       fks = Prelude.concatMap (\(SchemaForeignSig fs x y) -> Prelude.concatMap (\z -> [(z, (x, y))]) (toList fs)) fks'
+       atts:: [(String, (String, String))]
+       atts = Prelude.concatMap (\(SchemaAttributeSig fs x y) -> Prelude.concatMap (\z -> [(z, (x, y))]) (toList fs)) atts'
+       peqs  :: [([String], [String])]
+       peqs = Prelude.map (\(SchemaPathEqnSig l r) -> (convPath l, convPath r)) peqs'
+       oeqs  :: [(String, String, RawTerm, RawTerm)]
+       oeqs = oeqs'
+       options :: [(String, String)]
+       options = options'
+
+       
+
+convPath :: SchemaPath -> [String]
+convPath (SchemaPathArrowId x) = [x]
+convPath (SchemaPathDotted p x) = convPath p ++ [x]
+convPath (SchemaPathParen x p) = [x] ++ convPath p

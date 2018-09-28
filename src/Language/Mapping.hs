@@ -21,7 +21,11 @@ data Mapping var ty sym en fk att en' fk' att'
   }
 
 data MappingEx :: * where
-  MappingEx :: forall var ty sym en fk att en' fk' att'. Mapping var ty sym en fk att en' fk' att' -> MappingEx
+  MappingEx :: forall var ty sym en fk att en' fk' att'. 
+   (Show var, Show ty, Show sym, Show en, Show en, Show fk, Show att, Show en', Show fk', Show att') =>  
+    Mapping var ty sym en fk att en' fk' att' -> MappingEx
+
+deriving instance Show MappingEx  
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Mapping var ty sym en fk att en' fk' att') where
@@ -42,6 +46,7 @@ data MappingExp   where
   MappingVar     :: String -> MappingExp
   MappingId      :: SchemaExp -> MappingExp
   MappingRaw     :: MapExpRaw' -> MappingExp
+ deriving Show
 
 data MapExpRaw' = MapExpRaw' {
     mapraw_ens  :: [(String, String)]

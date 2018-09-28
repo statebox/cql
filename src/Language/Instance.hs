@@ -159,7 +159,12 @@ data Instance var ty sym en fk att gen sk x y
   }
 
 data InstanceEx :: * where
-  InstanceEx :: forall var ty sym en fk att gen sk x y. Instance var ty sym en fk att gen sk x y -> InstanceEx
+  InstanceEx :: forall var ty sym en fk att gen sk x y. 
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, 
+    Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y) =>
+   Instance var ty sym en fk att gen sk x y -> InstanceEx
+
+deriving instance Show (InstanceEx) 
 
 
 instToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
@@ -381,6 +386,7 @@ data InstanceExp where
   InstanceCoEval :: MappingExp -> InstanceExp -> InstanceExp
 
   InstanceRaw :: InstExpRaw' -> InstanceExp
+  deriving Show
 
 data InstExpRaw' = InstExpRaw' {
     instraw_gens  :: [(String, String)]

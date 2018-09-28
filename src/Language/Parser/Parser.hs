@@ -10,6 +10,31 @@ import qualified Text.Megaparsec.Char.Lexer    as L
 
 -- scientific
 import           Data.Scientific               (Scientific)
+import Language.Term
+
+rawTermParser :: Parser RawTerm
+rawTermParser = 
+  do i <- identifier 
+     return $ RawApp i []
+  <|> 
+  do t <- rawTermParser 
+     _ <- constant "."
+     l <- identifier 
+     return $ RawApp l [t]
+  <|> 
+  do f <- identifier
+     _ <- constant "("
+     a <- many rawTermParser
+     _ <- constant ")" 
+     return $ RawApp f a
+
+
+optionParser :: Parser (String, String)
+optionParser = 
+  do i <- identifier 
+     _ <- constant "="
+     j <- identifier
+     return (i,j)
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)

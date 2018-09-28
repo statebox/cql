@@ -60,7 +60,7 @@ orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en) =>
                     -> Err (Prover var ty sym en fk att gen sk)
 orthProver col = if isDecreasing eqs1 
                  then if noOverlaps  eqs2
-	                  then if allSortsInhabited col  
+                      then if allSortsInhabited col  
 	           	           then pure $ Prover col p
 	           	    	   else Left "Rewriting Error: contains uninhabited sorts"
 	           	      else Left "Rewriting Error: not orthogonal"

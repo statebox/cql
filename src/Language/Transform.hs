@@ -22,7 +22,10 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
 
 data TransformEx :: * where
   TransformEx :: forall var ty sym en fk att gen sk x y gen' sk' x' y' . 
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y') =>  
     Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> TransformEx
+
+deriving instance Show TransformEx 
   
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, 
           Show x, Show y, Show gen', Show sk', Show x', Show y')
@@ -52,6 +55,7 @@ data TransformExp  where
   TransformCoEval :: QueryExp -> TransformExp -> TransformExp 
   TransformEval :: QueryExp -> TransformExp -> TransformExp 
   TransformRaw :: TransExpRaw' -> TransformExp    
+ deriving Show 
 
 data TransExpRaw' = TransExpRaw' {
     transraw_gens  :: [(String, RawTerm)]

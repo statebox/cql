@@ -8,6 +8,9 @@ import           Data.Scientific    (Scientific)
 -- semigroups
 import           Data.List.NonEmpty (NonEmpty, toList)
 
+import Language.Term (RawTerm)
+
+
 -- OPTIONS
 data AllOptions =
   AllOptions [OptionsDeclaration]
@@ -107,8 +110,9 @@ type TypesideRef = String
 data TypesideExp
   = TypesideExpEmpty
   | TypesideExpSql
-  | TypesideExpOf SchemaKind
-  | TypesideExpLiteral (Maybe TypesideLiteralSection)
+  | TypesideExpOf SchemaExp
+  | TypesideExpLiteral TypesideLiteralSection
+  | TypesideVar String
   deriving (Eq)
 
 data TypesideLiteralSection
@@ -123,16 +127,17 @@ instance Show TypesideImport where
   show (TypesideImportSql)             = "sql"
   show (TypesideImportRef typesideRef) = typesideRef
 
-data TypesideTypeId
-  = TypesideTypeIdTrue
-  | TypesideTypeIdFalse
-  | TypesideTypeId String
+
+data TypesideTypeId = 
+--    TypesideTypeIdTrue
+--  | TypesideTypeIdFalse
+    TypesideTypeId String
   deriving (Eq)
 
 instance Show TypesideTypeId where
-  show TypesideTypeIdTrue    = "true"
-  show TypesideTypeIdFalse   = "false"
-  show (TypesideTypeId name) = name
+--  show TypesideTypeIdTrue    = "true"
+--  show TypesideTypeIdFalse   = "false"
+  show (TypesideTypeId name) = name  --}
 
 data TypesideFnName
   = TypesideFnNameBool Bool
@@ -140,8 +145,8 @@ data TypesideFnName
   deriving (Eq)
 
 instance Show TypesideFnName where
-  show (TypesideFnNameBool True)   = "true"
-  show (TypesideFnNameBool False)  = "false"
+--  show (TypesideFnNameBool True)   = "true"
+--  show (TypesideFnNameBool False)  = "false"
   show (TypesideFnNameString name) = name
 
 -- SCHEMA
@@ -152,17 +157,6 @@ data SchemaKind
 
 type SchemaRef = String
 
-data SchemaExp
-  = SchemaExpIdentity SchemaRef
-  | SchemaExpEmpty TypesideRef
-  | SchemaExpOfImportAll
-    -- | SchemaExpOfInstance
-  | SchemaExpGetSchemaColimit SchemaColimitRef
-  | SchemaExpLiteral TypesideKind
-                     SchemaLiteralSection
-  deriving (Eq)
-
-type SchemaColimitRef = String
 
 data SchemaLiteralSection =
   SchemaLiteralSection [TypesideImport]
@@ -171,7 +165,21 @@ data SchemaLiteralSection =
                        [SchemaPathEqnSig]
                        [SchemaAttributeSig]
                        [SchemaObservationEquationSig]
+                       [(String,String)]
     -- options
+  deriving (Eq)
+
+type SchemaObservationEquationSig = (String, String, RawTerm, RawTerm)
+type SchemaColimitRef = String
+
+data SchemaExp
+  = SchemaExpVar String
+  | SchemaExpEmpty TypesideExp
+ -- | SchemaExpOfImportAll 
+    -- | SchemaExpOfInstance
+ -- | SchemaExpGetSchemaColimit SchemaColimitRef
+  | SchemaExpLiteral TypesideExp
+                     SchemaLiteralSection
   deriving (Eq)
 
 type SchemaEntityId = String
@@ -213,7 +221,7 @@ type SchemaArrowId = String
 data SchemaAttributeSig = SchemaAttributeSig
   (NonEmpty SchemaAttributeId)
   SchemaEntityId
-  TypesideTypeId
+  String -- change by ryan
   deriving (Eq)
 
 instance Show SchemaAttributeSig where
@@ -226,10 +234,12 @@ instance Show SchemaAttributeSig where
 
 type SchemaAttributeId = String
 
+{--
 data SchemaObservationEquationSig
   = SchemaObserveForall SchemaEquationSig
   | SchemaObserveEquation SchemaPath SchemaPath
   deriving (Eq)
+  --}
 
 data SchemaEquationSig =
   SchemaEquationSig (NonEmpty SchemaGen) EvalSchemaFn EvalSchemaFn
@@ -238,7 +248,7 @@ data SchemaEquationSig =
 data SchemaGen =
   SchemaGen String (Maybe SchemaGenType)
   deriving (Eq)
-
+ 
 type SchemaGenType = String
 
 data EvalSchemaFn
