@@ -21,22 +21,24 @@ import           Data.List.NonEmpty                  (fromList, toList)
 spec :: Spec
 spec = do
   describe "schemaParser" $ do
-    specify "parses correctly an Identity schema" $
+    specify "parses correctly a schema variable" $
       forAll identifierGen $ \name ->
-        parse schemaExpParser "" ("identity " ++ name) ==
-        Right (SchemaExpIdentity name)
+        parse schemaExpParser "" (name) ==
+        Right (SchemaExpVar name)
+        {--
     specify "parses correctly an Empty schema" $
       forAll identifierGen $ \name ->
         parse schemaExpParser "" ("empty : " ++ name) ==
-        Right (SchemaExpEmpty name)
-    it "parses correctly an OfImportAll schema" $
+        Right (SchemaExpEmpty name) --}
+   {-- it "parses correctly an OfImportAll schema" $
       parse schemaExpParser "" ("schemaOf import_all") ==
-      Right SchemaExpOfImportAll
+      Right SchemaExpOfImportAll --}
+{--
     specify "parses correctly a GetSchemaColimit schema" $
       forAll identifierGen $ \name ->
         parse schemaExpParser "" ("getSchema " ++ name) ==
-        Right (SchemaExpGetSchemaColimit name)
-
+        Right (SchemaExpGetSchemaColimit name) --}
+{--
   describe "schemaLiteralSectionParser" $ do
     it "parses correctly an empty SchemaLiteralSection" $
       parse schemaLiteralSectionParser "" "" ==
@@ -166,3 +168,5 @@ spec = do
       forAll typesideFnNameGen $ \typesideFnName ->
         parse schemaFnParser "" (show typesideFnName) ==
         Right (SchemaFnTypeside typesideFnName)
+
+        --}

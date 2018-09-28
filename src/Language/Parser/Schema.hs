@@ -39,10 +39,8 @@ schemaExpParser' = do x <- schemaExpParser
 -- todo: braces around this
 schemaExpParser :: Parser T.SchemaExp
 schemaExpParser = 
- --   = SchemaExpIdentity <$> do
- --       _ <- constant "identity"
- --       identifier
-  --  <|> 
+      SchemaExpVar <$> identifier
+    <|> 
        do
         _ <- constant "empty"
         _ <- constant ":"
