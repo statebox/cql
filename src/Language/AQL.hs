@@ -27,7 +27,6 @@ runProg :: String -> Err (Prog, Types, Env)
 runProg p = do p1 <- parseAqlProgram p
                o  <- findOrder p1
                p2 <- typecheckAqlProgram o p1
-               _ <- validateAqlProgram o p1
                p3 <- evalAqlProgram o p1 newEnv
                return (p1, p2, p3)
 
@@ -42,29 +41,47 @@ runProg p = do p1 <- parseAqlProgram p
 type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx ()
 
 
+-- type Types = KindCtx () TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
 
 -- some ordering - could be program order, but not necessarily
 typecheckAqlProgram :: [(String,Kind)] -> Prog -> Err Types
 typecheckAqlProgram [] _ = pure newTypes
-typecheckAqlProgram ((v,TYPESIDE):l) prog = do _ <- note ("Undefined AQL typeside: " ++ show v) $ Map.lookup v $ typesides prog
-                                               typecheckAqlProgram l prog
-typecheckAqlProgram _ _ = undefined
+typecheckAqlProgram ((v,TYPESIDE):l) prog = do t <- typecheckTypesideExp prog $ lookup2 v (typesides prog) 
+                                               x <- typecheckAqlProgram l prog
+                                               return $ x { typesides = Map.insert v t $ typesides x }
+typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- typecheckSchemaExp prog $ lookup2 v (schemas prog) 
+                                             x <- typecheckAqlProgram l prog
+                                             return $ x { schemas = Map.insert v t $ schemas x }
 
-validateAqlProgram :: [(String,Kind)] -> Prog -> Err ()
-validateAqlProgram [] _ = pure ()
-validateAqlProgram ((v,TYPESIDE):l) prog =  do _ <- validate' $ lookup' v $ typesides prog
-                                               validateAqlProgram l prog
-validateAqlProgram _ _ = undefined
 
-validate' :: a
-validate' = undefined
+typecheckTypesideExp :: Prog -> TypesideExp -> Err ()
+typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
+                                            typecheckTypesideExp p t  
+typecheckTypesideExp p TypesideInitial = pure ()
+
+
+typecheckSchemaExp p (SchemaRaw r) = pure $ schraw_ts r
+typecheckSchemaExp p (SchemaVar v) = do t <- note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
+                                        typecheckSchemaExp p t
+typecheckSchemaExp p (SchemaInitial t) = do _ <- typecheckTypesideExp p t
+                                            return t
+typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
+                                             r' <- typecheckSchemaExp p r
+                                             if l' == r' 
+                                             then return l' 
+                                             else Left "Coproduct has non equal typesides"
+
+evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
+evalAqlProgram [] _ _ = pure newEnv
+evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- evalTypeside prog env $ lookup2 v (typesides prog) 
+                                              x <- evalAqlProgram l prog env
+                                              return $ x { typesides = Map.insert v t $ typesides x }
+evalAqlProgram ((v,SCHEMA):l) prog env = do t <- evalSchema prog env $ lookup2 v (schemas prog) 
+                                            x <- evalAqlProgram l prog env
+                                            return $ x { schemas = Map.insert v t $ schemas x }
  
 --todo: check acyclic with Data.Graph.DAG
-evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
-evalAqlProgram [] _ env = pure env
-evalAqlProgram ((v,TYPESIDE):l) prog env = case lookup' v $ typesides env of
-                                               TypesideEx ts2 -> let ts' = Map.insert v (TypesideEx ts2) $ typesides env  in
-                                                                     evalAqlProgram l prog $ env { typesides = ts' }
+
 evalAqlProgram _ _ _ = undefined
 
 findOrder :: Prog -> Err [(String, Kind)]
@@ -96,13 +113,13 @@ evalInstance _ _ _ = undefined
 f :: Typeside var ty sym -> Schema var ty sym Void Void Void
 f ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined
 
-evalSchema :: Prog -> Env -> SchemaExp -> Either [Char] SchemaEx
+evalSchema :: Prog -> Env -> SchemaExp -> Either String SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
 evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
                                             case ts' of
                                              TypesideEx ts'' ->
                                                pure $ SchemaEx $ f ts''  
-evalSchema _ _ _ = undefined
+evalSchema _ _ _ = Left "todo"
 --evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
 --todo: additional schema functions
 

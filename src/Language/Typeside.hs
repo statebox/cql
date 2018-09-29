@@ -65,8 +65,8 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "\neqs = "  ++ show eqs'
 
 --instance Semantics (Typeside var ty sym) where
-validateTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err ()
-validateTypeside = typeOfCol . tsToCol
+typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err ()
+typecheckTypeside = typeOfCol . tsToCol
 
 --todo: make validating Typeside function
 

@@ -22,7 +22,7 @@ data Query var ty sym en fk att en' fk' att'
 
 data QueryEx :: * where
   QueryEx :: forall var ty sym en fk att en' fk' att'. 
-   (Show var, Show ty, Show sym, Show en, Show en, Show fk, Show att, Show en', Show fk', Show att') =>  
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>  
     Query var ty sym en fk att en' fk' att' -> QueryEx
 
 deriving instance Show QueryEx  

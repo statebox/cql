@@ -22,12 +22,14 @@ import Language.Program as P
 
 
 parseAqlProgram' :: Parser (String, Exp)
-parseAqlProgram' = do x <- identifier
+parseAqlProgram' = do _ <- constant "typeside"
+                      x <- identifier
                       _ <- constant "="
                       y <- typesideExpParser
                       return $ (x, ExpTy y)
                    <|> 
-                   do x <- identifier
+                   do _ <- constant "schema" 
+                      x <- identifier
                       _ <- constant "="
                       y <- schemaExpParser'
                       return $ (x, ExpS y)

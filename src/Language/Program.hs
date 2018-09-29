@@ -36,11 +36,11 @@ data KindCtx ts s i m q t o = KindCtx {
   , other :: o
 } deriving Show
 
-lookup' :: Ord k => k -> Map k a -> a
+lookup' :: (Show k, Show a, Ord k) => k -> Map k a -> a
 lookup' m v = f $ Map.lookup m v
   where
     f (Just x) = x
-    f Nothing  = undefined
+    f Nothing  = error $ "Can't find " ++ show v ++ " in " ++ show m
 
 --todo: store line numbers in other field 
 type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp ([(String,Kind)])

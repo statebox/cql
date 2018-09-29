@@ -24,6 +24,8 @@ typesideExpParser = do x <- typesideExpParser'
 typesideExpParser' :: Parser T.TypesideExp
 typesideExpParser' = do _ <- constant "empty" -- for now
                         return TypesideExpEmpty 
+                 <|> do x <- identifier
+                        return $ T.TypesideVar x   
 
 typesideImportParser :: Parser TypesideImport
 typesideImportParser
