@@ -119,9 +119,13 @@ evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
                                             case ts' of
                                              TypesideEx ts'' ->
                                                pure $ SchemaEx $ f ts''  
-evalSchema _ _ _ = Left "todo"
+evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r 
+                                       case t of
+                                        TypesideEx t' -> do l <- evalSchemaRaw t' r 
+                                                            pure $ SchemaEx l
 --evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
 --todo: additional schema functions
+
 
 evalTransform :: p -> KindCtx ts s i m q b o -> TransformExp -> Either [Char] b
 evalTransform _ env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env

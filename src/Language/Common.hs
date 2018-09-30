@@ -17,5 +17,12 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
  
 type ID = Integer
 
+toMapSafely [] = return $ Map.empty
+toMapSafely ((k,v):x) = 
+    do y <- toMapSafely x
+       if Map.member k y 
+       then Left $ "Duplicate element " ++ (show k)
+       else return $ Map.insert k v y
+
 
 lookup2 m x = case Map.lookup m x of Just y -> y

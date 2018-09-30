@@ -38,17 +38,12 @@ data Typeside var ty sym
   , syms :: Map sym ([ty], ty)
   , eqs  :: Set (Ctx var ty, EQ var ty sym Void Void Void Void Void)
   , eq   :: Ctx var ty -> EQ var ty sym Void Void Void Void Void -> Bool
-
-  
   }
 
 
 data TypesideEx :: * where
  TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym) =>
   Typeside var ty sym -> TypesideEx
-
---f :: Show var => TypesideEx -> String
---f (TypesideEx x) = show x
 
 deriving instance Show (TypesideEx) 
 

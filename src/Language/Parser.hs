@@ -31,7 +31,7 @@ parseAqlProgram' = do _ <- constant "typeside"
                    do _ <- constant "schema" 
                       x <- identifier
                       _ <- constant "="
-                      y <- schemaExpParser'
+                      y <- schemaExpParser
                       return $ (x, ExpS y)
 
 

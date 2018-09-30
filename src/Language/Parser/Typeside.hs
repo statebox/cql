@@ -2,47 +2,81 @@ module Language.Parser.Typeside where
 
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
-import           Language.Parser.Types as T
-
+--import           Language.Parser.Types as T
+import Language.Term 
+import Data.Maybe 
 -- megaparsec
 import           Text.Megaparsec
 import Language.Typeside as X
 
+typesideExpParser = parseRaw <|> parseEmpty <|> parseVar 
 
-convTypesideExp :: T.TypesideExp -> X.TypesideExp
-convTypesideExp T.TypesideExpEmpty = X.TypesideInitial
-convTypesideExp T.TypesideExpSql= undefined
-convTypesideExp (T.TypesideExpOf s)= undefined
-convTypesideExp (T.TypesideExpLiteral x)= undefined
-convTypesideExp (T.TypesideVar v)= X.TypesideVar v
+parseEmpty = do _ <- constant "empty"
+                return TypesideInitial
 
-typesideExpParser :: Parser X.TypesideExp
-typesideExpParser = do x <- typesideExpParser'
-                       return $ convTypesideExp x
+--parseSql = do _ <- constant "sql"
+ --             return TypesideSql
+
+parseVar = do x <- identifier
+              return $ TypesideVar x
+
+--parseRaw :: Parser X.TypesideRaw'
+parseRaw = do _ <- constant "literal"
+              tsLiteral <- (braces typesideLiteralSectionParser) 
+              pure $ TypesideRaw $ tsLiteral 
+
+eqParser :: Parser ([(String, String)], RawTerm, RawTerm)
+eqParser = do o <- optional p
+              l <- rawTermParser 
+              _ <- constant "="
+              r <- rawTermParser     
+              return (fromMaybe [] o, l, r)    
+ where p = do _ <- constant "forall"
+              g <- many varParser
+              _ <- constant "."   
+              return $ concat g              
 
 
-typesideExpParser' :: Parser T.TypesideExp
-typesideExpParser' = do _ <- constant "empty" -- for now
-                        return TypesideExpEmpty 
-                 <|> do x <- identifier
-                        return $ T.TypesideVar x   
+varParser :: Parser [(String, String)]
+varParser = do x <- some identifier
+               _ <- constant ":"
+               y <- identifier
+               return $ map (\a -> (a,y)) x
 
-typesideImportParser :: Parser TypesideImport
-typesideImportParser
-    = do
-        _ <- constant "sql"
-        pure TypesideImportSql
-    <|> TypesideImportRef <$> identifier
+constantParser :: Parser [(String, ([String], String))]
+constantParser = do x <- some identifier
+                    _ <- constant ":"
+                    y <- identifier
+                    return $ map (\a -> (a,([],y))) x
 
-typesideTypeIdParser :: Parser TypesideTypeId
-typesideTypeIdParser
-    = -- pure TypesideTypeIdTrue <* constant "true"
-    -- <|> pure TypesideTypeIdFalse <* constant "false"
-    -- <|> 
-    TypesideTypeId <$> identifier
+functionParser :: Parser [(String, ([String], String))]
+functionParser = do x <- some identifier
+                    _ <- constant ":"
+                    y <- many identifier
+                    _ <- constant "->"
+                    z <- identifier
+                    return $ map (\a -> (a,(y,z))) x
 
-typesideFnNameParser :: Parser TypesideFnName
-typesideFnNameParser
-    = --TypesideFnNameBool <$> boolParser
-    -- <|> 
-    TypesideFnNameString <$> identifier
+typesideLiteralSectionParser :: Parser X.TypesideRaw'
+typesideLiteralSectionParser = do
+    t <- optional $ do
+        _ <- constant "types"
+        many identifier
+    c <- optional $ do
+        _ <- constant "constants"
+        many constantParser
+    f <- optional $ do
+        _ <- constant "functions"
+        many functionParser
+    e <- optional $ do
+        _ <- constant "equations"
+        many eqParser
+    o <- optional $ do
+        _ <- constant "options"
+        many optionParser
+    pure $ TypesideRaw'
+        (fromMaybe [] t)
+        ((concat $ fromMaybe [] c)++(concat $ fromMaybe [] f))
+        (fromMaybe [] e)
+        (fromMaybe [] o)
+

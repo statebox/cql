@@ -86,6 +86,20 @@ data Schema var ty sym en fk att
   , eq       :: en -> EQ () ty sym en fk att Void Void -> Bool
   }
 
+type En = String
+type Fk = String
+type Att = String
+
+evalSchemaRaw :: Typeside var ty sym -> SchemaExpRaw' -> Err (Schema var ty sym En Fk Att)
+evalSchemaRaw (x@(Typeside tys sym eqs _)) (SchemaExpRaw' ts ens fks atts peqs oeqs ops) = 
+  do fks' <- toMapSafely fks 
+     atts' <- undefined
+     peqs' <- undefined
+     oeqs' <- undefined
+     eqs' <- undefined
+     return $ Schema x (Set.fromList ens) fks' atts' peqs' oeqs' eqs'
+      
+
 
 data SchemaEx :: * where
   SchemaEx :: forall var ty sym en fk att. 
