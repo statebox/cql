@@ -14,21 +14,20 @@ import Language.Term
 
 rawTermParser :: Parser RawTerm
 rawTermParser = 
-  do i <- identifier 
-     return $ RawApp i []
-  <|> 
-  do t <- rawTermParser 
-     _ <- constant "."
-     l <- identifier 
-     return $ RawApp l [t]
-  <|> 
-  do f <- identifier
-     _ <- constant "("
-     a <- many rawTermParser
-     _ <- constant ")" 
-     return $ RawApp f a
-
-
+  try (do f <- identifier
+          _ <- constant "("
+          a <- sepBy rawTermParser $ constant ","
+          _ <- constant ")" 
+          return $ RawApp f a)
+  <|>
+  try (do t <- identifier 
+          _ <- constant "."
+          l <- identifier 
+          return $ RawApp l [RawApp t []])
+  <|>  
+  try (do i <- identifier 
+          return $ RawApp i [])
+  
 optionParser :: Parser (String, String)
 optionParser = 
   do i <- identifier 

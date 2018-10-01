@@ -1,7 +1,7 @@
 module Language.Parser.Generator.Generator where
 
 import           Language.Parser.ReservedWords
-import           Language.Parser.Types
+
 
 -- QuickCheck
 import           Test.QuickCheck.Gen

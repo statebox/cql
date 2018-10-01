@@ -26,13 +26,13 @@ parseRaw = do _ <- constant "literal"
               pure $ TypesideRaw $ tsLiteral 
 
 eqParser :: Parser ([(String, String)], RawTerm, RawTerm)
-eqParser = do o <- optional p
+eqParser = do o <- p
               l <- rawTermParser 
               _ <- constant "="
               r <- rawTermParser     
-              return (fromMaybe [] o, l, r)    
+              return (o,l,r) --(fromMaybe [] o, l, r)    
  where p = do _ <- constant "forall"
-              g <- many varParser
+              g <- sepBy varParser $ constant ","
               _ <- constant "."   
               return $ concat g              
 
@@ -52,7 +52,7 @@ constantParser = do x <- some identifier
 functionParser :: Parser [(String, ([String], String))]
 functionParser = do x <- some identifier
                     _ <- constant ":"
-                    y <- many identifier
+                    y <- sepBy identifier $ constant ","
                     _ <- constant "->"
                     z <- identifier
                     return $ map (\a -> (a,(y,z))) x

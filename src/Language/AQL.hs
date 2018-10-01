@@ -26,9 +26,17 @@ import Data.Void
 runProg :: String -> Err (Prog, Types, Env)
 runProg p = do p1 <- parseAqlProgram p
                o  <- findOrder p1
-               p2 <- typecheckAqlProgram o p1
-               p3 <- evalAqlProgram o p1 newEnv
+               p2 <- y o p1
+               p3 <- d o p1
                return (p1, p2, p3)
+ where x o p1 = typecheckAqlProgram o p1
+       y o p1 = case x o p1 of 
+             Left z -> Left $ "Type error: " ++ z 
+             Right a -> Right a  
+       c o p1 = evalAqlProgram o p1 newEnv
+       d o p1 = case c o p1 of 
+                  Left z -> Left $ "Eval error: " ++ z 
+                  Right a -> Right a                     
 
 
 
@@ -58,7 +66,7 @@ typecheckTypesideExp :: Prog -> TypesideExp -> Err ()
 typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
                                             typecheckTypesideExp p t  
 typecheckTypesideExp p TypesideInitial = pure ()
-
+typecheckTypesideExp p (TypesideRaw _) = pure ()
 
 typecheckSchemaExp p (SchemaRaw r) = pure $ schraw_ts r
 typecheckSchemaExp p (SchemaVar v) = do t <- note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
@@ -87,8 +95,7 @@ evalAqlProgram _ _ _ = undefined
 findOrder :: Prog -> Err [(String, Kind)]
 findOrder p = pure $ other p --todo: for now
 
------------
-----------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
 
  
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
@@ -97,17 +104,6 @@ evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
 -- evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
-
-evalInstance :: Prog -> KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx () -> InstanceExp -> Either [Char] InstanceEx
-evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
-evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
-                                               case ts' of
-                                                 SchemaEx ts'' -> undefined 
-                                            --      pure $ InstanceEx $ Instance ts''
-                                            --             (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra ts''
-                                             --           undefined undefined undefined undefined undefined undefined 
-                                             --           undefined 
-evalInstance _ _ _ = undefined
 
 
 f :: Typeside var ty sym -> Schema var ty sym Void Void Void
@@ -123,15 +119,21 @@ evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r
                                        case t of
                                         TypesideEx t' -> do l <- evalSchemaRaw t' r 
                                                             pure $ SchemaEx l
---evalSchema ctx (SchemaCoProd s1 s2) = Left "todo"
---todo: additional schema functions
 
+evalInstance :: Prog -> KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx () -> InstanceExp -> Either [Char] InstanceEx
+evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
+evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
+                                               case ts' of
+                                                 SchemaEx ts'' -> undefined 
+                                            --      pure $ InstanceEx $ Instance ts''
+                                            --             (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra ts''
+                                             --           undefined undefined undefined undefined undefined undefined 
+                                             --           undefined 
+evalInstance _ _ _ = undefined
 
 evalTransform :: p -> KindCtx ts s i m q b o -> TransformExp -> Either [Char] b
 evalTransform _ env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env
 evalTransform _ _ _ = undefined
-
---------------------------------------------------------------------------------
 
 
 evalMapping :: p -> KindCtx ts s i b q t o -> MappingExp -> Either [Char] b

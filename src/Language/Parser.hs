@@ -11,7 +11,6 @@ import Language.Transform as Tr
 import Language.Query as Q
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
-import           Language.Parser.Types as Term'
 import           Language.Parser.Typeside as T'
 import           Language.Parser.Schema as S'
 import           Data.List                  (foldl')
@@ -19,6 +18,7 @@ import           Data.Maybe
 import           Text.Megaparsec
 import           Data.List.NonEmpty 
 import Language.Program as P
+import Text.Megaparsec.Error
 
 
 parseAqlProgram' :: Parser (String, Exp)
@@ -49,7 +49,7 @@ toProg' ((v,e):p) = case e of
 
 parseAqlProgram :: String -> Err Prog
 parseAqlProgram s = case runParser (many parseAqlProgram') "" s of
-	Left err -> Left $ show err
+	Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
 	Right x -> pure $ toProg' x
 
 

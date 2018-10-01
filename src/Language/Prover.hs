@@ -11,6 +11,8 @@ import Data.Rewriting.Term as T
 import Data.Rewriting.CriticalPair
 import Data.Rewriting.Rule as R
 import Data.Rewriting.Rules as Rs
+import Debug.Trace
+import Language.Options as O hiding (Prover)
 
 -- Theorem proving ------------------------------------------------
 
@@ -21,9 +23,8 @@ data Prover var ty sym en fk att gen sk = Prover {
   , prove :: Ctx var (ty+en) -> EQ var ty sym en fk att gen sk -> Bool
 }
 
-
-proverStringToName :: Map String String -> Err ProverName
-proverStringToName m = case Map.lookup "prover" m of
+proverStringToName :: Options -> Err ProverName
+proverStringToName m = case Map.lookup prover_name (sOps m) of
  (Just "auto") -> pure Auto
  (Just "kb") -> pure KB
  (Just "program") -> pure Orthogonal
@@ -33,18 +34,20 @@ proverStringToName m = case Map.lookup "prover" m of
 
 freeProver :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) =>
                     Collage var ty sym en fk att gen sk
-                    -> Either [Char] (Prover var ty sym en fk att gen sk)
+                    -> Either String (Prover var ty sym en fk att gen sk)
 freeProver col = if (Set.size (ceqs col) == 0)
                  then return $ Prover col p
                  else Left "Cannot use free prover when there are equations"
  where p _ (EQ (lhs, rhs)) = lhs == rhs
 
-createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en)
- => ProverName -> Collage var ty sym en fk att gen sk
+createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en, Show en, Show ty)
+ => Collage var ty sym en fk att gen sk -> Options 
   -> Err (Prover var ty sym en fk att gen sk)
-createProver Free col = freeProver col
-createProver Orthogonal col = orthProver col
-createProver _ _ = Left "Prover not available"
+createProver col ops =  do p <- proverStringToName ops
+                           case p of
+                             Free -> freeProver col
+                             Orthogonal -> orthProver col ops
+                             _ -> Left "Prover not available"
  
 --todo
 
@@ -55,23 +58,24 @@ createProver _ _ = Left "Prover not available"
 
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
-orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en) =>
-                    Collage var ty sym en fk att gen sk
+orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Show en, Show ty) =>
+                    Collage var ty sym en fk att gen sk -> Options  
                     -> Err (Prover var ty sym en fk att gen sk)
-orthProver col = if isDecreasing eqs1 
-                 then if noOverlaps  eqs2
-                      then if allSortsInhabited col  
-	           	           then pure $ Prover col p
-	           	    	   else Left "Rewriting Error: contains uninhabited sorts"
-	           	      else Left "Rewriting Error: not orthogonal"
-	             else Left "Rewriting Error: not size decreasing"	     	 
-
+orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
+                     then if noOverlaps  eqs2
+                          then if allSortsInhabited col  
+	           	               then pure $ Prover col p
+	           	    	       else Left "Rewriting Error: contains uninhabited sorts"
+	           	          else Left "Rewriting Error: not orthogonal"
+	                 else Left "Rewriting Error: not size decreasing"	  
+--  | Allow_Empty_Sorts_Unsafe 
  where p _ (EQ (lhs, rhs)) = nf (convert lhs) == nf (convert rhs)
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col
        eqs2 = Prelude.map convert' eqs1
        nf x = case outerRewrite eqs2 x of
        		   [] -> x
        		   y:_ -> nf $ result y 
+       allow_nonTerm = lookup2 Program_Allow_Nonterm_Unsafe (bOps ops)	   
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)

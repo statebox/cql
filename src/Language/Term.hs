@@ -9,6 +9,7 @@ import Data.Map.Strict as Map hiding (size, foldr)
 import Data.Void
 import Data.List (intercalate)
 import Language.Common
+import Debug.Trace
  
 
 
@@ -89,17 +90,21 @@ initGround col = (me', mt')
 closeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
 closeGround col (me, mt) = (me', mt'')
  where mt''= Prelude.foldr (\(sym, (tys,ty)) m -> if and (Prelude.map (\ty->lookup2 ty mt') tys) then Map.insert ty True m else m) mt' $ Map.toList $ csyms col 
-       mt' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me' then Map.insert ty True m else m) mt' $ Map.toList $ catts col
+       mt' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me' then Map.insert ty True m else m) mt $ Map.toList $ catts col
        me' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me then Map.insert en True m else m) me $ Map.toList $ cfks col
 
-iterGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
-iterGround col r = if r == r' then r else iterGround col r'
+iterGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
+iterGround col r = if trace (show r) r == r' then r else iterGround col r'
  where r' = closeGround col r
 
-computeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) 
+iterGround2 :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> Integer -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
+iterGround2 col 0 r = r
+iterGround2 col n r = closeGround col $ (iterGround2 col (n-1) r)
+
+computeGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) 
 computeGround col = iterGround col $ initGround col
 
-allSortsInhabited :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> Bool
 allSortsInhabited col = t && f
  where (me, mt) = computeGround col
        t = and $ Map.elems me

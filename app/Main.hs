@@ -2,6 +2,25 @@ module Main where
 
 import Language.AQL
 
+arith = "typeside T = literal {"++ "\n" ++
+	"types"++ "\n" ++
+		"string" ++ "\n" ++
+ 		"nat"++ "\n" ++
+	"constants"++ "\n" ++
+ 		"Al Akin Bob Bo Carl Cork Dan Dunn Math CS : string"++ "\n" ++
+ 		"zero : nat"++ "\n" ++
+ 	"functions" 		++ "\n" ++
+	 	"succ : nat -> nat"++ "\n" ++
+	 	"plus : nat, nat -> nat"++ "\n" ++
+	"equations"  ++ "\n" ++
+	 	"forall x : nat. plus(zero, x) = x"++ "\n" ++
+	 	"forall x y : nat. plus(succ(x),y) = succ(plus(x,y))"++ "\n" ++
+	"options"++ "\n" ++
+		"prover = program"++ "\n" ++
+		"program_allow_nonterm_unsafe = true"++ "\n" ++
+
+ "}"
+
 emp = "schema S = literal : empty {" ++ "\n" ++
 	"entities"++ "\n" ++
 		"Employee"++"\n" ++
@@ -18,9 +37,8 @@ emp = "schema S = literal : empty {" ++ "\n" ++
     "}"
 
 input = 
-	 [--" "
-    --  "typeside t = empty \n typeside s = t"
-       emp
+	 [ arith
+--       emp
      ]
 {--
 attributes

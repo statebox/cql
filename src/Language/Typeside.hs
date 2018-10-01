@@ -9,6 +9,7 @@ import Language.Common
 import Language.Term
 import Data.Void
 import Language.Prover
+import Language.Options
 --  Semantics -----------------------------------------------------------------
 
 
@@ -18,14 +19,14 @@ fromList'' (k:l) = do l' <- fromList'' l
                       if Set.member k l'
                       then Left $ "Duplicate binding: " ++ (show k)
                       else pure $ Set.insert k l'
-fromList'' [] = undefined
+fromList'' [] = return Set.empty
 
 fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
 fromList' ((k,v):l) = do l' <- fromList' l
                          if Map.member k l'
                          then Left $ "Duplicate binding: " ++ (show k)
                          else pure $ Map.insert k v l'
-fromList' [] = undefined
+fromList' [] = return Map.empty
 
 deps :: TypesideExp -> [(String, Kind)]
 deps (TypesideVar v) = [(v, TYPESIDE)]
@@ -60,8 +61,9 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "\neqs = "  ++ show eqs'
 
 --instance Semantics (Typeside var ty sym) where
-typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err ()
-typecheckTypeside = typeOfCol . tsToCol
+typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err (Typeside var ty sym)
+typecheckTypeside x = do _ <- (typeOfCol . tsToCol) x
+                         return x
 
 --todo: make validating Typeside function
 
@@ -79,12 +81,12 @@ tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.em
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
 
+
 evalTypesideRaw :: TypesideRaw' -> Err TypesideEx
 evalTypesideRaw t =
  do r <- evalTypesideRaw' t
-    o <- fromList' $ tsraw_options t
-    n <- proverStringToName o
-    p <- createProver n (tsToCol r)
+    l <- toOptions $ tsraw_options t
+    p <- createProver (tsToCol r) l
     pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
  where
   f p ctx = prove p (Map.map Left ctx)
@@ -94,7 +96,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _) =
   do tys' <- fromList'' ttys
      syms' <- fromList' tsyms
      eqs' <- f syms' teqs
-     pure $ Typeside tys' syms' eqs' undefined -- leave prover blank
+     typecheckTypeside $ Typeside tys' syms' eqs' undefined -- leave prover blank
  where f _ [] = pure $ Set.empty
        f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
                                            lhs' <- g syms' ctx' lhs
@@ -105,7 +107,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _) =
        g syms' ctx (RawApp v l) = do l' <- mapM (g syms' ctx) l
                                      pure $ Sym v l'
        check [] = pure Map.empty
-       check ((v,t):l) = if elem v ttys then do {x <- check l; pure $ Map.insert v t x} else Left $ "Not a type: " ++ (show t)
+       check ((v,t):l) = if elem t ttys then do {x <- check l; pure $ Map.insert v t x} else Left $ "Not a type: " ++ (show t)
 
 
 -- there are practical haskell type system related reasons to not want this to be a gadt

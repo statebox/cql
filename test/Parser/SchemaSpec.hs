@@ -4,7 +4,7 @@ module Parser.SchemaSpec where
 
 import           Language.Parser.Generator.Generator
 import           Language.Parser.Schema
-import           Language.Parser.Types
+
 
 -- hspec
 import           Test.Hspec
