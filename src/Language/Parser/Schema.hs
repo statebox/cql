@@ -23,7 +23,7 @@ import Language.Parser.Typeside
 obsEqParser :: Parser (String, String, RawTerm, RawTerm)
 obsEqParser = do _ <- constant "forall"
                  i <- identifier
-                 j <- optional $ do { _ <- constant "."; identifier }
+                 j <- optional $ do { _ <- constant ":"; identifier }
                  _ <- constant "."
                  l <- rawTermParser
                  _ <- constant "="

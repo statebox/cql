@@ -63,7 +63,7 @@ orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Sh
                     -> Err (Prover var ty sym en fk att gen sk)
 orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
                      then if noOverlaps  eqs2
-                          then if allSortsInhabited col  
+                          then if allSortsInhabited col  || allow_empty
 	           	               then pure $ Prover col p
 	           	    	       else Left "Rewriting Error: contains uninhabited sorts"
 	           	          else Left "Rewriting Error: not orthogonal"
@@ -75,7 +75,8 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
        nf x = case outerRewrite eqs2 x of
        		   [] -> x
        		   y:_ -> nf $ result y 
-       allow_nonTerm = lookup2 Program_Allow_Nonterm_Unsafe (bOps ops)	   
+       allow_nonTerm = lookup2 Program_Allow_Nonterm_Unsafe (bOps ops)	
+       allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)   
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)

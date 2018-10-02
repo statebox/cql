@@ -9,8 +9,6 @@ import Data.Map.Strict as Map hiding (size, foldr)
 import Data.Void
 import Data.List (intercalate)
 import Language.Common
-import Debug.Trace
- 
 
 
 data Term var ty sym en fk att gen sk
@@ -94,7 +92,7 @@ closeGround col (me, mt) = (me', mt'')
        me' = Prelude.foldr (\(att, (en,ty)) m -> if lookup2 en me then Map.insert en True m else m) me $ Map.toList $ cfks col
 
 iterGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
-iterGround col r = if trace (show r) r == r' then r else iterGround col r'
+iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
 iterGround2 :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> Integer -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool) 
@@ -129,26 +127,26 @@ typeOf' col ctx (Gen g) = case Map.lookup g $ cgens col of
 typeOf' col ctx (Sk s) = case Map.lookup s $ csks col of
   Nothing -> Left $ "Unknown labelled null: " ++ show s
   Just t -> pure $ Left t
-typeOf' col ctx (Fk f a) = case Map.lookup f $ cfks col of
+typeOf' col ctx (xx@(Fk f a)) = case Map.lookup f $ cfks col of
   Nothing -> Left $ "Unknown foreign key: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
                     if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
-                     show s ++ " but given " ++ show s' 
-typeOf' col ctx (Att f a) = case Map.lookup f $ catts col of
+                     show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
+typeOf' col ctx (xx@(Att f a)) = case Map.lookup f $ catts col of
   Nothing -> Left $ "Unknown attribute: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
                     if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
-                     show s ++ " but given " ++ show s' 
-typeOf' col ctx (Sym f a) = case Map.lookup f $ csyms col of
+                     show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
+typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
   Nothing -> Left $ "Unknown function symbol: " ++ show f
   Just (s, t) -> do s' <- mapM (typeOf' col ctx) a 
                     if length s' == length s
                     then if (fmap Left s) == s' 
                          then pure $ Left t
                          else Left $ "Expected arguments to have types " ++
-                     show s ++ " but given " ++ show s' 
+                     show s ++ " but given " ++ show s' ++ " in " ++ (show $ xx)
                     else Left $ "Expected argument to have arity " ++
-                     show (length s) ++ " but given " ++ show (length s') 
+                     show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
                      
 typeOfEq'
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)

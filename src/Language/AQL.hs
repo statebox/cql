@@ -82,11 +82,9 @@ typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalAqlProgram [] _ _ = pure newEnv
 evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- evalTypeside prog env $ lookup2 v (typesides prog) 
-                                              x <- evalAqlProgram l prog env
-                                              return $ x { typesides = Map.insert v t $ typesides x }
+                                              evalAqlProgram l prog $ env { typesides = Map.insert v t $ typesides env }
 evalAqlProgram ((v,SCHEMA):l) prog env = do t <- evalSchema prog env $ lookup2 v (schemas prog) 
-                                            x <- evalAqlProgram l prog env
-                                            return $ x { schemas = Map.insert v t $ schemas x }
+                                            evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
  
 --todo: check acyclic with Data.Graph.DAG
 
@@ -103,7 +101,7 @@ evalTypeside _ _ (TypesideRaw r) = evalTypesideRaw r
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
--- evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ Typeside Set.empty Map.empty Set.empty undefined -- todo: replace undefined with non effectful code
+evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ initialTypeside
 
 
 f :: Typeside var ty sym -> Schema var ty sym Void Void Void
@@ -118,7 +116,7 @@ evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
 evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r 
                                        case t of
                                         TypesideEx t' -> do l <- evalSchemaRaw t' r 
-                                                            pure $ SchemaEx l
+                                                            pure $ l
 
 evalInstance :: Prog -> KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx () -> InstanceExp -> Either [Char] InstanceEx
 evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env

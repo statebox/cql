@@ -18,10 +18,9 @@ arith = "typeside T = literal {"++ "\n" ++
 	"options"++ "\n" ++
 		"prover = program"++ "\n" ++
 		"program_allow_nonterm_unsafe = true"++ "\n" ++
-
  "}"
 
-emp = "schema S = literal : empty {" ++ "\n" ++
+emp = "schema S = literal : T {" ++ "\n" ++
 	"entities"++ "\n" ++
 		"Employee"++"\n" ++
 		"Department"++"\n" ++
@@ -32,22 +31,25 @@ emp = "schema S = literal : empty {" ++ "\n" ++
 	"path_equations" ++"\n" ++
 		"manager.worksIn = worksIn"++"\n" ++
   		"secretary.worksIn = Department"++"\n" ++
+  	"attributes"++"\n" ++
+  	  "first last : Employee -> string"++"\n" ++
+     	"age : Employee -> nat"++"\n" ++
+     	"cummulative_age: Employee -> nat"++"\n" ++
+     	"name : Department -> string"++"\n" ++
+    "observation_equations" ++"\n" ++
+     	"forall e:Employee. cummulative_age(e) = plus(age(e), age(manager(e)))"++"\n" ++
 	"options"++"\n" ++
 		"prover = program"++"\n" ++
+		"program_allow_nonterm_unsafe = true" ++ "\n" ++
+		"allow_empty_sorts_unsafe = true" ++ "\n" ++
     "}"
 
 input = 
-	 [ arith
+	 [ arith ++ emp 
 --       emp
      ]
 {--
-attributes
-  		first last	: Employee -> string
-     	age			: Employee -> nat
-     	cummulative_age: Employee -> nat
-     	name 		: Department -> string
-     observation_equations
-     	forall e. cummulative_age(e) = plus(age(e), age(manager(e))) --}
+ --}
 
 result = map runProg input
 
