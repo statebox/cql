@@ -38,7 +38,7 @@ typesideKindParser
   <|> TypesideKindExp <$> typesideExpParser
   <|> TypesideKindExp <$> (constant "(" *> typesideExpParser <* constant ")")
 
-typesideLiteralSectionParser :: Parser TypesideLiteralSection -- TODO: write tests
+typesideLiteralSectionParser :: Parser TypesideLiteralSection
 typesideLiteralSectionParser = do
   maybeImports <- optional $ do
     _ <- constant "imports"
@@ -48,7 +48,7 @@ typesideLiteralSectionParser = do
     many typesideTypeIdParser
   maybeConstants <- optional $ do
     _ <- constant "constants"
-    many typesideConstantSigParser
+    manyTill typesideConstantSigParser (lookAhead $ constant "functions" *> pure () <|> constant "equations" *> pure () <|> eof) -- TODO: check if this works with a subsequent parser
   maybeFunctions <- optional $ do
     _ <- constant "functions"
     many typesideFunctionSigParser
@@ -80,22 +80,22 @@ typesideFnNameParser
   = TypesideFnNameBool <$> boolParser
   <|> TypesideFnNameString <$> identifier
 
-typesideConstantSigParser :: Parser TypesideConstantSig -- TODO: write tests
+typesideConstantSigParser :: Parser TypesideConstantSig
 typesideConstantSigParser = do
   typesideConstantIds <- some typesideConstantIdParser
   _ <- constant ":"
   typesideTypeId <- typesideTypeIdParser
   pure $ TypesideConstantSig (fromList typesideConstantIds) typesideTypeId
 
-typesideConstantIdParser :: Parser TypesideConstantId -- TODO: write tests
+typesideConstantIdParser :: Parser TypesideConstantId
 typesideConstantIdParser
   = TypesideConstantIdBool <$> boolParser
-  <|> TypesideConstantIdText <$> textParser
+  -- <|> TypesideConstantIdText <$> textParser
   <|> TypesideConstantIdInteger <$> integerParser
-  <|> TypesideConstantIdLowerId <$> lowerId
-  <|> TypesideConstantIdUpperId <$> upperId
+  <|> TypesideConstantIdLowerId <$> lexeme lowerId
+  <|> TypesideConstantIdUpperId <$> lexeme upperId
 
-typesideFunctionSigParser :: Parser TypesideFunctionSig -- TODO: write tests
+typesideFunctionSigParser :: Parser TypesideFunctionSig
 typesideFunctionSigParser = do
   typesideFnName <- typesideFnNameParser
   _ <- constant ":"
@@ -107,13 +107,14 @@ typesideFunctionSigParser = do
     (fromList typesideFnLocals)
     typesideFnTarget
 
-typesideEquationSigParser :: Parser TypesideEquationSig -- TODO: write tests
+typesideEquationSigParser :: Parser TypesideEquationSig
 typesideEquationSigParser
   = do
     _ <- constant "forall"
     typesideLocals <- sepBy1 typesideLocalParser (constant "," <|> constant " ")
     _ <- constant "."
     typesideEvalLeft <- typesideEvalParser
+    _ <- constant "="
     typesideEvalRight <- typesideEvalParser
     pure $ TypesideEquationSigForAll
       (fromList typesideLocals)
@@ -121,40 +122,42 @@ typesideEquationSigParser
       typesideEvalRight
   <|> do
     typesideEvalLeft <- typesideEvalParser
+    _ <- constant "="
     typesideEvalRight <- typesideEvalParser
     pure $ TypesideEquationSigEq
       typesideEvalLeft
       typesideEvalRight
 
-typesideLocalParser :: Parser TypesideLocal -- TODO: write tests
+typesideLocalParser :: Parser TypesideLocal
 typesideLocalParser = TypesideLocal
   <$> identifier
   <*> (optional $ constant ":" *> identifier)
 
-typesideEvalParser :: Parser TypesideEval -- TODO: write tests
+typesideEvalParser :: Parser TypesideEval
 typesideEvalParser
   = TypesideEvalNumber <$> scientificParser
-  <|> TypesideEvalGen <$> typesideLiteralParser
   <|> do
     _ <- constant "("
     typesideEvalLeft <- typesideEvalParser
     typesideFnName <- typesideFnNameParser
     typesideEvalRight <- typesideEvalParser
+    _ <- constant ")"
     pure $ TypesideEvalInfix
       typesideEvalLeft
       typesideFnName
       typesideEvalRight
-  <|> do
+  <|> try (do
     typesideFnName <- typesideFnNameParser
     _ <- constant "("
     typesideEvals <- sepBy1 typesideEvalParser (constant ",")
     _ <- constant ")"
-    pure $ TypesideEvalParen typesideFnName (fromList typesideEvals)
+    pure $ TypesideEvalParen typesideFnName (fromList typesideEvals))
+  <|> TypesideEvalGen <$> typesideLiteralParser
 
-typesideLiteralParser :: Parser TypesideLiteral -- TODO: write tests
+typesideLiteralParser :: Parser TypesideLiteral
 typesideLiteralParser
-  = TypesideLiteralLowerId <$> lowerId
-  <|> TypesideLiteralUpperId <$> upperId
+  = TypesideLiteralLowerId <$> lexeme lowerId
+  <|> TypesideLiteralUpperId <$> lexeme upperId
 
 
 -- SCHEMA

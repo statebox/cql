@@ -2,6 +2,10 @@
 
 module Language.Parser.Types where
 
+-- base
+import           Data.Char          (toLower)
+import           Data.List          (intercalate)
+
 -- scientific
 import           Data.Scientific    (Scientific)
 
@@ -121,7 +125,7 @@ data TypesideLiteralSection = TypesideLiteralSection
   -- java functions
   [TypesideEquationSig]
   -- options
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data TypesideImport
   = TypesideImportSql
@@ -150,6 +154,10 @@ data TypesideConstantSig = TypesideConstantSig
   TypesideTypeId
   deriving (Eq)
 
+instance Show TypesideConstantSig where
+  show (TypesideConstantSig typesideConstantIds typesideTypeId) =
+    (unwords $ show <$> toList typesideConstantIds) ++ " : " ++ show typesideTypeId
+
 data TypesideConstantId
   = TypesideConstantIdBool Bool
   | TypesideConstantIdText String
@@ -158,11 +166,22 @@ data TypesideConstantId
   | TypesideConstantIdUpperId String
   deriving (Eq)
 
+instance Show TypesideConstantId where
+  show (TypesideConstantIdBool bool)      = toLower <$> show bool
+  show (TypesideConstantIdText string)    = string
+  show (TypesideConstantIdInteger int)    = show int
+  show (TypesideConstantIdLowerId string) = string
+  show (TypesideConstantIdUpperId string) = string
+
 data TypesideFunctionSig = TypesideFunctionSig
   TypesideFnName
   (NonEmpty TypesideFnLocal)
   TypesideFnTarget
   deriving (Eq)
+
+instance Show TypesideFunctionSig where
+  show (TypesideFunctionSig typesideFnName typesideFnLocals typesideFnTarget) =
+    show typesideFnName ++ " : " ++ (intercalate ", " (toList typesideFnLocals)) ++ " -> " ++ typesideFnTarget
 
 data TypesideFnName
   = TypesideFnNameBool Bool
@@ -183,8 +202,18 @@ data TypesideEquationSig
   | TypesideEquationSigEq TypesideEval TypesideEval
   deriving (Eq)
 
+instance Show TypesideEquationSig where
+  show (TypesideEquationSigForAll typesideLocals typesideEvalLeft typesideEvalRight) =
+    "forall " ++ (intercalate ", " (show <$> toList typesideLocals)) ++ ". " ++ show typesideEvalLeft ++ " = " ++ show typesideEvalRight
+  show (TypesideEquationSigEq typesideEvalLeft typesideEvalRight) =
+    show typesideEvalLeft ++ " = " ++ show typesideEvalRight
+
 data TypesideLocal = TypesideLocal String (Maybe TypesideLocalType)
   deriving (Eq)
+
+instance Show TypesideLocal where
+  show (TypesideLocal name Nothing)      = name
+  show (TypesideLocal name (Just type')) = name ++ " : " ++ type'
 
 type TypesideLocalType = String
 
@@ -195,10 +224,22 @@ data TypesideEval
   | TypesideEvalParen TypesideFnName (NonEmpty TypesideEval)
   deriving (Eq)
 
+instance Show TypesideEval where
+  show (TypesideEvalNumber scientific) = show scientific
+  show (TypesideEvalGen literal) = show literal
+  show (TypesideEvalInfix typesideEvalLeft typesideFnName typesideEvalRight) =
+    "(" ++ show typesideEvalLeft ++ " " ++ show typesideFnName ++ " " ++ show typesideEvalRight ++ ")"
+  show (TypesideEvalParen typesideFnName typesideEvals) =
+    show typesideFnName ++ "(" ++ intercalate ", " (show <$> toList typesideEvals) ++ ")"
+
 data TypesideLiteral
   = TypesideLiteralLowerId String
   | TypesideLiteralUpperId String
   deriving (Eq)
+
+instance Show TypesideLiteral where
+  show (TypesideLiteralLowerId lowerId) = lowerId
+  show (TypesideLiteralUpperId upperId) = upperId
 
 -- SCHEMA
 data SchemaKind

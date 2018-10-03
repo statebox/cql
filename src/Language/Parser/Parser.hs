@@ -3,6 +3,9 @@ module Language.Parser.Parser where
 import           Language.Parser.LexerRules
 import           Language.Parser.ReservedWords
 
+-- base
+import           Data.Foldable                 (fold)
+
 -- megaparsec
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
@@ -26,44 +29,46 @@ constant = L.symbol spaceConsumer
 braces :: Parser a -> Parser a
 braces = between (constant "{") (constant "}")
 
-integerParser :: Parser Integer -- TODO: write tests
-integerParser = lexeme L.decimal
+integerParser :: Parser Integer
+integerParser = L.signed spaceConsumer (lexeme L.decimal)
 
-scientificParser :: Parser Scientific -- TODO: write tests
-scientificParser = lexeme L.scientific
+scientificParser :: Parser Scientific
+scientificParser = L.signed spaceConsumer (lexeme L.scientific)
 
-boolParser :: Parser Bool -- TODO: write tests
+boolParser :: Parser Bool
 boolParser
   = pure True <* constant "true"
   <|> pure False <* constant "false"
 
 textParser :: Parser String -- TODO: write tests
 textParser = do
-  _ <- constant "\""
-  text <- many (escapeSeq <|> show <$> noneOf ['"', '\r', '\n', '\\']) -- TODO: check if the escping is correct
-  _ <- constant "\""
-  pure $ unwords text
+  _ <- char '"'
+  text <- many (escapeSeq <|> (: []) <$> noneOf ['"', '\r', '\n', '\\']) -- TODO: check if the escaping is correct
+  _ <- char '"'
+  pure $ fold text
 
-escapeSeq :: Parser String -- TODO: write tests
-escapeSeq = do
-  _ <- char '\\'
-  escaped
-    <- show <$> oneOf ['b', 't', 'n', 'f', 'r', '"', '\'', '\\', '.']
-    <|> unicodeEsc
-    <|> eof *> pure ""
-  pure escaped
+escapeSeq :: Parser String
+escapeSeq
+  = try ((:) <$> char '\\' <*> unicodeEsc)
+  <|> try ((:) <$> char '\\' <*> (eof *> pure ""))
+  <|> (: []) <$> oneOf ['\b', '\t', '\n', '\f', '\r', '\'', '\\', '\0', '\a', '\v']
+  -- <|> pure "\\."
 
-unicodeEsc :: Parser String -- TODO: write tests
+unicodeEsc :: Parser String
 unicodeEsc
-  = char 'u' *> pure "u"
-  <|> (:)
+  = try ((\a b c d e -> a : b : c : d : e)
     <$> (char 'u')
-    <*> (show <$> hexDigitChar)
-  <|> (:)
+    <*> hexDigitChar
+    <*> hexDigitChar
+    <*> hexDigitChar
+    <*> pure [])
+  <|> try ((\a b c d -> a : b : c : d)
     <$> (char 'u')
-    <*> ((:) <$> hexDigitChar <*> (show <$> hexDigitChar))
-  <|> (:)
+    <*> hexDigitChar
+    <*> hexDigitChar
+    <*> pure [])
+  <|> try ((\a b c -> a : b : c)
     <$> (char 'u')
-    <*>((:)
-      <$> hexDigitChar
-      <*> ((:) <$> hexDigitChar <*> (show <$> hexDigitChar)))
+    <*> hexDigitChar
+    <*> pure [])
+  <|> char 'u' *> pure "u"
