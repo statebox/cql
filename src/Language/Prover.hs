@@ -11,12 +11,13 @@ import Data.Rewriting.Term as T
 import Data.Rewriting.CriticalPair
 import Data.Rewriting.Rule as R
 import Data.Rewriting.Rules as Rs
-import Debug.Trace
 import Language.Options as O hiding (Prover)
+import Debug.Trace
 
 -- Theorem proving ------------------------------------------------
 
 data ProverName = Free | Congruence | Orthogonal | KB | Auto
+ deriving Show 
 
 data Prover var ty sym en fk att gen sk = Prover {
   collage :: Collage var ty sym en fk att gen sk
@@ -47,7 +48,8 @@ createProver col ops =  do p <- proverStringToName ops
                            case p of
                              Free -> freeProver col
                              Orthogonal -> orthProver col ops
-                             _ -> Left "Prover not available"
+                             Auto -> orthProver col ops
+                             z -> Left $ show z ++ " prover not available"
  
 --todo
 
@@ -68,7 +70,6 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
 	           	    	       else Left "Rewriting Error: contains uninhabited sorts"
 	           	          else Left "Rewriting Error: not orthogonal"
 	                 else Left "Rewriting Error: not size decreasing"	  
---  | Allow_Empty_Sorts_Unsafe 
  where p _ (EQ (lhs, rhs)) = nf (convert lhs) == nf (convert rhs)
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col
        eqs2 = Prelude.map convert' eqs1
@@ -82,6 +83,7 @@ convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk
 convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)
 
 noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
+--noOverlaps x = y && (Prelude.null $ trace (show $ cps' x) $ cps' x)
 noOverlaps x = y && (Prelude.null $ cps' x)
  where y = and $ Prelude.map R.isLeftLinear x
 

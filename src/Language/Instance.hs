@@ -1,5 +1,5 @@
 {-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, ScopedTypeVariables #-}
+,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
 
 module Language.Instance where
 import Prelude hiding (EQ)
@@ -10,11 +10,20 @@ import Language.Common
 import Language.Term as Term
 import Language.Typeside as Typeside 
 import Language.Schema as Schema
-import Language.Mapping
-import Language.Query
+import Language.Mapping 
+import Language.Query 
 import Data.Void 
+import Data.Typeable hiding (typeOf)
+import Language.Prover 
+import Language.Options
+import Debug.Trace
 
 --------------------------------------------------------------------------------
+
+typecheckPresentation :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk) 
+ => Schema var ty sym en fk att -> Presentation var ty sym en fk att gen sk -> Err (Presentation var ty sym en fk att gen sk)
+typecheckPresentation sch p = do x <- typeOfCol $ instToCol sch p
+                                 return p
 
 data Algebra var ty sym en fk att gen sk x y
   = Algebra { 
@@ -99,14 +108,15 @@ sepBy' x y = sepBy y x
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
-  show (Algebra sch en nf repr ty nf' repr' teqs) = l ++ "\n talg\n" ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs)
-   where h = Prelude.map (\en' -> show en' ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": " 
-              ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en') ",")
-              ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en') ",")) $ Set.toList $ en en')) (Set.toList $ Schema.ens sch)
-         l = sepBy' "\n" h
-         f x (fk,en') = show   fk  ++ " -> " ++ (show $ aFk alg  fk x )
-         g x (att,ty) = show   att ++ " -> " ++ (show $ aAtt alg att x )
-         alg = Algebra sch en nf repr ty nf' repr' teqs
+  show (Algebra sch en nf repr ty nf' repr' teqs) = 
+    l ++ "\n talg\n" ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs)
+      where h = Prelude.map (\en' -> show en' ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": " 
+                 ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en') ",")
+                 ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en') ",")) $ Set.toList $ en en')) (Set.toList $ Schema.ens sch)
+            l = sepBy' "\n" h
+            f x (fk,en') = show   fk  ++ " -> " ++ (show $ aFk alg  fk x )
+            g x (att,ty) = show   att ++ " -> " ++ (show $ aAtt alg att x )
+            alg = Algebra sch en nf repr ty nf' repr' teqs
           
 
 
@@ -135,7 +145,7 @@ attsFrom' sch en = f $ Map.assocs $ Schema.atts sch
         f ((fk,(en1,t)):l) = if en1 == en then (fk,t) : (f l) else f l
 
 
-data Presentation var ty sym en fk att gen sk 
+data Presentation var ty sym en fk att gen sk
  = Presentation {
     gens    :: Map gen en
   , sks     :: Map sk ty
@@ -145,10 +155,9 @@ data Presentation var ty sym en fk att gen sk
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
   => Show (Presentation var ty sym en fk att gen sk) where
-  show (Presentation ens fks eqs) =
-    "gens = " ++ show ens ++
-    "\nfks = " ++ show fks ++ "\neqs = " ++ show eqs
-
+  show (Presentation ens fks eqs) = "presentation {\n" ++
+    "generators\n" ++ showCtx' ens ++
+    "\nequations\n" ++ intercalate "\n" (Prelude.map show $ Set.toList eqs) ++ "}"
 
 data Instance var ty sym en fk att gen sk x y
   = Instance { 
@@ -196,9 +205,14 @@ up5 (Sk f) = absurd f
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en,
   Eq fk, Eq att)
   => Show (Instance var ty sym en fk att gen sk x y) where
-  show (Instance _ (Presentation gens sks eqs) _ alg) =
-    "gens = " ++ show gens ++
-    "\nsks = " ++ show sks ++ "\neqs = " ++ show eqs ++ "\nalg" ++ show alg
+  show (Instance _ p _ alg) = "instance"
+    ++ show p ++
+    "\n" ++ show alg 
+
+showCtx' m = intercalate "\n\t" $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m 
+
+
+
 
 -- in java we just use pointer equality.  this is better, but really
 -- we want that the intances denote the same set-valued functor,
@@ -211,8 +225,6 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Instance schema (Presentation gens sks eqs) _ _) (Instance schema' (Presentation gens' sks' eqs') _ _)
     = (schema == schema') && (gens == gens') && (sks == sks') && (eqs == eqs')
 
---instance Semantics (Instance var ty sym en fk att gen sk x y)  where
- -- validate = undefined
 
 -- adds one equation per fact in the algebra.
 algebraToPresentation :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
@@ -231,7 +243,7 @@ algebraToPresentation (alg@(Algebra sch en nf repr ty nf' repr' teqs)) = Present
        f' x fk = EQ (Fk fk (Gen x), Gen $ aFk alg fk x)
        g' x att = EQ (Att att (Gen x), up6 $ aAtt alg att x)
        
- -- EQ Void ty sym en fk att gen sk 
+ 
 
 up6 :: Term Void ty sym Void Void Void Void sk -> Term var ty sym en fk att gen sk
 up6 (Var v) = absurd v
@@ -289,8 +301,6 @@ subst' (Sym fs a) t = Sym fs (Prelude.map (\x -> subst' x t) a)
 subst' (Att f a) t = Att f $ subst' a t
 subst' (Fk f a) t = Fk f $ subst' a t
 
-
-
 hasTypeType :: Term Void ty sym en fk att gen sk -> Bool
 hasTypeType (Var f) = absurd f
 hasTypeType (Sym f as) = True
@@ -334,8 +344,6 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
             Just s -> s
             Nothing -> undefined --impossible
        
-
---ex: x -> 
 close :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> [ (Term Void Void Void en fk Void gen Void) ]
 close col dp = y (close1m dp col) $ Prelude.map Gen $ Map.keys $ cgens col
@@ -389,11 +397,104 @@ data InstanceExp where
   deriving Show
 
 data InstExpRaw' = InstExpRaw' {
-    instraw_gens  :: [(String, String)]
-  , instraw_sks :: [(String, String)]
+    instraw_schema :: SchemaExp
+  , instraw_gens  :: [(String, String)]
+--  , instraw_sks :: [(String, String)]
   , instraw_oeqs  :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
-} deriving (Eq, Show)
+} deriving (Show)
+
+
+
+
+
+type Gen = String
+type Sk = String
+
+conv' :: (Typeable ty,Show ty) => [(String, String)] -> Err [(String, ty)]
+conv' [] = pure []
+conv' ((att,ty):tl) = case cast ty of 
+   Just ty' -> do x <- conv' tl
+                  return $ (att, ty'):x
+   Nothing -> Left $ "Not in schema/typeside: " ++ show ty   
+
+
+elem' x [] = False
+elem' x (a:b) = case cast x of 
+  Nothing -> elem' x b 
+  Just x' -> x' == a || elem' x b
+
+split' [] = ([],[])
+split' ((w, Left x):tl) = let (a,b) = split' tl 
+                       in  ((w,x):a, b) 
+split' ((w, Right x):tl) = let (a,b) = split' tl 
+                        in  (a, (w,x):b) 
+
+evalInstanceRaw' :: forall var ty sym en fk att. (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en) 
+ => Schema var ty sym en fk att -> InstExpRaw' -> Err (Presentation var ty sym en fk att Gen Sk)
+evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs ops) = 
+  do (gens, sks) <- zzz
+     gens' <- toMapSafely gens 
+     gens'' <- conv' $ Map.toList gens'
+     sks' <- toMapSafely sks 
+     sks'' <- conv' $ Map.toList sks'
+     eqs' <- f gens sks eqs 
+     typecheckPresentation sch $ Presentation (Map.fromList gens'') (Map.fromList sks'') eqs'
+ where     
+  zzz = do y <- mapM w gens0
+           return $ split' y
+  w (a, b) = case cast b of
+               Nothing -> case cast b of 
+                 Nothing -> Left $ "Not a gen or sch, " ++ b 
+                 Just b' -> return (a, Right b')
+               Just b' -> return (a, Left b')  
+  keys = fst . unzip 
+  --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
+  f gens sks [] = pure $ Set.empty
+  f gens sks ((lhs, rhs):eqs') = do lhs' <- g (keys gens) (keys sks) lhs
+                                    rhs' <- g (keys gens) (keys sks) rhs
+                                    rest <- f gens sks eqs'
+                                    pure $ Set.insert (EQ (lhs', rhs')) rest
+  g' :: [String] -> RawTerm -> Err (Term Void Void Void en fk Void Gen Void)                               
+  g' gens (RawApp x []) | elem x gens = pure $ Gen x
+  g' gens (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_fks sch) = do a' <- g' gens a
+                                                                             case cast x :: Maybe fk of
+                                                                               Just x' -> return $ Fk x' a' 
+  g' gens x = Left $ "cannot type " ++ (show x)                                                                        
+
+  g :: [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)                                   
+  g gens sks (RawApp x []) | elem x gens = pure $ Gen x
+  g gens sks (RawApp x []) | elem x sks = pure $ Sk x
+--  g gens sks (RawApp x []) | otherwise = Left $ "Not a generator: " ++ (show x)
+  
+  g gens sks (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_fks sch) = do a' <- g' gens a
+                                                                                case cast x of
+                                                                                 Just x' -> return $ Fk x' a' 
+  g gens sks (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_atts sch) = do a' <- g' gens a
+                                                                                 case cast x of
+                                                                                  Just x' -> return $ Att x' a' 
+  g gens sks (RawApp v l) = do l' <- mapM (g gens sks) l
+                               case cast v :: Maybe sym of
+                                  Just x -> pure $ Sym x l'
+                                  Nothing -> Left $ "Cannot type: " ++ v   
+
+
+                                        
+--todo: check model satisfaction for algebra here
+evalInstanceRaw :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en) 
+  => Schema var ty sym en fk att -> InstExpRaw' -> Err InstanceEx
+evalInstanceRaw ty t =
+ do r <- evalInstanceRaw' ty t 
+    l <- toOptions $ instraw_options t
+    p <- createProver (instToCol ty r) l
+    pure $ InstanceEx $ initialInstance r (f p) ty 
+ where
+  f p (EQ (l,r)) = prove p (Map.fromList []) (EQ ( l,  r))
+  
+
+
+
+
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')

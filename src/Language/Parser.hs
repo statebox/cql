@@ -13,6 +13,7 @@ import           Language.Parser.LexerRules
 import           Language.Parser.Parser
 import           Language.Parser.Typeside as T'
 import           Language.Parser.Schema as S'
+import           Language.Parser.Instance as I
 import           Data.List                  (foldl')
 import           Data.Maybe
 import           Text.Megaparsec
@@ -33,6 +34,12 @@ parseAqlProgram' = do _ <- constant "typeside"
                       _ <- constant "="
                       y <- schemaExpParser
                       return $ (x, ExpS y)
+                   <|> 
+                   do _ <- constant "instance" 
+                      x <- identifier
+                      _ <- constant "="
+                      y <- instExpParser
+                      return $ (x, ExpI y)   
 
 
 

@@ -26,41 +26,38 @@ import Data.Void
 runProg :: String -> Err (Prog, Types, Env)
 runProg p = do p1 <- parseAqlProgram p
                o  <- findOrder p1
-               p2 <- y o p1
-               p3 <- d o p1
+               p2 <- typecheckAqlProgram o p1
+               p3 <- evalAqlProgram o p1 newEnv
                return (p1, p2, p3)
- where x o p1 = typecheckAqlProgram o p1
-       y o p1 = case x o p1 of 
-             Left z -> Left $ "Type error: " ++ z 
-             Right a -> Right a  
-       c o p1 = evalAqlProgram o p1 newEnv
-       d o p1 = case c o p1 of 
-                  Left z -> Left $ "Eval error: " ++ z 
-                  Right a -> Right a                     
-
-
-
--- kinds ---------------
-
--- todo: raw string based syntax with type inference, etc
-
-
+         
 --todo: store exception info in other field
 type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx ()
 
+wrapError s e = case e of
+  Left s' -> Left $ s ++ ": " ++ s'
+  Right r -> Right r
 
 -- type Types = KindCtx () TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
 
 -- some ordering - could be program order, but not necessarily
+-- todo: could be backwards, will check w/ mappings, queries 
 typecheckAqlProgram :: [(String,Kind)] -> Prog -> Err Types
 typecheckAqlProgram [] _ = pure newTypes
-typecheckAqlProgram ((v,TYPESIDE):l) prog = do t <- typecheckTypesideExp prog $ lookup2 v (typesides prog) 
+typecheckAqlProgram ((v,TYPESIDE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckTypesideExp prog $ lookup2 v (typesides prog) 
                                                x <- typecheckAqlProgram l prog
                                                return $ x { typesides = Map.insert v t $ typesides x }
-typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- typecheckSchemaExp prog $ lookup2 v (schemas prog) 
+typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckSchemaExp prog $ lookup2 v (schemas prog) 
                                              x <- typecheckAqlProgram l prog
                                              return $ x { schemas = Map.insert v t $ schemas x }
+typecheckAqlProgram ((v,INSTANCE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckInstExp prog $ lookup2 v (instances prog) 
+                                               x <- typecheckAqlProgram l prog
+                                               return $ x { instances = Map.insert v t $ instances x }
 
+typecheckInstExp :: Prog -> InstanceExp -> Err SchemaExp 
+typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
+                                        typecheckInstExp p t  
+typecheckInstExp p (InstanceInitial s) = pure s
+typecheckInstExp p (InstanceRaw r) = pure $ instraw_schema r
 
 typecheckTypesideExp :: Prog -> TypesideExp -> Err ()
 typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
@@ -80,11 +77,13 @@ typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
                                              else Left "Coproduct has non equal typesides"
 
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
-evalAqlProgram [] _ _ = pure newEnv
-evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- evalTypeside prog env $ lookup2 v (typesides prog) 
+evalAqlProgram [] _ e = pure e
+evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTypeside prog env $ lookup2 v (typesides prog) 
                                               evalAqlProgram l prog $ env { typesides = Map.insert v t $ typesides env }
-evalAqlProgram ((v,SCHEMA):l) prog env = do t <- evalSchema prog env $ lookup2 v (schemas prog) 
+evalAqlProgram ((v,SCHEMA):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalSchema prog env $ lookup2 v (schemas prog) 
                                             evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
+evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalInstance prog env $ lookup2 v (instances prog) 
+                                              evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
  
 --todo: check acyclic with Data.Graph.DAG
 
@@ -94,7 +93,6 @@ findOrder :: Prog -> Err [(String, Kind)]
 findOrder p = pure $ other p --todo: for now
 
 ------------------------------------------------------------------------------------------------------------
-
  
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
 evalTypeside _ _ (TypesideRaw r) = evalTypesideRaw r
@@ -127,8 +125,14 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                             --             (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra ts''
                                              --           undefined undefined undefined undefined undefined undefined 
                                              --           undefined 
+evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_schema r 
+                                           case t of
+                                            SchemaEx t' -> do l <- evalInstanceRaw t' r 
+                                                              pure $ l
+
 evalInstance _ _ _ = undefined
 
+{--
 evalTransform :: p -> KindCtx ts s i m q b o -> TransformExp -> Either [Char] b
 evalTransform _ env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env
 evalTransform _ _ _ = undefined
@@ -136,4 +140,4 @@ evalTransform _ _ _ = undefined
 
 evalMapping :: p -> KindCtx ts s i b q t o -> MappingExp -> Either [Char] b
 evalMapping _ env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
-evalMapping _ _ _ = undefined
+evalMapping _ _ _ = undefined --}

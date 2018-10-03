@@ -11,6 +11,7 @@ import Data.Void
 import Language.Prover
 import Language.Options
 import Data.Typeable 
+import Data.List (intercalate)
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l
@@ -56,10 +57,14 @@ instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
     = (tys' == tys'') && (syms' == syms'') && (eqs' == eqs'')
 
 instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
-  show (Typeside tys' syms' eqs' _) =
-    "tys = "    ++ show tys' ++
-    "\nsyms = " ++ show syms' ++
-    "\neqs = "  ++ show eqs'
+  show (Typeside tys' syms' eqs' _) = "typeside {\n" ++
+    "types\n\t"    ++ intercalate "\n\t" (Prelude.map show $ Set.toList tys') ++
+    "\nfunctions\n\t" ++ intercalate "\n\t" syms'' ++
+    "\nequations\n\t"  ++ intercalate "\n\t" eqs'' ++ " }"
+   where syms'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList syms' 
+         eqs''  = Prelude.map (\(k,s) -> "forall " ++ showCtx k ++ " . " ++ show s) $ Set.toList eqs' 
+
+showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m 
 
 typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err (Typeside var ty sym)
 typecheckTypeside x = do _ <- (typeOfCol . tsToCol) x

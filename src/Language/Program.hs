@@ -15,7 +15,7 @@ import Language.Mapping as M
 import Language.Typeside as T
 import Language.Transform as Tr
 import Language.Query as Q
-
+import Data.List (intercalate)
 
 
 data Exp = 
@@ -34,7 +34,19 @@ data KindCtx ts s i m q t o = KindCtx {
   , queries :: Ctx String q
   , transforms :: Ctx String t
   , other :: o
-} deriving Show
+} 
+
+instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (KindCtx ts s i m q t o) where 
+     show (KindCtx ts s i m q t o) =
+        "typesides\n" ++ showCtx'' ts ++
+        "schemas\n" ++ showCtx'' s ++
+        "instances\n" ++ showCtx'' i ++
+        "mappings\n" ++ showCtx'' m ++
+        "queries\n" ++ showCtx'' q ++
+        "transforms\n" ++ showCtx'' t ++ 
+        "other\n" ++ show o ++ "\n"
+
+showCtx'' m = intercalate "\n" $ Prelude.map (\(k,v) -> show k ++ " = " ++ show v ++ "\n") $ Map.toList m
 
 lookup' :: (Show k, Show a, Ord k) => k -> Map k a -> a
 lookup' m v = f $ Map.lookup m v

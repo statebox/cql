@@ -20,10 +20,8 @@ rawTermParser =
           _ <- constant ")" 
           return $ RawApp f a)
   <|>
-  try (do t <- identifier 
-          _ <- constant "."
-          l <- identifier 
-          return $ RawApp l [RawApp t []])
+  try (do t <- sepBy1 identifier $ constant "." 
+          return $ Prelude.foldl (\y x -> RawApp x [y]) (RawApp (head t) []) $ tail t)
   <|>  
   try (do i <- identifier 
           return $ RawApp i [])
