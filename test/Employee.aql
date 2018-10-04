@@ -1,0 +1,48 @@
+typeside T = literal {  
+	types  
+		string   
+ 		nat  
+	constants  
+ 		Al Akin Bob Bo Carl Cork Dan Dunn Math CS : string  
+ 		zero : nat  
+ 	functions 		  
+	 	succ : nat -> nat  
+	 	plus : nat, nat -> nat  
+	equations    
+	 	forall x : nat. plus(zero, x) = x  
+	 	forall x y : nat. plus(succ(x),y) = succ(plus(x,y))  
+	options  
+		prover = program  
+		program_allow_nonterm_unsafe = true  
+ }
+
+schema S = literal : T {   
+	entities  
+		Employee 
+		Department 
+	foreign_keys 
+		manager   : Employee -> Employee 
+		worksIn   : Employee -> Department 
+		secretary : Department -> Employee 
+	path_equations  
+	attributes 
+  	    first last : Employee -> string 
+     	age : Employee -> nat 
+     	name : Department -> string 
+    options 
+		prover = program 
+		program_allow_nonterm_unsafe = true   
+		allow_empty_sorts_unsafe = true   
+    }
+
+instance I = literal : S { 
+	generators  
+		a b : Employee 
+	equations  
+	    a.manager=a a.worksIn.secretary=a     
+	    b.manager=a b.worksIn = a.worksIn    
+
+    options  
+        program_allow_nonterm_unsafe = true   
+        allow_empty_sorts_unsafe = true   
+}    

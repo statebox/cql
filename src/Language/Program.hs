@@ -39,12 +39,12 @@ data KindCtx ts s i m q t o = KindCtx {
 instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (KindCtx ts s i m q t o) where 
      show (KindCtx ts s i m q t o) =
         "typesides\n" ++ showCtx'' ts ++
-        "schemas\n" ++ showCtx'' s ++
-        "instances\n" ++ showCtx'' i ++
-        "mappings\n" ++ showCtx'' m ++
-        "queries\n" ++ showCtx'' q ++
-        "transforms\n" ++ showCtx'' t ++ 
-        "other\n" ++ show o ++ "\n"
+        "\nschemas\n" ++ showCtx'' s ++
+        "\ninstances\n" ++ showCtx'' i ++
+        "\nmappings\n" ++ showCtx'' m ++
+        "\nqueries\n" ++ showCtx'' q ++
+        "\ntransforms\n" ++ showCtx'' t ++ 
+        "\nother\n" ++ show o ++ "\n"
 
 showCtx'' m = intercalate "\n" $ Prelude.map (\(k,v) -> show k ++ " = " ++ show v ++ "\n") $ Map.toList m
 
