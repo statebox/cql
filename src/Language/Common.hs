@@ -17,7 +17,6 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
  
 type ID = Integer
 
-fromJust (Just x) = x
 
 toMapSafely [] = return $ Map.empty
 toMapSafely ((k,v):x) = 

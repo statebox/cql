@@ -44,7 +44,7 @@ initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd 
 
 data TypesideEx :: * where
- TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym, Ord var, Ord ty, Ord sym, Typeable ty, Typeable sym) =>
+ TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym, Ord var, Ord ty, Ord sym, Typeable ty, Typeable sym, Typeable var) =>
   Typeside var ty sym -> TypesideEx
 
 deriving instance Show (TypesideEx) 

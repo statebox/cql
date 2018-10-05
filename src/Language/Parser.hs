@@ -14,6 +14,7 @@ import           Language.Parser.Parser
 import           Language.Parser.Typeside as T'
 import           Language.Parser.Schema as S'
 import           Language.Parser.Instance as I
+import           Language.Parser.Mapping as M
 import           Data.List                  (foldl')
 import           Data.Maybe
 import           Text.Megaparsec
@@ -39,7 +40,13 @@ parseAqlProgram' = do _ <- constant "typeside"
                       x <- identifier
                       _ <- constant "="
                       y <- instExpParser
-                      return $ (x, ExpI y)   
+                      return $ (x, ExpI y)  
+                   <|> 
+                   do _ <- constant "mapping" 
+                      x <- identifier
+                      _ <- constant "="
+                      y <- mapExpParser
+                      return $ (x, ExpM y)    
 
 
 

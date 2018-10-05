@@ -13,6 +13,7 @@ import Language.Options
 import Language.Prover
 import Data.Typeable
 import Data.List (intercalate)
+import Data.Maybe
 
 
 data SchemaExp where
@@ -172,7 +173,7 @@ evalSchemaRaw' (x@(Typeside tys sym eqs _)) (SchemaExpRaw' ts ens fks atts peqs 
                                         
 
 
-evalSchemaRaw :: (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym) 
+evalSchemaRaw :: (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym, Typeable var) 
  => Typeside var ty sym -> SchemaExpRaw' -> Err SchemaEx
 evalSchemaRaw ty t =
  do r <- evalSchemaRaw' ty t 
@@ -202,7 +203,8 @@ up8' (Sk s) = absurd s
 
 data SchemaEx :: * where
   SchemaEx :: forall var ty sym en fk att. 
-    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Typeable sym, Typeable ty, Typeable fk, Typeable att, Typeable en, Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att) =>
+    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Typeable sym, Typeable ty, 
+      Typeable var, Typeable fk, Typeable att, Typeable en, Typeable en, Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att) =>
     Schema var ty sym en fk att -> SchemaEx
 
 deriving instance Show (SchemaEx)     

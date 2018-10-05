@@ -21,6 +21,7 @@ import           Data.List.NonEmpty
 import Language.Parser (parseAqlProgram)
 import Language.Program as P
 import Data.Void
+import Data.Typeable
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -52,6 +53,21 @@ typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- wrapError ("Type Error in " ++
 typecheckAqlProgram ((v,INSTANCE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckInstExp prog $ lookup2 v (instances prog) 
                                                x <- typecheckAqlProgram l prog
                                                return $ x { instances = Map.insert v t $ instances x }
+typecheckAqlProgram ((v,MAPPING):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckMapExp prog $ lookup2 v ( mappings prog) 
+                                              x <- typecheckAqlProgram l prog
+                                              return $ x { mappings = Map.insert v t $ mappings x }
+
+typecheckMapExp :: Prog -> MappingExp -> Err (SchemaExp, SchemaExp) 
+typecheckMapExp p (MappingVar v) = do t <- note ("Undefined mapping: " ++ show v) $ Map.lookup v $ mappings p
+                                      typecheckMapExp p t  
+typecheckMapExp p (MappingId s) = pure (s, s)
+typecheckMapExp p (MappingRaw r) = do l' <- typecheckSchemaExp p $ mapraw_src r
+                                      r' <- typecheckSchemaExp p $ mapraw_dst r
+                                      if   l' == r' 
+                                      then pure $ (mapraw_src r, mapraw_dst r)
+                                      else Left "Mapping has non equal typesides"
+
+
 
 typecheckInstExp :: Prog -> InstanceExp -> Err SchemaExp 
 typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
@@ -59,11 +75,11 @@ typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ sho
 typecheckInstExp p (InstanceInitial s) = pure s
 typecheckInstExp p (InstanceRaw r) = pure $ instraw_schema r
 
-typecheckTypesideExp :: Prog -> TypesideExp -> Err ()
+typecheckTypesideExp :: Prog -> TypesideExp -> Err TypesideExp
 typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
                                             typecheckTypesideExp p t  
-typecheckTypesideExp p TypesideInitial = pure ()
-typecheckTypesideExp p (TypesideRaw _) = pure ()
+typecheckTypesideExp p TypesideInitial = pure TypesideInitial
+typecheckTypesideExp p (TypesideRaw r) = pure $ TypesideRaw r
 
 typecheckSchemaExp p (SchemaRaw r) = pure $ schraw_ts r
 typecheckSchemaExp p (SchemaVar v) = do t <- note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
@@ -84,6 +100,8 @@ evalAqlProgram ((v,SCHEMA):l) prog env = do t <- wrapError ("Eval Error in " ++ 
                                             evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
 evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalInstance prog env $ lookup2 v (instances prog) 
                                               evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
+evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalMapping prog env $ lookup2 v (mappings prog) 
+                                             evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }
  
 --todo: check acyclic with Data.Graph.DAG
 
@@ -101,11 +119,30 @@ evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Just (TypesideEx e) -> Right $ TypesideEx e
 evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ initialTypeside
 
+convSchema :: (Typeable var1, Typeable ty1, Typeable sym1, Typeable en1, Typeable fk1, Typeable att1,
+               Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+     => Schema var1 ty1 sym1 en1 fk1 att1 -> Schema var ty sym en fk att
+convSchema x = fromJust $ cast x
+
+evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx 
+evalMapping p env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
+evalMapping p env (MappingId s) = do (SchemaEx s') <- evalSchema p env s
+                                     return $ MappingEx $ Prelude.foldr (\en (Mapping s t e f a) -> Mapping s t (Map.insert en en e) (f' en s' f) (g' en s' a)) (Mapping s' s' Map.empty Map.empty Map.empty) (S.ens s') 
+ where f' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ fksFrom' s' en
+       g' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ attsFrom' s' en
+ 
+evalMapping p env (MappingRaw r) = do s0 <- evalSchema p env $ mapraw_src r 
+                                      s1 <- evalSchema p env $ mapraw_dst r
+                                      case s0 of 
+                                        SchemaEx s -> case s1 of 
+                                           SchemaEx (t::Schema var ty sym en fk att) -> 
+                                             evalMappingRaw ((convSchema s) :: Schema var ty sym en fk att) t r --ok bc typecheck says same ts 
+                                       
 
 f :: Typeside var ty sym -> Schema var ty sym Void Void Void
 f ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined
 
-evalSchema :: Prog -> Env -> SchemaExp -> Either String SchemaEx
+evalSchema :: Prog -> Env -> SchemaExp -> Err SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
 evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
                                             case ts' of
@@ -120,17 +157,15 @@ evalInstance :: Prog -> KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx
 evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
 evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                                case ts' of
-                                                 SchemaEx ts'' -> undefined 
-                                            --      pure $ InstanceEx $ Instance ts''
-                                            --             (Presentation Map.empty Map.empty Set.empty) undefined $ Algebra ts''
-                                             --           undefined undefined undefined undefined undefined undefined 
-                                             --           undefined 
+                                                 SchemaEx ts'' -> pure $ InstanceEx $ emptyInstance ts''
+
 evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_schema r 
                                            case t of
                                             SchemaEx t' -> do l <- evalInstanceRaw t' r 
                                                               pure $ l
 
 evalInstance _ _ _ = undefined
+
 
 {--
 evalTransform :: p -> KindCtx ts s i m q b o -> TransformExp -> Either [Char] b

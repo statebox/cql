@@ -57,7 +57,7 @@ lookup' m v = f $ Map.lookup m v
 --todo: store line numbers in other field 
 type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp ([(String,Kind)])
 
-type Types = KindCtx () TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
+type Types = KindCtx TypesideExp TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
 
 newProg :: KindCtx ts s i m q t [a]
 newProg = KindCtx m m m m m m []

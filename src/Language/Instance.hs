@@ -20,6 +20,13 @@ import Debug.Trace
 
 --------------------------------------------------------------------------------
 
+emptyInstance :: Schema var ty sym en fk att -> Instance var ty sym en fk att Void Void Void Void
+emptyInstance ts'' = Instance ts'' (Presentation Map.empty Map.empty Set.empty) 
+                              (\_ -> undefined) $ Algebra ts''
+                                                     (\x -> Set.empty) (\x -> undefined) (\x -> undefined)
+                                                      (\x -> Set.empty) (\x -> undefined) (\x -> undefined)
+                                                        Set.empty
+
 typecheckPresentation :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk) 
  => Schema var ty sym en fk att -> Presentation var ty sym en fk att gen sk -> Err (Presentation var ty sym en fk att gen sk)
 typecheckPresentation sch p = do x <- typeOfCol $ instToCol sch p
@@ -415,11 +422,12 @@ conv' ((att,ty):tl) = case cast ty of
    Just ty' -> do x <- conv' tl
                   return $ (att, ty'):x
    Nothing -> Left $ "Not in schema/typeside: " ++ show ty   
-
+{--
 elem' x [] = False
 elem' x (a:b) = case cast x of 
   Nothing -> elem' x b 
   Just x' -> x' == a || elem' x b
+  --}
 
 split' [] = ([],[])
 split' ((w, Left x):tl) = let (a,b) = split' tl 
