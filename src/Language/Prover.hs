@@ -50,8 +50,7 @@ createProver col ops =  do p <- proverStringToName ops
                              Orthogonal -> orthProver col ops
                              Auto -> orthProver col ops
                              z -> Left $ show z ++ " prover not available"
- 
---todo
+
 
 -- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
@@ -94,8 +93,8 @@ convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att g
 convert (S.Var v) = T.Var v 
 convert (S.Gen g) = T.Fun (Right $ Right $ Right $ Left  g) []
 convert (S.Sk  g) = T.Fun (Right $ Right $ Right $ Right g) []
-convert (S.Att g a) = T.Fun (Right $ Right $ Left g) [convert $ upTerm a]
-convert (S.Fk  g a) = T.Fun (Right $ Left g) [convert $ upTerm a]
+convert (S.Att g a) = T.Fun (Right $ Right $ Left g) [convert a]
+convert (S.Fk  g a) = T.Fun (Right $ Left g) [convert a]
 convert (S.Sym g as) = T.Fun (Left g) $ Prelude.map convert as
 
 

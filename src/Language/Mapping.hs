@@ -25,6 +25,10 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
+
+
+mapToMor (Mapping src dst ens fks atts) = Morphism (schToCol src) (schToCol dst) ens fks atts Map.empty Map.empty
+
 data MappingEx :: * where
   MappingEx :: forall var ty sym en fk att en' fk' att'. 
    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>  
@@ -43,9 +47,11 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   (Mapping s1' s2' ens' fks' atts') == (Mapping s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
 
-typecheckMapping :: Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
- -> Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att') 
-typecheckMapping src dst = undefined
+typecheckMapping ::   (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
+    Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
+ Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att') 
+typecheckMapping m = do _ <- typeOfMor $ mapToMor m
+                        return m
 
 
 data MappingExp   where
@@ -85,7 +91,7 @@ elem' x (a:b) = case cast x of
   Just x' -> x' == a || elem' x b
 
 evalMappingRaw' :: forall var ty sym en fk att en' fk' att' .
-  (Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
+  (Ord var, Ord ty, Ord sym, Show att, Show att', Show sym, Show var, Show ty, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk) =>
   Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' 
  -> Err (Mapping var ty sym en fk att en' fk' att')
@@ -94,7 +100,7 @@ evalMappingRaw' src dst (MappingExpRaw' _ _ ens0 fks0 atts0 ops) =
      ens2 <- toMapSafely ens1 
      x <- k fks0
      y <- f atts0
-     typecheckMapping src dst $ Mapping src dst ens2 x y  
+     typecheckMapping $ Mapping src dst ens2 x y  
  where    
   keys = fst . unzip 
   fks = Map.toList $ X.fks dst

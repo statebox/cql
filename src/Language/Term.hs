@@ -9,13 +9,14 @@ import Data.Map.Strict as Map hiding (size, foldr)
 import Data.Void
 import Data.List (intercalate)
 import Language.Common
+import Data.Maybe
 
 
-data Term var ty sym en fk att gen sk
+data Term var ty sym en fk att gen sk 
   = Var var
   | Sym sym  [Term var ty sym en fk att gen sk]
-  | Fk  fk   (Term var Void Void en fk Void gen Void)
-  | Att att  (Term var Void Void en fk Void gen Void)
+  | Fk  fk   (Term var ty sym en fk att gen sk)
+  | Att att  (Term var ty sym en fk att gen sk)
   | Gen gen
   | Sk  sk 
 
@@ -39,6 +40,40 @@ vars (Fk f a) = vars a
 vars (Sym f as) = concatMap vars as 
 
 
+up :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
+up (Var f) = absurd f
+up (Sym f x) = absurd f
+up (Fk f a) = Fk f $ up a
+up (Att f a) = absurd f
+up (Gen f) = Gen f
+up (Sk f) = absurd f
+
+up2 :: Term () ty sym en fk att Void Void -> Term (()+var) ty sym en fk att x y
+up2 (Var _) = Var $ Left ()
+up2 (Sym f x) = Sym f $ Prelude.map up2 x
+up2 (Fk f a) = Fk f $ up2 a
+up2 (Att f a) = Att f $ up2 a
+up2 (Gen f) = absurd f
+up2 (Sk f) = absurd f
+
+
+up3 :: Term () Void Void en fk Void Void Void -> Term (()+var) ty sym en fk att x y
+up3 (Var _) = Var $ Left ()
+up3 (Sym f _) = absurd f
+up3 (Fk f a) = Fk f $ up3 a
+up3 (Att f _) = absurd f
+up3 (Gen f) = absurd f
+up3 (Sk f) = absurd f
+
+
+
+up4 :: Term Void ty sym en fk att gen sk -> Term x ty sym en fk att gen sk
+up4 (Var v) = absurd v
+up4 (Sym f x) = Sym f $ Prelude.map up4 x
+up4 (Fk f a) = Fk f $ up4 a
+up4 (Att f a) = Att f $ up4 a
+up4 (Gen f) = Gen f
+up4 (Sk f) = Sk f
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
   Show (Term var ty sym en fk att gen sk)
@@ -76,6 +111,118 @@ data Collage var ty sym en fk att gen sk
   , cgens :: Map gen en
   , csks  :: Map sk ty
   } deriving (Eq, Show)
+
+
+
+data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
+  = Morphism {
+    m_src  :: Collage (()+var) ty sym en fk att gen sk
+  , m_dst  :: Collage (()+var) ty sym en' fk' att' gen' sk'   
+  , m_ens  :: Map en  en'
+  , m_fks  :: Map fk  (Term () Void Void en' fk' Void Void Void)
+  , m_atts :: Map att (Term () ty   sym  en' fk' att' Void Void) 
+  , m_gens :: Map gen (Term Void Void Void en' fk' Void gen' Void)
+  , m_sks  :: Map sk  (Term Void  ty   sym  en' fk' att'  gen' sk')
+}
+
+{--
+up11 :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
+up11 = undefined
+--}
+up12 :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
+up12 = undefined
+
+up13 :: Term () Void Void en' fk' Void Void Void -> Term () ty sym en' fk' att' gen' sk'
+up13 = undefined
+
+up14 :: Term () ty   sym  en' fk' att' Void Void -> Term () ty sym en' fk' att' gen' sk'
+up14 = undefined
+
+trans :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' . 
+ (Ord gen, Ord sk, Ord fk, Eq var, Ord att) =>
+ Morphism var ty sym en fk att gen sk en' fk' att' gen' sk' ->
+ Term var ty sym en fk att gen sk -> Term var ty sym en' fk' att' gen' sk'
+trans mor (Var x) = Var x
+trans mor (Sym f xs) = Sym f $ Prelude.map (trans mor) xs
+trans mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
+trans mor (Sk s) = up4 $ fromJust $ Map.lookup s (m_sks mor)
+trans mor (Fk f a) = let x = trans mor a :: Term var ty sym en' fk' att' gen' sk'
+                         y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
+                     in subst (up13 y) x 
+trans mor (Att f a) = subst (up14 $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
+
+
+subst :: Eq var => Term () ty sym en fk att gen sk ->  
+  Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
+subst (Var ()) t = t
+subst (Sym f as)  t = Sym f $ Prelude.map (\x -> subst x t) as 
+subst (Fk f a)  t = Fk f $ subst a t
+subst (Att f a)  t = Att f $ subst a t
+subst (Gen g)  t = Gen g
+subst (Sk g)  t = Sk g
+
+
+checkDoms' :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .
+   (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym,
+    Ord gen', Show gen', Ord sk', Show sk', Ord fk', Show fk', Ord en', Show en', Show att', Ord att')
+   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
+   -> Err ()
+checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor 
+                    _ <- mapM f $ Map.keys $ cfks $ m_src mor 
+                    _ <- mapM a $ Map.keys $ catts $ m_src mor 
+                    _ <- mapM g $ Map.keys $ cgens $ m_src mor 
+                    _ <- mapM s $ Map.keys $ csks $ m_src mor 
+                    pure ()
+  where e en = if Map.member en $ m_ens  mor then pure () else Left $ "No entity mapping for " ++ show en                  
+        f fk = if Map.member fk $ m_fks  mor then pure () else Left $ "No fk mapping for " ++ show fk                  
+        a at = if Map.member at $ m_atts mor then pure () else Left $ "No att mapping for " ++ show at                  
+        g gn = if Map.member gn $ m_gens mor then pure () else Left $ "No gen mapping for " ++ show gn                  
+        s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No gen mapping for " ++ show sk
+
+typeOfMor
+  :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .
+   (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym,
+    Ord gen', Show gen', Ord sk', Show sk', Ord fk', Show fk', Ord en', Show en', Show att', Ord att')
+   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
+   -> Err ()
+typeOfMor mor  = do checkDoms' mor
+                    _ <- mapM typeOfMorEns $ Map.toList $ m_ens mor 
+                    _ <- mapM typeOfMorFks $ Map.toList $ m_fks mor 
+                    _ <- mapM typeOfMorAtts $ Map.toList $ m_atts mor 
+                    _ <- mapM typeOfMorGens $ Map.toList $ m_gens mor 
+                    _ <- mapM typeOfMorSks $ Map.toList $ m_sks mor 
+                    pure ()
+ where transE en = case (Map.lookup en (m_ens mor)) of Just x -> x
+       typeOfMorEns (e,e') | elem e (cens $ m_src mor) && elem e' (cens $ m_dst mor) = pure ()                 
+       typeOfMorEns (e,e') = Left $ "Bad entity mapping " ++ show e ++ " -> " ++ show e'
+       typeOfMorFks :: (fk, Term () Void Void en' fk' Void Void Void) -> Err ()
+       typeOfMorFks (fk,e) | Map.member fk (cfks $ m_src mor) 
+         = let (s,t) = fromJust $ Map.lookup fk $ cfks $ m_src mor 
+               (s',t') = (transE s, transE t)
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (), Right s')]) $ up3 e 
+                 if t0 == Right t' then pure () else Left $ "Ill typed in " ++ show fk ++ ": " ++ show e 
+       typeOfMorFks (e,e') = Left $ "Bad fk mapping " ++ show e ++ " -> " ++ show e'
+       typeOfMorAtts (att,e) | Map.member att (catts $ m_src mor) 
+         = let (s,t) = fromJust $ Map.lookup att $ catts $ m_src mor
+               s' = transE s
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (),Right s')]) $ up2 e  
+                 if t0 == Left t then pure () else Left $ "Ill typed in " ++ show att ++ ": " ++ show e
+       typeOfMorAtts (e,e') = Left $ "Bad att mapping " ++ show e ++ " -> " ++ show e'
+       typeOfMorGens (gen,e) | Map.member gen (cgens $ m_src mor) 
+         = let t = fromJust $ Map.lookup gen $ cgens $ m_src mor
+               t' = transE t
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up e  
+                 if t0 == Right t' then pure () else Left $ "Ill typed in " ++ show gen ++ ": " ++ show e
+       typeOfMorGens (e,e') = Left $ "Bad gen mapping " ++ show e ++ " -> " ++ show e'
+       typeOfMorSks (sk,e) | Map.member sk (csks $ m_src mor) 
+         = let t = fromJust $ Map.lookup sk $ csks $ m_src mor 
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up4 e  
+                 if t0 == Left t then pure () else Left $ "Ill typed in " ++ show sk ++ ": " ++ show e
+       typeOfMorSks (e,e') = Left $ "Bad null mapping " ++ show e ++ " -> " ++ show e'
+
+
+
+
 
 initGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) 
 initGround col = (me', mt') 
@@ -129,12 +276,12 @@ typeOf' col ctx (Sk s) = case Map.lookup s $ csks col of
   Just t -> pure $ Left t
 typeOf' col ctx (xx@(Fk f a)) = case Map.lookup f $ cfks col of
   Nothing -> Left $ "Unknown foreign key: " ++ show f
-  Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
+  Just (s, t) -> do s' <- typeOf' col ctx a 
                     if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
 typeOf' col ctx (xx@(Att f a)) = case Map.lookup f $ catts col of
   Nothing -> Left $ "Unknown attribute: " ++ show f
-  Just (s, t) -> do s' <- typeOf' col ctx $ upTerm a 
+  Just (s, t) -> do s' <- typeOf' col ctx a 
                     if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
 typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of

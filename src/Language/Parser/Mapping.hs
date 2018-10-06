@@ -32,7 +32,7 @@ mappingRawParser = do
         s <- schemaExpParser
         _ <- constant "->"
         t <- schemaExpParser
-        m <- braces $ (q' s t) --why try here? question by ryan
+        m <- braces $ (q' s t) 
         pure $ m   
  where p   = do  x <- do
                     _ <- constant "entity"

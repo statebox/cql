@@ -29,7 +29,8 @@ typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord f
 typecheckSchema t = do x <- typeOfCol $ schToCol  t
                        return t
 
-schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att) => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
+schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att) 
+  => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
  Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
   ens' (csyms tscol) fks' atts' Map.empty Map.empty
@@ -39,22 +40,6 @@ schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
          e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (up1 l, up1 r))) $ ceqs tscol
 
 
-up2 :: Term () ty sym en fk att Void Void -> Term (()+var) ty sym en fk att x y
-up2 (Var _) = Var $ Left ()
-up2 (Sym f x) = Sym f $ Prelude.map up2 x
-up2 (Fk f a) = Fk f $ up2 a
-up2 (Att f a) = Att f $ up2 a
-up2 (Gen f) = absurd f
-up2 (Sk f) = absurd f
-
-
-up3 :: Term () Void Void en fk Void Void Void -> Term (()+var) ty sym en fk att x y
-up3 (Var _) = Var $ Left ()
-up3 (Sym f _) = absurd f
-up3 (Fk f a) = Fk f $ up3 a
-up3 (Att f _) = absurd f
-up3 (Gen f) = absurd f
-up3 (Sk f) = absurd f
 
 up4' :: z -> Term () ty sym en fk att x y -> Term z ty sym en fk att x y
 up4' z (Var _) = Var $ z
@@ -142,13 +127,13 @@ evalSchemaRaw' (x@(Typeside tys sym eqs _)) (SchemaExpRaw' ts ens fks atts peqs 
                                   rhs' <- return $ g v (keys fks) (keys atts) rhs
                                   rest <- f eqs'
                                   pure $ Set.insert (en, EQ (lhs', rhs')) rest
-  g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void                                 
-  g' v fks atts (RawApp x []) | v == x = Var ()
-  g' v fks atts (RawApp x (a:[])) | elem x fks = Fk x $ g' v fks atts a 
+--  g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void                                 
+--  g' v fks atts (RawApp x []) | v == x = Var ()
+--  g' v fks atts (RawApp x (a:[])) | elem x fks = Fk x $ g' v fks atts a 
   g :: Typeable sym => String ->[String]-> [String] -> RawTerm-> Term () ty sym en Fk Att  Void Void                                   
   g v fks atts (RawApp x []) | v == x = Var ()
-  g v fks atts (RawApp x (a:[])) | elem x fks = Fk x $ g' v fks atts a 
-  g v fks atts (RawApp x (a:[])) | elem x atts = Att x $ g' v fks atts a 
+  g v fks atts (RawApp x (a:[])) | elem x fks = Fk x $ g v fks atts a 
+  g v fks atts (RawApp x (a:[])) | elem x atts = Att x $ g v fks atts a 
   g u fks atts (RawApp v l) = let l' = Prelude.map (g u fks atts) l
                               in case cast v of
                                   Just x -> Sym x l'
@@ -188,18 +173,10 @@ evalSchemaRaw ty t =
 up8 :: Term () ty sym En Fk Att Void Void -> Term (() + var) ty sym En Fk Att Void Void 
 up8 (Var v) = Var $ Left v
 up8 (Sym f as) = Sym f $ Prelude.map up8 as
-up8 (Fk f a) = Fk f $ up8' a
-up8 (Att f a) = Att f $ up8' a
+up8 (Fk f a) = Fk f $ up8 a
+up8 (Att f a) = Att f $ up8 a
 up8 (Gen g) = absurd g
 up8 (Sk s) = absurd s
-
-up8' :: Term () Void Void En Fk Void Void Void -> Term (() + var) Void Void En Fk Void Void Void 
-up8' (Var v) = Var $ Left v
-up8' (Sym f as) = absurd f
-up8' (Fk f a) = Fk f $ up8' a
-up8' (Att f a) = Att f $ up8' a
-up8' (Gen g) = absurd g
-up8' (Sk s) = absurd s 
 
 data SchemaEx :: * where
   SchemaEx :: forall var ty sym en fk att. 

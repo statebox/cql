@@ -17,7 +17,7 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   { srcT :: Instance var ty sym en fk att gen sk x y
   , dstT :: Instance var ty sym en fk att gen' sk' x' y'
   , gens :: Map gen (Term Void Void Void en fk Void gen' Void)
-  , sks  :: Map sk  (Term var  ty   sym  en fk att  gen' sk')
+  , sks  :: Map sk  (Term Void  ty   sym  en fk att  gen' sk')
   }
 
 data TransformEx :: * where
