@@ -8,7 +8,7 @@ import Data.Set as Set
 import Data.Map.Strict as Map
 import Prelude hiding (EQ)
 import Data.Rewriting.Term as T
-import Data.Rewriting.CriticalPair
+import Data.Rewriting.CriticalPair as CP
 import Data.Rewriting.Rule as R
 import Data.Rewriting.Rules as Rs
 import Language.Options as O hiding (Prover)
@@ -75,7 +75,7 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
        nf x = case outerRewrite eqs2 x of
        		   [] -> x
        		   y:_ -> nf $ result y 
-       allow_nonTerm = lookup2 Program_Allow_Nonterm_Unsafe (bOps ops)	
+       allow_nonTerm = lookup2 Program_Allow_Nontermination_Unsafe (bOps ops)	
        allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)   
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
@@ -83,8 +83,9 @@ convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)
 
 noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
 --noOverlaps x = y && (Prelude.null $ trace (show $ cps' x) $ cps' x)
-noOverlaps x = y && (Prelude.null $ cps' x)
+noOverlaps x = y && (Prelude.null $ Prelude.filter g $ cps' x)
  where y = and $ Prelude.map R.isLeftLinear x
+       g q = not $ (CP.left q) == (CP.right q) 
 
 isDecreasing [] = True
 isDecreasing (EQ (lhs, rhs) : tl) = S.size lhs > S.size rhs && isDecreasing tl

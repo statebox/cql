@@ -57,7 +57,7 @@ toBoolOption (k,v) = case matches of
         parseBool "false"= Right False
         parseBool x = Left $ "Not a bool: " ++ x
 
-boolDef = [(Program_Allow_Nonterm_Unsafe, False), (Allow_Empty_Sorts_Unsafe, False)] 
+boolDef = [(Program_Allow_Nontermination_Unsafe, False), (Allow_Empty_Sorts_Unsafe, False)] 
  
 defaultOptions = Options Map.empty (Map.fromList boolDef) Map.empty 
 
@@ -87,7 +87,7 @@ data BoolOption =
   | Import_As_Theory 
   | Import_Joined 
   | Prepend_Entity_On_Ids 
-  | Program_Allow_Nonterm_Unsafe 
+  | Program_Allow_Nontermination_Unsafe 
   | Allow_Empty_Sorts_Unsafe 
   | Csv_Generate_Ids 
   | Completion_Sort 

@@ -12,6 +12,7 @@ import Data.Typeable
 import Language.Options
 import Data.Set as Set
 import Data.Maybe
+import Data.List
 
  
 
@@ -36,11 +37,17 @@ data MappingEx :: * where
 
 deriving instance Show MappingEx  
 
+
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Mapping var ty sym en fk att en' fk' att') where
-  show (Mapping _ _ ens' fks' atts') =
-    "ens = " ++ (show ens') ++
-    "\nfks = " ++ (show fks') ++ "\natts = " ++ (show atts')
+  show (Mapping _ _ ens' fks' atts') = "mapping {\n" ++
+    "entities\n\t"  ++ intercalate "\n\t" ens'' ++
+    "\nforeign_keys\n\t" ++ intercalate "\n\t" fks'' ++ 
+    "\nattributes\n\t" ++ intercalate "\n\t" atts'' ++ " }\n"
+   where ens'' = Prelude.map (\(s,t) -> show s ++ " -> " ++ show t) $ Map.toList ens'
+         fks'' = Prelude.map (\(k,s) -> show k ++ " -> " ++ show s) $ Map.toList fks' 
+         atts'' = Prelude.map (\(k,s)-> show k ++ " -> " ++ show s) $ Map.toList atts'
+         
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   => Eq (Mapping var ty sym en fk att en' fk' att') where
@@ -51,8 +58,22 @@ typecheckMapping ::   (Show att, Show att', Ord var, Show var, Typeable en, Type
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
  Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att') 
 typecheckMapping m = do _ <- typeOfMor $ mapToMor m
+                        _ <- validateMapping m
                         return m
 
+validateMapping :: forall var ty sym en fk att en' fk' att' .
+  (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
+    Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
+ Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att') 
+validateMapping (m@(Mapping src dst ens fks atts)) = do -- _ <- mapM f (Set.toList $ path_eqs src)
+                                                        _ <- mapM f (Set.toList $ obs_eqs src)
+                                                        pure m
+ where f (enx, EQ (l,r)) = let l' = trans (mapToMor m) l
+                               r' = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
+                               en'= fromJust $ Map.lookup enx ens
+                          in if eq dst en' (EQ ( l',  r'))
+                             then pure ()
+                             else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable" 
 
 data MappingExp   where
   MappingVar     :: String -> MappingExp
@@ -124,8 +145,8 @@ evalMappingRaw' src dst (MappingExpRaw' _ _ ens0 fks0 atts0 ops) =
                                   Nothing -> error "impossible until complex typesides"   
   --h :: [en'] -> [String] -> Err (Term () Void Void en' fk' Void Void Void)                          
   h ens (s:ex) | elem' s ens = h ens ex
-  h ens (s:ex) | elem' s fks = do { h' <- h ens ex ; return $ Fk (fromJust $ cast s) h' }
-  h ens (s:ex) | elem' s fks = Left $ "Not a target fk: " ++ s
+  h ens (s:ex) | elem' s (keys fks) = do { h' <- h ens ex ; return $ Fk (fromJust $ cast s) h' }
+               | otherwise = Left $ "Not a target fk: " ++ s
   h ens [] = return $ Var ()
  -- k :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
   k [] = pure $ Map.empty
@@ -142,7 +163,6 @@ evalMappingRaw' src dst (MappingExpRaw' _ _ ens0 fks0 atts0 ops) =
 
 
                                         
---todo: check model satisfaction for algebra here
 evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk', 
    Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, 
    Ord att, Show att, Show fk, Show en', Typeable sym, Ord fk, Show var, Typeable fk', Typeable att', Ord att',
@@ -150,8 +170,6 @@ evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord e
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> Err MappingEx
 evalMappingRaw src dst t =
  do r <- evalMappingRaw' src dst t 
-    l <- toOptions $ mapraw_options t
---    p <- createProver (instToCol ty r) l
---todo: validate euations here
+    --l <- toOptions $ mapraw_options t
     pure $ MappingEx r 
 

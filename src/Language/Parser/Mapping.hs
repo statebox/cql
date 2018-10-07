@@ -12,7 +12,7 @@ import Language.Parser.Schema
 
 fkParsre = do x <- identifier
               _ <- constant "->"
-              y <- some identifier
+              y <- sepBy1 identifier $ constant "." 
               return (x, y)
 
 attParsre = do x <- identifier

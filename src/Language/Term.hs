@@ -125,10 +125,7 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   , m_sks  :: Map sk  (Term Void  ty   sym  en' fk' att'  gen' sk')
 }
 
-{--
-up11 :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up11 = undefined
---}
+
 up12 :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
 up12 = undefined
 
@@ -136,17 +133,23 @@ up13 :: Term () Void Void en' fk' Void Void Void -> Term () ty sym en' fk' att' 
 up13 = undefined
 
 up14 :: Term () ty   sym  en' fk' att' Void Void -> Term () ty sym en' fk' att' gen' sk'
-up14 = undefined
+up14 (Gen g) = absurd g
+up14 (Sk sk) = absurd sk
+up14 (Var v) = Var v
+up14 (Fk f a) = Fk f $ up14 a
+up14 (Att f a) = Att f $ up14 a
+up14 (Sym f as) = Sym f $ Prelude.map up14 as
 
-trans :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' . 
- (Ord gen, Ord sk, Ord fk, Eq var, Ord att) =>
+
+trans :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' . 
+ (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var') =>
  Morphism var ty sym en fk att gen sk en' fk' att' gen' sk' ->
- Term var ty sym en fk att gen sk -> Term var ty sym en' fk' att' gen' sk'
+ Term var' ty sym en fk att gen sk -> Term var' ty sym en' fk' att' gen' sk'
 trans mor (Var x) = Var x
 trans mor (Sym f xs) = Sym f $ Prelude.map (trans mor) xs
 trans mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
 trans mor (Sk s) = up4 $ fromJust $ Map.lookup s (m_sks mor)
-trans mor (Fk f a) = let x = trans mor a :: Term var ty sym en' fk' att' gen' sk'
+trans mor (Fk f a) = let x = trans mor a :: Term var' ty sym en' fk' att' gen' sk'
                          y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
                      in subst (up13 y) x 
 trans mor (Att f a) = subst (up14 $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
@@ -200,24 +203,25 @@ typeOfMor mor  = do checkDoms' mor
          = let (s,t) = fromJust $ Map.lookup fk $ cfks $ m_src mor 
                (s',t') = (transE s, transE t)
            in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (), Right s')]) $ up3 e 
-                 if t0 == Right t' then pure () else Left $ "Ill typed in " ++ show fk ++ ": " ++ show e 
+                 if t0 == Right t' then pure () else Left $ "1Ill typed in " ++ show fk ++ ": " ++ show e 
        typeOfMorFks (e,e') = Left $ "Bad fk mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorAtts (att,e) | Map.member att (catts $ m_src mor) 
          = let (s,t) = fromJust $ Map.lookup att $ catts $ m_src mor
                s' = transE s
            in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (),Right s')]) $ up2 e  
-                 if t0 == Left t then pure () else Left $ "Ill typed in " ++ show att ++ ": " ++ show e
+                 if t0 == Left t then pure () else Left $ "2Ill typed in " ++ show att ++ ": " ++ show e 
+                  ++ ", computed type" ++ show t0 ++ " and required type " ++ show t
        typeOfMorAtts (e,e') = Left $ "Bad att mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorGens (gen,e) | Map.member gen (cgens $ m_src mor) 
          = let t = fromJust $ Map.lookup gen $ cgens $ m_src mor
                t' = transE t
            in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up e  
-                 if t0 == Right t' then pure () else Left $ "Ill typed in " ++ show gen ++ ": " ++ show e
+                 if t0 == Right t' then pure () else Left $ "3Ill typed in " ++ show gen ++ ": " ++ show e
        typeOfMorGens (e,e') = Left $ "Bad gen mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorSks (sk,e) | Map.member sk (csks $ m_src mor) 
          = let t = fromJust $ Map.lookup sk $ csks $ m_src mor 
            in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up4 e  
-                 if t0 == Left t then pure () else Left $ "Ill typed in " ++ show sk ++ ": " ++ show e
+                 if t0 == Left t then pure () else Left $ "4 Ill typed in " ++ show sk ++ ": " ++ show e
        typeOfMorSks (e,e') = Left $ "Bad null mapping " ++ show e ++ " -> " ++ show e'
 
 

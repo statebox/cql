@@ -274,7 +274,7 @@ initialInstance p dp sch = Instance sch p dp' $ initialAlgebra p dp sch
  where dp' (EQ (lhs, rhs)) = dp $ EQ (up4 lhs, up4 rhs)
  
 up15 :: Term Void Void Void en fk Void gen Void -> Term Void ty sym en fk att gen sk
-up15 = undefined
+up15 = up
 
 initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
