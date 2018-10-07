@@ -55,8 +55,8 @@ schemaRawParser = do
         _ <- constant "literal"
         _ <- constant ":"
         t <- typesideExpParser
-        schemaLiteral <- (braces $ p t) --why try here? question by ryan
-        pure $ schemaLiteral   
+        schemaLiteral <- (braces $ p t) 
+        pure $ schemaLiteral  
  where p t = do  e <- optional $ do
                     _ <- constant "entities"
                     many identifier

@@ -53,9 +53,24 @@ typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- wrapError ("Type Error in " ++
 typecheckAqlProgram ((v,INSTANCE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckInstExp prog $ lookup2 v (instances prog) 
                                                x <- typecheckAqlProgram l prog
                                                return $ x { instances = Map.insert v t $ instances x }
-typecheckAqlProgram ((v,MAPPING):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckMapExp prog $ lookup2 v ( mappings prog) 
+typecheckAqlProgram ((v,MAPPING):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckMapExp prog $ lookup2 v (mappings prog) 
                                               x <- typecheckAqlProgram l prog
                                               return $ x { mappings = Map.insert v t $ mappings x }
+
+typecheckAqlProgram ((v,TRANSFORM):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckTransExp prog $ lookup2 v (transforms prog) 
+                                                x <- typecheckAqlProgram l prog
+                                                return $ x { transforms = Map.insert v t $ transforms x }
+
+
+typecheckTransExp :: Prog -> TransformExp -> Err (InstanceExp, InstanceExp) 
+typecheckTransExp p (TransformVar v) = do t <- note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
+                                          typecheckTransExp p t  
+typecheckTransExp p (TransformId s) = pure (s, s)
+typecheckTransExp p (TransformRaw r) = do l' <- typecheckInstExp p $ transraw_src r
+                                          r' <- typecheckInstExp p $ transraw_dst r
+                                          if   l' == r' 
+                                          then pure $ (transraw_src r, transraw_src r)
+                                          else Left "Mapping has non equal schemas"
 
 typecheckMapExp :: Prog -> MappingExp -> Err (SchemaExp, SchemaExp) 
 typecheckMapExp p (MappingVar v) = do t <- note ("Undefined mapping: " ++ show v) $ Map.lookup v $ mappings p
@@ -102,6 +117,8 @@ evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " +
                                               evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
 evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalMapping prog env $ lookup2 v (mappings prog) 
                                              evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }
+evalAqlProgram ((v,TRANSFORM):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTransform prog env $ lookup2 v (transforms prog) 
+                                               evalAqlProgram l prog $ env { transforms = Map.insert v t $ transforms env }
  
 --todo: check acyclic with Data.Graph.DAG
 
@@ -123,6 +140,28 @@ convSchema :: (Typeable var1, Typeable ty1, Typeable sym1, Typeable en1, Typeabl
                Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
      => Schema var1 ty1 sym1 en1 fk1 att1 -> Schema var ty sym en fk att
 convSchema x = fromJust $ cast x
+
+convInstance :: (Typeable var1, Typeable ty1, Typeable sym1, Typeable en1, Typeable fk1, Typeable att1,
+               Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, 
+               Typeable gen, Typeable gen', Typeable sk, Typeable sk', Typeable x, Typeable x', Typeable y, Typeable y')
+     => Instance var1 ty1 sym1 en1 fk1 att1 gen' sk' x' y' -> Instance var ty sym en fk att gen sk x y 
+convInstance x = fromJust $ cast x
+
+evalTransform :: Prog -> Env -> TransformExp -> Err TransformEx 
+evalTransform p env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env
+{--
+evalTransform p env (TransformId s) = do (InstanceEx s') <- evalInstance p env s
+                                     return $ MappingEx $ Prelude.foldr (\en (Mapping s t e f a) -> Mapping s t (Map.insert en en e) (f' en s' f) (g' en s' a)) (Mapping s' s' Map.empty Map.empty Map.empty) (S.ens s') 
+ where f' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ fksFrom' s' en
+       g' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ attsFrom' s' en
+ --}
+evalTransform p env (TransformRaw r) = do s0 <- evalInstance p env $ transraw_src r 
+                                          s1 <- evalInstance p env $ transraw_dst r
+                                          case s0 of 
+                                           InstanceEx s -> case s1 of 
+                                            InstanceEx (t :: Instance var ty sym en fk att gen sk x y) -> 
+                                             evalTransformRaw ((convInstance s)::Instance var ty sym en fk att gen sk x y) t r --ok bc typecheck says same ts 
+
 
 evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx 
 evalMapping p env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
@@ -166,13 +205,3 @@ evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_sc
 
 evalInstance _ _ _ = undefined
 
-
-{--
-evalTransform :: p -> KindCtx ts s i m q b o -> TransformExp -> Either [Char] b
-evalTransform _ env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env
-evalTransform _ _ _ = undefined
-
-
-evalMapping :: p -> KindCtx ts s i b q t o -> MappingExp -> Either [Char] b
-evalMapping _ env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
-evalMapping _ _ _ = undefined --}

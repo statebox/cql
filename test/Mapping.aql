@@ -13,8 +13,9 @@ schema S = literal : T {
  f.f = E
  attributes a1 a2 : E -> string
  observation_equations
- forall x:E. x.a1 = x.a2
- options allow_empty_sorts_unsafe = true
+  forall e:E.  e.a1 = e.a2
+ options
+  allow_empty_sorts_unsafe = true
   program_allow_nontermination_unsafe = true
 }
 
@@ -25,4 +26,18 @@ mapping M = literal : S -> S {
  attributes
   a1 -> lambda x. x.a1.reverse.reverse
   a2 -> lambda x. x.a2
+}
+
+instance I = literal : S {
+ generators
+   e : E
+ equations
+   e.a1 = e.a2
+options
+  program_allow_nontermination_unsafe = true
+}
+
+transform h = literal : I -> I {
+ generators
+  e -> e.f
 }

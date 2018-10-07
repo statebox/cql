@@ -44,7 +44,7 @@ data QueryExp where
   QueryVar     :: String -> QueryExp
   QueryId      :: SchemaExp -> QueryExp
   QueryRaw     :: QueryExpRaw' -> QueryExp
- deriving Show 
+ deriving (Eq,Show) 
 
 --old school queries without overlapping names across entities
 data QueryExpRaw' = QueryExpRaw' {

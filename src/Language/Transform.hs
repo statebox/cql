@@ -7,11 +7,21 @@ import Data.Set as Set
 import Data.Map.Strict as Map
 import Language.Common
 import Language.Term
-import Language.Instance
+import Language.Instance as I
 import Language.Mapping
 import Language.Query
 import Data.Void
+import Language.Schema as S
+import Data.Typeable
+import Data.Maybe
+import Data.List
 
+
+transToMor (Transform src dst gens sks) = Morphism (instToCol (I.schema src) $ pres src) (instToCol (I.schema src) $ pres dst) ens0 fks0 atts0 gens sks
+ where ens0 = Prelude.foldr (\en m -> Map.insert en en m) Map.empty $ Set.toList $ S.ens $ I.schema src
+       fks0 = Prelude.foldr (\(fk,(s,t)) m -> Map.insert fk (Fk fk $ Var ()) m) Map.empty $ Map.toList $ S.fks $ I.schema src
+       atts0= Prelude.foldr (\(fk,_) m -> Map.insert fk (Att fk $ Var ()) m) Map.empty $ Map.toList $ S.atts $ I.schema src 
+ 
 data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   = Transform
   { srcT :: Instance var ty sym en fk att gen sk x y
@@ -27,12 +37,16 @@ data TransformEx :: * where
 
 deriving instance Show TransformEx 
   
+
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, 
           Show x, Show y, Show gen', Show sk', Show x', Show y')
   => Show (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
-  show (Transform _ _ gens sks) =
-    "gens = " ++ (show gens) ++
-    "\nsks = " ++ (show sks)
+  show (Transform _ _ gens sks) = "transform {" ++
+    "generators\n\t"  ++ intercalate "\n\t" ens'' ++
+    "\nnulls\n\t" ++ intercalate "\n\t" fks'' ++ " }"
+   where ens'' = Prelude.map (\(s,t) -> show s ++ " -> " ++ show t) $ Map.toList gens
+         fks'' = Prelude.map (\(k,s) -> show k ++ " -> " ++ show s) $ Map.toList sks 
+         
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y, Eq gen', Eq sk', Eq x', Eq y')
   => Eq (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
@@ -58,12 +72,88 @@ data TransformExp  where
  deriving Show 
 
 data TransExpRaw' = TransExpRaw' {
-    transraw_gens  :: [(String, RawTerm)]
-  , transraw_sks :: [(String, RawTerm)] 
+    transraw_src :: InstanceExp
+  , transraw_dst :: InstanceExp   
+  , transraw_gens  :: [(String, RawTerm)]
   , transraw_options :: [(String, String)]
-} deriving (Eq, Show)
+} deriving (Show)
+
+typecheckTransform ::  (Show att, Ord var, Show var, Typeable en,  Ord en, Show en,  Typeable sym, Typeable att, Typeable fk, Show fk,
+     Ord att, Ord en, Ord fk, Ord ty, Show ty, Show sym, Ord sym, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
+     Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y') =>
+ Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y') 
+typecheckTransform m = do _ <- typeOfMor $ transToMor m
+                          _ <- validateTransform m
+                          return m
 
 
---instance Semantics (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
---  validate = undefined 
+validateTransform :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
+   (Show att, Ord var, Show var, Typeable en,  Ord en, Show en,  Typeable sym, Typeable att, Typeable fk, Show fk,
+     Ord att, Ord en, Ord fk, Ord ty, Show ty, Show sym, Ord sym, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
+     Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y') =>
+ Transform var ty sym en fk att gen sk x y gen' sk' x' y'  -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y') 
+validateTransform (m@(Transform src dst gens sks)) = do _ <- mapM f (Set.toList $ eqs $ pres src)
+                                                        pure m
+ where f :: (EQ Void ty sym en fk att gen sk) -> Err ()
+       f (EQ (l,r)) = let l' = trans (transToMor m) l
+                          r' = trans (transToMor m) r :: Term Void ty sym en fk att gen' sk'
+                      in if dp dst (EQ ( l',   r'))
+                             then pure ()
+                             else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable" 
+      
+
+evalTransformRaw :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
+  (Ord var, Ord ty, Ord sym, Show att, Show sym, Show var, Show ty, Typeable en, Ord en, Show en, Typeable sym, Typeable att, Typeable fk, Show fk,
+    Ord att,  Ord en, Ord fk, Typeable sk', Typeable gen', Ord sk', Ord gen', Ord sk, Ord gen, Typeable sk, Typeable gen, Ord x, Ord y, Ord x', Ord y'
+    , Show gen, Show gen', Show sk ,Show x, Show y, Show x', Show y', Show sk') =>
+  Instance var ty sym en fk att gen sk x y -> Instance var ty sym en fk att gen' sk' x' y' -> TransExpRaw' 
+ -> Err (TransformEx)
+evalTransformRaw src dst (TransExpRaw' _ _ sec ops) = 
+  do x <- f' gens0
+     y <- f  sks0
+     _ <- check
+     z <- typecheckTransform $ Transform src dst x y 
+     pure $ TransformEx z
+ where    
+  non0 = Prelude.filter (\(x,_) -> not ( (elem' x $ keys gens) || (elem' x $ keys sks) )) sec  
+  check = if Prelude.null non0 then pure () else Left $ "Not a gen or null: " ++ show non0
+  gens0 =  Prelude.filter (\(x,_) -> elem' x $ keys gens) sec
+  sks0 =  Prelude.filter (\(x,_) -> elem' x $ keys sks) sec
   
+  keys = fst . unzip 
+  gens = Map.toList $ I.gens $ pres dst
+  sks = Map.toList $ I.sks $ pres dst 
+  f' [] = pure $ Map.empty
+  f'  ((gen, t):ts) = do t'   <- h t
+                         rest <- f' ts
+                         gen' <- cast' gen $ "Not a generator: " ++ gen
+                         pure $ Map.insert gen' t' rest
+
+  f [] = pure $ Map.empty
+  f  ((gen, t):ts) = do t'   <- g t
+                        rest <- f ts
+                        gen' <- cast' gen $ "Not a null: " ++ gen
+                        pure $ Map.insert gen' t' rest
+
+  g ::  RawTerm -> Err (Term Void ty sym en fk att gen' sk')                                   
+  g  (RawApp x []) | elem' x (keys gens) = pure $ Gen $ fromJust $ cast x
+  g  (RawApp x []) | elem' x (keys sks) = pure $ Sk $ fromJust $ cast x
+  
+  g  (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_fks $ I.schema dst) = do a' <- g a
+                                                                                   case cast x of
+                                                                                    Just x' -> return $ Fk x' a' 
+  g  (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_atts $ I.schema dst) = do a' <- g a
+                                                                                    case cast x of
+                                                                                     Just x' -> return $ Att x' a' 
+  g  (RawApp v l) = do l' <- mapM g l
+                       case cast v :: Maybe sym of
+                                  Just x -> pure $ Sym x l'
+ 
+  h :: RawTerm -> Err (Term Void Void Void en fk Void gen' Void)
+  h  (RawApp x []) | elem' x (keys gens) = pure $ Gen $ fromJust $ cast x
+  
+  h  (RawApp x (a:[])) | elem' x (keys $ Map.toList $ sch_fks $ I.schema dst) = do a' <- h a
+                                                                                   case cast x of
+                                                                                     Just x' -> return $ Fk x' a' 
+                             
+

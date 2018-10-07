@@ -35,7 +35,7 @@ typecheckPresentation sch p = do x <- typeOfCol $ instToCol sch p
 
 data Algebra var ty sym en fk att gen sk x y
   = Algebra { 
-   schema :: Schema var ty sym en fk att
+   aschema :: Schema var ty sym en fk att
 
   , en    :: en -> (Set x) -- globally unique xs
   , nf    :: Term Void Void Void en fk Void gen Void -> x
@@ -185,7 +185,8 @@ data Instance var ty sym en fk att gen sk x y
 data InstanceEx :: * where
   InstanceEx :: forall var ty sym en fk att gen sk x y. 
    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, 
-    Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y) =>
+    Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y,
+    Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk, Typeable x, Typeable y) =>
    Instance var ty sym en fk att gen sk x y -> InstanceEx
 
 deriving instance Show (InstanceEx) 
@@ -398,7 +399,7 @@ data InstanceExp where
   InstanceCoEval :: MappingExp -> InstanceExp -> InstanceExp
 
   InstanceRaw :: InstExpRaw' -> InstanceExp
-  deriving Show
+  deriving (Eq,Show)
 
 data InstExpRaw' = InstExpRaw' {
     instraw_schema :: SchemaExp
@@ -406,7 +407,7 @@ data InstExpRaw' = InstExpRaw' {
 --  , instraw_sks :: [(String, String)]
   , instraw_oeqs  :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
-} deriving (Show)
+} deriving (Eq,Show)
 
 type Gen = String
 type Sk = String
@@ -475,7 +476,7 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs ops) =
 
                                         
 --todo: check model satisfaction for algebra here
-evalInstanceRaw :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en) 
+evalInstanceRaw :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en, Typeable var) 
   => Schema var ty sym en fk att -> InstExpRaw' -> Err InstanceEx
 evalInstanceRaw ty t =
  do r <- evalInstanceRaw' ty t 

@@ -125,12 +125,23 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   , m_sks  :: Map sk  (Term Void  ty   sym  en' fk' att'  gen' sk')
 }
 
-
 up12 :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up12 = undefined
+up12 (Gen g) = Gen g
+up12 (Sk sk) = absurd sk
+up12 (Var v) = absurd v
+up12 (Fk f a) = Fk f $ up12 a
+up12 (Att f a) = absurd f
+up12 (Sym f as) = absurd f
+
 
 up13 :: Term () Void Void en' fk' Void Void Void -> Term () ty sym en' fk' att' gen' sk'
-up13 = undefined
+up13 (Gen g) = absurd g
+up13 (Sk sk) = absurd sk
+up13 (Var v) = Var v
+up13 (Fk f a) = Fk f $ up13 a
+up13 (Att f a) = absurd f
+up13 (Sym f as) = absurd f
+
 
 up14 :: Term () ty   sym  en' fk' att' Void Void -> Term () ty sym en' fk' att' gen' sk'
 up14 (Gen g) = absurd g
@@ -139,6 +150,7 @@ up14 (Var v) = Var v
 up14 (Fk f a) = Fk f $ up14 a
 up14 (Att f a) = Att f $ up14 a
 up14 (Sym f as) = Sym f $ Prelude.map up14 as
+
 
 
 trans :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' . 
@@ -209,8 +221,8 @@ typeOfMor mor  = do checkDoms' mor
          = let (s,t) = fromJust $ Map.lookup att $ catts $ m_src mor
                s' = transE s
            in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (),Right s')]) $ up2 e  
-                 if t0 == Left t then pure () else Left $ "2Ill typed in " ++ show att ++ ": " ++ show e 
-                  ++ ", computed type" ++ show t0 ++ " and required type " ++ show t
+                 if t0 == Left t then pure () else Left $ "2Ill typed attribute, " ++ show att ++ " expression " ++ show e 
+                  ++ ", computed type " ++ show t0 ++ " and required type " ++ show t
        typeOfMorAtts (e,e') = Left $ "Bad att mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorGens (gen,e) | Map.member gen (cgens $ m_src mor) 
          = let t = fromJust $ Map.lookup gen $ cgens $ m_src mor

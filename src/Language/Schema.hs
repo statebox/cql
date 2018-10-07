@@ -21,7 +21,7 @@ data SchemaExp where
   SchemaInitial :: TypesideExp -> SchemaExp
   SchemaCoProd  :: SchemaExp -> SchemaExp -> SchemaExp
   SchemaRaw :: SchemaExpRaw' -> SchemaExp
- deriving Show
+ deriving (Eq,Show)
 
 
 typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en)

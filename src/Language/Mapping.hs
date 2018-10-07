@@ -65,21 +65,38 @@ validateMapping :: forall var ty sym en fk att en' fk' att' .
   (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
  Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att') 
-validateMapping (m@(Mapping src dst ens fks atts)) = do -- _ <- mapM f (Set.toList $ path_eqs src)
+validateMapping (m@(Mapping src dst ens fks atts)) = do _ <- mapM g (Set.toList $ path_eqs src)
                                                         _ <- mapM f (Set.toList $ obs_eqs src)
                                                         pure m
- where f (enx, EQ (l,r)) = let l' = trans (mapToMor m) l
+ where f :: (en, EQ () ty sym en fk att Void Void) -> Err ()
+       f (enx, EQ (l,r)) = let l' = trans (mapToMor m) l
                                r' = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
                                en'= fromJust $ Map.lookup enx ens
-                          in if eq dst en' (EQ ( l',  r'))
+                          in if eq dst en' (EQ ( l',   r'))
                              then pure ()
                              else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable" 
+       g :: (en, EQ () Void Void en fk Void Void Void) -> Err ()
+       g (enx, EQ (l,r)) = let l' = trans' (mapToMor m) l
+                               r' = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
+                               en'= fromJust $ Map.lookup enx ens
+                          in if eq dst en' (EQ (up13 l', up13 r'))
+                             then pure ()
+                             else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable" 
+
+trans' :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' . 
+ (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var') =>
+ Morphism var ty sym en fk att gen sk en' fk' att' gen' sk' ->
+ Term var' Void Void en fk Void Void Void -> Term var' Void Void en' fk' Void Void Void
+trans' mor (Var x) = Var x
+trans' mor (Fk f a) = let x = trans' mor a :: Term var' Void Void en' fk' Void Void Void
+                          y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
+                     in subst (up13 y) x 
 
 data MappingExp   where
   MappingVar     :: String -> MappingExp
   MappingId      :: SchemaExp -> MappingExp
   MappingRaw     :: MappingExpRaw' -> MappingExp
- deriving Show
+ deriving (Eq, Show)
 
 data MappingExpRaw' = MappingExpRaw' {
     mapraw_src :: SchemaExp,
@@ -88,7 +105,7 @@ data MappingExpRaw' = MappingExpRaw' {
   , mapraw_fks :: [(String, [String])]
   , mapraw_atts  :: [(String, (String, RawTerm))]
   , mapraw_options :: [(String, String)]
-} deriving (Show)
+} deriving (Eq, Show)
 
 --todo: combine with schema 
 conv'' :: forall ty ty2. (Typeable ty,Show ty, Typeable ty2, Show ty2) => [(String, String)] -> Err [(ty2, ty)]
