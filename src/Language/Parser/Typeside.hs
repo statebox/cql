@@ -1,40 +1,43 @@
 module Language.Parser.Typeside where
 
+import           Data.Maybe
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
---import           Language.Parser.Types as T
-import Language.Term 
-import Data.Maybe 
+import           Language.Term
+
 -- megaparsec
+import           Language.Typeside          as X
 import           Text.Megaparsec
-import Language.Typeside as X
 
-typesideExpParser = parseRaw <|> parseEmpty <|> parseVar 
+typesideExpParser :: Parser TypesideExp
+typesideExpParser = parseRaw <|> parseEmpty <|> parseVar
 
+parseEmpty :: Parser TypesideExp
 parseEmpty = do _ <- constant "empty"
                 return TypesideInitial
 
 --parseSql = do _ <- constant "sql"
  --             return TypesideSql
 
+parseVar :: Parser TypesideExp
 parseVar = do x <- identifier
               return $ TypesideVar x
 
---parseRaw :: Parser X.TypesideRaw'
+parseRaw :: Parser TypesideExp
 parseRaw = do _ <- constant "literal"
-              tsLiteral <- (braces typesideLiteralSectionParser) 
-              pure $ TypesideRaw $ tsLiteral 
+              tsLiteral <- (braces typesideLiteralSectionParser)
+              pure $ TypesideRaw $ tsLiteral
 
 eqParser :: Parser ([(String, String)], RawTerm, RawTerm)
 eqParser = do o <- p
-              l <- rawTermParser 
+              l <- rawTermParser
               _ <- constant "="
-              r <- rawTermParser     
-              return (o,l,r) --(fromMaybe [] o, l, r)    
+              r <- rawTermParser
+              return (o,l,r) --(fromMaybe [] o, l, r)
  where p = do _ <- constant "forall"
               g <- sepBy varParser $ constant ","
-              _ <- constant "."   
-              return $ concat g              
+              _ <- constant "."
+              return $ concat g
 
 
 varParser :: Parser [(String, String)]

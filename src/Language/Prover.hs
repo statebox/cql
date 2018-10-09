@@ -12,12 +12,11 @@ import Data.Rewriting.CriticalPair as CP
 import Data.Rewriting.Rule as R
 import Data.Rewriting.Rules as Rs
 import Language.Options as O hiding (Prover)
-import Debug.Trace
 
 -- Theorem proving ------------------------------------------------
 
 data ProverName = Free | Congruence | Orthogonal | KB | Auto
- deriving Show 
+ deriving Show
 
 data Prover var ty sym en fk att gen sk = Prover {
   collage :: Collage var ty sym en fk att gen sk
@@ -39,10 +38,10 @@ freeProver :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) =>
 freeProver col = if (Set.size (ceqs col) == 0)
                  then return $ Prover col p
                  else Left "Cannot use free prover when there are equations"
- where p _ (EQ (lhs, rhs)) = lhs == rhs
+ where p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
 createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en, Show en, Show ty)
- => Collage var ty sym en fk att gen sk -> Options 
+ => Collage var ty sym en fk att gen sk -> Options
   -> Err (Prover var ty sym en fk att gen sk)
 createProver col ops =  do p <- proverStringToName ops
                            case p of
@@ -60,38 +59,39 @@ createProver col ops =  do p <- proverStringToName ops
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
 orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Show en, Show ty) =>
-                    Collage var ty sym en fk att gen sk -> Options  
+                    Collage var ty sym en fk att gen sk -> Options
                     -> Err (Prover var ty sym en fk att gen sk)
 orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
                      then if noOverlaps  eqs2
                           then if allSortsInhabited col  || allow_empty
-	           	               then pure $ Prover col p
-	           	    	       else Left "Rewriting Error: contains uninhabited sorts"
-	           	          else Left "Rewriting Error: not orthogonal"
-	                 else Left "Rewriting Error: not size decreasing"	  
- where p _ (EQ (lhs, rhs)) = nf (convert lhs) == nf (convert rhs)
+                            then pure $ Prover col p
+                            else Left "Rewriting Error: contains uninhabited sorts"
+                          else Left "Rewriting Error: not orthogonal"
+                     else Left "Rewriting Error: not size decreasing"
+ where p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col
        eqs2 = Prelude.map convert' eqs1
        nf x = case outerRewrite eqs2 x of
-       		   [] -> x
-       		   y:_ -> nf $ result y 
-       allow_nonTerm = lookup2 Program_Allow_Nontermination_Unsafe (bOps ops)	
-       allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)   
+              [] -> x
+              y:_ -> nf $ result y
+       allow_nonTerm = lookup2 Program_Allow_Nontermination_Unsafe (bOps ops)
+       allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
-convert' (EQ (lhs, rhs)) = Rule (convert lhs) (convert rhs)
+convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
 
 noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
 --noOverlaps x = y && (Prelude.null $ trace (show $ cps' x) $ cps' x)
 noOverlaps x = y && (Prelude.null $ Prelude.filter g $ cps' x)
  where y = and $ Prelude.map R.isLeftLinear x
-       g q = not $ (CP.left q) == (CP.right q) 
+       g q = not $ (CP.left q) == (CP.right q)
 
+isDecreasing :: [EQ var ty sym en fk att gen sk] -> Bool
 isDecreasing [] = True
-isDecreasing (EQ (lhs, rhs) : tl) = S.size lhs > S.size rhs && isDecreasing tl
+isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl
 
-convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var 
-convert (S.Var v) = T.Var v 
+convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
+convert (S.Var v) = T.Var v
 convert (S.Gen g) = T.Fun (Right $ Right $ Right $ Left  g) []
 convert (S.Sk  g) = T.Fun (Right $ Right $ Right $ Right g) []
 convert (S.Att g a) = T.Fun (Right $ Right $ Left g) [convert a]
