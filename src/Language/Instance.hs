@@ -489,7 +489,12 @@ evalInstanceRaw ty t =
 
 ----------------------------------------------------------------------------------
 
-
+evalSigmaInst
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Instance var ty sym en fk att gen sk x y
+  -> Instance var ty sym en' fk' att' gen sk (GTerm en fk gen) (TTerm en fk att gen sk)
+evalSigmaInst = undefined 
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')

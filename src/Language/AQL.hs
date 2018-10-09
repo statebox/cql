@@ -149,12 +149,11 @@ convInstance x = fromJust $ cast x
 
 evalTransform :: Prog -> Env -> TransformExp -> Err TransformEx 
 evalTransform p env (TransformVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ transforms env
-{--
-evalTransform p env (TransformId s) = do (InstanceEx s') <- evalInstance p env s
-                                     return $ MappingEx $ Prelude.foldr (\en (Mapping s t e f a) -> Mapping s t (Map.insert en en e) (f' en s' f) (g' en s' a)) (Mapping s' s' Map.empty Map.empty Map.empty) (S.ens s') 
- where f' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ fksFrom' s' en
-       g' en s' f = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f $ attsFrom' s' en
- --}
+evalTransform p env (TransformId s) = do (InstanceEx i) <- evalInstance p env s
+                                         return $ TransformEx $ Transform i i (h i) (g i)
+ where h i  = Prelude.foldr (\(gen,_) m -> Map.insert gen (Gen gen) m) Map.empty $ Map.toList $ I.gens $ pres i
+       g i  = Prelude.foldr (\(sk,_) m -> Map.insert sk (Sk sk) m) Map.empty $ Map.toList $ I.sks $ pres i
+      
 evalTransform p env (TransformRaw r) = do s0 <- evalInstance p env $ transraw_src r 
                                           s1 <- evalInstance p env $ transraw_dst r
                                           case s0 of 
