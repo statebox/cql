@@ -31,6 +31,10 @@ dependencies:
 library:
   source-dirs: src
 
+ghc-options:
+- -Wall
+- -Werror
+
 executables:
   aql-exe:
     main:                Main.hs

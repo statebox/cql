@@ -10,25 +10,25 @@ import qualified Text.Megaparsec.Char.Lexer    as L
 
 -- scientific
 import           Data.Scientific               (Scientific)
-import Language.Term
+import           Language.Term
 
 rawTermParser :: Parser RawTerm
-rawTermParser = 
+rawTermParser =
   try (do f <- identifier
           _ <- constant "("
           a <- sepBy rawTermParser $ constant ","
-          _ <- constant ")" 
+          _ <- constant ")"
           return $ RawApp f a)
   <|>
-  try (do t <- sepBy1 identifier $ constant "." 
+  try (do t <- sepBy1 identifier $ constant "."
           return $ Prelude.foldl (\y x -> RawApp x [y]) (RawApp (head t) []) $ tail t)
-  <|>  
-  try (do i <- identifier 
+  <|>
+  try (do i <- identifier
           return $ RawApp i [])
-  
+
 optionParser :: Parser (String, String)
-optionParser = 
-  do i <- identifier 
+optionParser =
+  do i <- identifier
      _ <- constant "="
      j <- identifier
      return (i,j)

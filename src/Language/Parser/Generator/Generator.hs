@@ -6,9 +6,6 @@ import           Language.Parser.ReservedWords
 -- QuickCheck
 import           Test.QuickCheck.Gen
 
--- semigroups
-import           Data.List.NonEmpty            (fromList)
-
 -- BASIC
 lowerCharGen :: Gen Char
 lowerCharGen = elements ['a' .. 'z']

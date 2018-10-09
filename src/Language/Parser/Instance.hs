@@ -2,24 +2,17 @@ module Language.Parser.Instance where
 
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
---import           Language.Parser.Types as T
---import           Language.Parser.Typeside
 
 -- base
-import           Data.List                  (foldl')
 import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
 
--- semigroups
-import           Data.List.NonEmpty         (fromList, toList)
-
-import Language.Schema as S
-import Language.Term
-import Language.Typeside as T
-import Language.Parser.Schema
-import Language.Instance as I
+import           Language.Instance          as I
+import           Language.Parser.Schema
+import           Language.Schema            as S
+import           Language.Term
 
 eqParser :: Parser (RawTerm, RawTerm)
 eqParser = do l <- rawTermParser
@@ -28,6 +21,7 @@ eqParser = do l <- rawTermParser
               return (l,r)
 
 
+skParser :: Parser [(Gen, En)]
 skParser = genParser
 
 
@@ -36,15 +30,15 @@ genParser = do x <- some identifier
                _ <- constant ":"
                y <- identifier
                return $ map (\a -> (a,y)) x
-     
+
 
 instRawParser :: Parser InstExpRaw'
 instRawParser = do
         _ <- constant "literal"
         _ <- constant ":"
         t <- schemaExpParser
-        x <- (braces $ p t) 
-        pure $ x   
+        x <- (braces $ p t)
+        pure $ x
  where p t = do  e <- optional $ do
                     _ <- constant "generators"
                     y <- many genParser
@@ -54,21 +48,20 @@ instRawParser = do
                     many eqParser
                  x <- optional $ do
                     _ <- constant "options"
-                    many optionParser    
+                    many optionParser
                  pure $ InstExpRaw' t
                     (fromMaybe [] e)
                     (fromMaybe [] o)
                     (fromMaybe [] x)
-     
+
 instExpParser :: Parser InstanceExp
-instExpParser = 
-    InstanceRaw <$> instRawParser 
+instExpParser =
+    InstanceRaw <$> instRawParser
     <|>
       InstanceVar <$> identifier
-    <|> 
+    <|>
        do
         _ <- constant "empty"
         _ <- constant ":"
         x <- schemaExpParser
         return $ InstanceInitial x
- 
