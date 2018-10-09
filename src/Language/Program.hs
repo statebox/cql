@@ -5,7 +5,6 @@
 module Language.Program where
 
 import Prelude hiding (EQ)
-import Data.Set as Set
 import Data.Map.Strict as Map
 import Language.Common as C
 import Language.Term as Term
@@ -18,14 +17,14 @@ import Language.Query as Q
 import Data.List (intercalate)
 
 
-data Exp = 
-   ExpTy (TypesideExp) 
+data Exp =
+   ExpTy (TypesideExp)
  | ExpS (SchemaExp)
  | ExpI (InstanceExp)
  | ExpM (MappingExp)
  | ExpT (TransformExp)
- | ExpQ (QueryExp)  
- 
+ | ExpQ (QueryExp)
+
 data KindCtx ts s i m q t o = KindCtx {
     typesides :: Ctx String ts
   , schemas :: Ctx String s
@@ -34,18 +33,19 @@ data KindCtx ts s i m q t o = KindCtx {
   , queries :: Ctx String q
   , transforms :: Ctx String t
   , other :: o
-} 
+}
 
-instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (KindCtx ts s i m q t o) where 
+instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (KindCtx ts s i m q t o) where
      show (KindCtx ts s i m q t o) =
         "typesides\n" ++ showCtx'' ts ++
         "\nschemas\n" ++ showCtx'' s ++
         "\ninstances\n" ++ showCtx'' i ++
         "\nmappings\n" ++ showCtx'' m ++
         "\nqueries\n" ++ showCtx'' q ++
-        "\ntransforms\n" ++ showCtx'' t ++ 
+        "\ntransforms\n" ++ showCtx'' t ++
         "\nother\n" ++ show o ++ "\n"
 
+showCtx'' :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx'' m = intercalate "\n" $ Prelude.map (\(k,v) -> show k ++ " = " ++ show v ++ "\n") $ Map.toList m
 
 lookup' :: (Show k, Show a, Ord k) => k -> Map k a -> a
@@ -54,7 +54,7 @@ lookup' m v = f $ Map.lookup m v
     f (Just x) = x
     f Nothing  = error $ "Can't find " ++ show v ++ " in " ++ show m
 
---todo: store line numbers in other field 
+--todo: store line numbers in other field
 type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp ([(String,Kind)])
 
 type Types = KindCtx TypesideExp TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()

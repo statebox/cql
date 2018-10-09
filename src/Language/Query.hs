@@ -21,11 +21,11 @@ data Query var ty sym en fk att en' fk' att'
 
 
 data QueryEx :: * where
-  QueryEx :: forall var ty sym en fk att en' fk' att'. 
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>  
+  QueryEx :: forall var ty sym en fk att en' fk' att'.
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>
     Query var ty sym en fk att en' fk' att' -> QueryEx
 
-deriving instance Show QueryEx  
+deriving instance Show QueryEx
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Query var ty sym en fk att en' fk' att') where
@@ -44,7 +44,7 @@ data QueryExp where
   QueryVar     :: String -> QueryExp
   QueryId      :: SchemaExp -> QueryExp
   QueryRaw     :: QueryExpRaw' -> QueryExp
- deriving (Eq,Show) 
+ deriving (Eq,Show)
 
 --old school queries without overlapping names across entities
 data QueryExpRaw' = QueryExpRaw' {

@@ -10,7 +10,7 @@ import Language.Term
 import Data.Void
 import Language.Prover
 import Language.Options
-import Data.Typeable 
+import Data.Typeable
 import Data.List (intercalate)
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
@@ -41,14 +41,14 @@ data Typeside var ty sym
   }
 
 initialTypeside :: Typeside Void Void Void
-initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd 
+initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd
 
 data TypesideEx :: * where
  TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym, Ord var, Ord ty, Ord sym, Typeable ty, Typeable sym, Typeable var) =>
   Typeside var ty sym -> TypesideEx
 
-deriving instance Show (TypesideEx) 
- -- todo: make pretty 
+deriving instance Show (TypesideEx)
+ -- todo: make pretty
 
 
 instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
@@ -61,10 +61,11 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
     "types\n\t"    ++ intercalate "\n\t" (Prelude.map show $ Set.toList tys') ++
     "\nfunctions\n\t" ++ intercalate "\n\t" syms'' ++
     "\nequations\n\t"  ++ intercalate "\n\t" eqs'' ++ " }"
-   where syms'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList syms' 
-         eqs''  = Prelude.map (\(k,s) -> "forall " ++ showCtx k ++ " . " ++ show s) $ Set.toList eqs' 
+   where syms'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList syms'
+         eqs''  = Prelude.map (\(k,s) -> "forall " ++ showCtx k ++ " . " ++ show s) $ Set.toList eqs'
 
-showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m 
+showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
+showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
 typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err (Typeside var ty sym)
 typecheckTypeside x = do _ <- (typeOfCol . tsToCol) x
@@ -78,7 +79,7 @@ data TypesideRaw' = TypesideRaw' {
   , tsraw_eqs  :: [([(String, String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
 } deriving (Eq, Show)
---todo: make pretty 
+--todo: make pretty
 
 tsToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
@@ -121,4 +122,4 @@ data TypesideExp where
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp
 
---todo: make pretty 
+--todo: make pretty
