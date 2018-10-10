@@ -83,6 +83,8 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
 
+xxx :: (Eq f, Ord v') =>
+             [Rule f v'] -> [(R.Term f (Either v' v'), R.Term f (Either v' v'))]
 xxx x = Prelude.map (\y -> (CP.left y, CP.right y)) $ Prelude.filter g $ cps' x
   where g q = not $ (CP.left q) == (CP.right q)
 

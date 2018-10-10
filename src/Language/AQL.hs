@@ -65,13 +65,13 @@ typecheckAqlProgram _ _ = undefined
 typecheckTransExp :: Prog -> TransformExp -> Err (InstanceExp, InstanceExp)
 typecheckTransExp p (TransformVar v) = do t <- note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
                                           typecheckTransExp p t
-typecheckTransExp p (TransformId s) = pure (s, s)
-typecheckTransExp p (TransformSigma f h o) = do (s,t) <- typecheckMapExp p f
-                                                (i,j) <- typecheckTransExp p h
-                                                s' <- typecheckInstExp p i
-                                                if s == s'
-                                                then pure (InstanceSigma f i o, InstanceSigma f j o)
-                                                else Left $ "Source of mapping does not match instance schema"
+typecheckTransExp _ (TransformId s) = pure (s, s)
+typecheckTransExp p (TransformSigma f' h o) = do (s,_) <- typecheckMapExp p f'
+                                                 (i,j) <- typecheckTransExp p h
+                                                 s' <- typecheckInstExp p i
+                                                 if s == s'
+                                                 then pure (InstanceSigma f' i o, InstanceSigma f' j o)
+                                                 else Left $ "Source of mapping does not match instance schema"
 
 typecheckTransExp p (TransformRaw r) = do l' <- typecheckInstExp p $ transraw_src r
                                           r' <- typecheckInstExp p $ transraw_dst r
@@ -95,13 +95,14 @@ typecheckMapExp p (MappingRaw r) = do l' <- typecheckSchemaExp p $ mapraw_src r
 typecheckInstExp :: Prog -> InstanceExp -> Err SchemaExp
 typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
                                         typecheckInstExp p t
-typecheckInstExp p (InstanceInitial s) = pure s
-typecheckInstExp p (InstanceRaw r) = pure $ instraw_schema r
-typecheckInstExp p (InstanceSigma f i o) = do  (s,t) <- typecheckMapExp p f
-                                               s' <- typecheckInstExp p i
-                                               if s == s'
-                                               then pure t
-                                               else Left "(Sigma): Instance not on mapping source."
+typecheckInstExp _ (InstanceInitial s) = pure s
+typecheckInstExp _ (InstanceRaw r) = pure $ instraw_schema r
+typecheckInstExp p (InstanceSigma f' i _) = do  (s,t) <- typecheckMapExp p f'
+                                                s' <- typecheckInstExp p i
+                                                if s == s'
+                                                then pure t
+                                                else Left "(Sigma): Instance not on mapping source."
+typecheckInstExp _ _ = undefined
 
 typecheckTypesideExp :: Prog -> TypesideExp -> Err TypesideExp
 typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
@@ -183,11 +184,11 @@ evalTransform p env (TransformRaw r) = do s0 <- evalInstance p env $ transraw_sr
                                            InstanceEx s -> case s1 of
                                             InstanceEx (t :: Instance var ty sym en fk att gen sk x y) ->
                                              evalTransformRaw ((convInstance s)::Instance var ty sym en fk att gen sk x y) t r --ok bc typecheck says same ts
-evalTransform prog env (TransformSigma f i o) = do (MappingEx (f' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f
-                                                   (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
-                                                   o' <- toOptions o
-                                                   r <- evalSigmaTrans f' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
-                                                   return $ TransformEx r
+evalTransform prog env (TransformSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
+                                                    (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
+                                                    o' <- toOptions o
+                                                    r <- evalSigmaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
+                                                    return $ TransformEx r
 evalTransform _ _ _ = undefined
 
 
@@ -231,10 +232,10 @@ evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_sc
                                            case t of
                                             SchemaEx t' -> do l <- evalInstanceRaw t' r
                                                               pure $ l
-evalInstance prog env (InstanceSigma f i o) = do (MappingEx (f' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f
-                                                 (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-                                                 o' <- toOptions o
-                                                 r <- evalSigmaInst f' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
-                                                 return $ InstanceEx r
+evalInstance prog env (InstanceSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
+                                                  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
+                                                  o' <- toOptions o
+                                                  r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
+                                                  return $ InstanceEx r
 evalInstance _ _ _ = undefined
 
