@@ -44,6 +44,8 @@ parseAqlProgram' = do _ <- constant "typeside"
                       y <- transExpParser
                       return $ (x, ExpT y)
 
+parseAqlProgram'' :: Parser [(String, Exp)]
+parseAqlProgram'' = between spaceConsumer eof (many parseAqlProgram')
 
 
 toProg' :: [(String, Exp)] -> Prog
@@ -58,6 +60,6 @@ toProg' ((v,e):p) = case e of
   where KindCtx t s i m q tr o = toProg' p
 
 parseAqlProgram :: String -> Err Prog
-parseAqlProgram s = case runParser (many parseAqlProgram') "" s of
+parseAqlProgram s = case runParser parseAqlProgram'' "" s of
   Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
   Right x  -> pure $ toProg' x
