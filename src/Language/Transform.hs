@@ -23,14 +23,14 @@ evalSigmaTrans
       Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
       Show gen, Show sk, Show gen', Show sk', Show x', Show y' )
   => Mapping var ty sym en fk att en' fk' att'
-  -> Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Options 
+  -> Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Options
   -> Err (Transform var ty sym en' fk' att' gen sk (GTerm en' fk' gen) (TTerm en' fk' att' gen sk) gen' sk' (GTerm en' fk' gen') (TTerm en' fk' att' gen' sk'))
-evalSigmaTrans f (Transform src0 dst0 gens sks) o = 
+evalSigmaTrans f (Transform src0 dst0 gens' sks') o =
  do src' <- evalSigmaInst f src0 o
     dst' <- evalSigmaInst f dst0 o
-    return $ Transform src' dst' gens' sks'
- where gens' = Map.fromList $ Prelude.map (\(gen,term) -> (gen, changeEn' (M.fks f) (M.atts f) term)) $ Map.toList gens
-       sks' = Map.fromList $ Prelude.map (\(sk,term) -> (sk, changeEn (M.fks f) (M.atts f) term)) $ Map.toList sks
+    return $ Transform src' dst' gens'' sks''
+ where gens'' = Map.fromList $ Prelude.map (\(gen,term) -> (gen, changeEn' (M.fks f) (M.atts f) term)) $ Map.toList gens'
+       sks'' = Map.fromList $ Prelude.map (\(sk,term) -> (sk, changeEn (M.fks f) (M.atts f) term)) $ Map.toList sks'
 
 transToMor :: (Ord att', Ord fk', Ord en', Ord var, Ord ty,
                      Ord sym, Ord gen, Ord sk, Ord gen', Ord sk', Show var, Show ty,
@@ -137,7 +137,7 @@ evalTransformRaw src' dst' (TransExpRaw' _ _ sec _) =
      z <- typecheckTransform $ Transform src' dst' x y
      pure $ TransformEx z
  where
-  
+
   gens'' = Map.toList $ I.gens $ pres src'
   sks'' = Map.toList $ I.sks $ pres src'
   --check = if Prelude.null non0 then pure () else Left $ "Not a gen or null: " ++ show non0

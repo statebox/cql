@@ -61,10 +61,11 @@ appearsIn _ _ = undefined
 findGen :: Eq y => Set (EQ Void ty sym Void Void Void Void y) -> Maybe (y, Term Void ty sym Void Void Void Void y)
 findGen = f . Set.toList
  where g (Sk y) t = if appearsIn y t then Nothing else Just (y, t)
-       g (Sym f []) t = Nothing
-       g (Sym f (a:b)) t = case g a t of 
-                             Nothing -> g (Sym f b) t
-                             Just y -> Just y                            
+       g (Sym _ []) _ = Nothing
+       g (Sym f' (a:b)) t = case g a t of
+                             Nothing -> g (Sym f' b) t
+                             Just y -> Just y
+       g _ _ = undefined
        f [] = Nothing
        f ((EQ (lhs, rhs)):tl) = case g lhs rhs of
           Nothing -> case g rhs lhs of
@@ -94,7 +95,7 @@ simplify (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') = case findGen 
                                    ty2 t = Set.delete toRemove (ty' t)
                                    nf2 e = replace toRemove replacer $ nf'''' e
                                    repr2 = repr'''
-                                   teqs3 = Set.filter (\(EQ (x,y)) -> not (x == y)) teqs2 
+                                   teqs3 = Set.filter (\(EQ (x,y)) -> not (x == y)) teqs2
                  in Just $ Algebra sch en' nf''' repr'' ty2 nf2 repr2 teqs3
  --where gens = reifyGens en $ ens sch
 
@@ -393,7 +394,7 @@ close1 :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show f
 close1 col _ e = e:(Prelude.map (\(x,_) -> Fk x e) l)
  where t = typeOf col e
        l = fksFrom col t
-      
+
 
 
 typeOf :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
@@ -515,43 +516,52 @@ evalInstanceRaw ty' t =
 
 ----------------------------------------------------------------------------------
 
-subs :: forall var ty sym en fk att en' fk' att' gen sk. 
+subs :: forall var ty sym en fk att en' fk' att' gen sk.
  (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq en',
       Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
       Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
       Show gen, Show sk ) =>
  Mapping var ty sym en fk att en' fk' att'
   -> Presentation var ty sym en fk att gen sk -> Presentation var ty sym en' fk' att' gen sk
-subs (m@(Mapping _ _ ens fks atts)) (p@(Presentation gens sks eqs)) = Presentation gens' sks eqs'
- where gens' = Map.map (\k -> fromJust $ Map.lookup k ens) gens 
-       eqs'  = Set.map (\(EQ (l, r)) -> EQ (changeEn fks atts l, changeEn fks atts r)) eqs
-      
+subs (Mapping _ _ ens' fks' atts') (Presentation gens' sks' eqs') = Presentation gens'' sks' eqs''
+ where gens'' = Map.map (\k -> fromJust $ Map.lookup k ens') gens'
+       eqs''  = Set.map (\(EQ (l, r)) -> EQ (changeEn fks' atts' l, changeEn fks' atts' r)) eqs'
 
---changeEn :: Term Void ty sym en fk att gen sk -> Term Void ty sym en' fk' att' gen sk 
-changeEn fks atts (Var v) = absurd v
-changeEn fks atts (Sym h as) = Sym h $ Prelude.map (changeEn fks atts) as 
-changeEn fks atts (Sk k) = Sk k
-changeEn fks atts (Gen g) = Gen g
-changeEn fks atts (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ changeEn fks atts a
-changeEn fks atts (Att h a) = subst (up5 $ fromJust $ Map.lookup h atts) $ changeEn fks atts a
 
-changeEn' fks atts (Var v) = absurd v
-changeEn' fks atts (Sym h as) = absurd h
-changeEn' fks atts (Sk k) = absurd k
-changeEn' fks atts (Gen g) = Gen g
-changeEn' fks atts (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ changeEn' fks atts a
-changeEn' fks atts (Att h a) = absurd h
-    
+changeEn :: (Ord k1, Ord k2, Eq var) =>
+                  Map k1 (Term () Void Void en1 fk Void Void Void)
+                  -> Map k2 (Term () ty1 sym en1 fk att Void Void)
+                  -> Term Void ty2 sym en2 k1 k2 gen sk
+                  -> Term var ty1 sym en1 fk att gen sk
+changeEn _ _ (Var v) = absurd v
+changeEn fks' atts' (Sym h as) = Sym h $ Prelude.map (changeEn fks' atts') as
+changeEn _ _ (Sk k) = Sk k
+changeEn _ _ (Gen g) = Gen g
+changeEn fks' atts' (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks') $ changeEn fks' atts' a
+changeEn fks' atts' (Att h a) = subst (up5 $ fromJust $ Map.lookup h atts') $ changeEn fks' atts' a
+
+changeEn' :: (Ord k, Eq var) =>
+                   Map k (Term () Void Void en1 fk Void Void Void)
+                   -> t
+                   -> Term Void ty1 Void en2 k Void gen Void
+                   -> Term var ty2 sym en1 fk att gen sk
+changeEn' _ _ (Var v) = absurd v
+changeEn' _ _ (Sym h _) = absurd h
+changeEn' _ _ (Sk k) = absurd k
+changeEn' _ _ (Gen g) = Gen g
+changeEn' fks' atts' (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks') $ changeEn' fks' atts' a
+changeEn' _ _ (Att h _) = absurd h
+
 evalSigmaInst
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
       Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
       Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
       Show gen, Show sk )
   => Mapping var ty sym en fk att en' fk' att'
-  -> Instance var ty sym en fk att gen sk x y -> Options 
+  -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (GTerm en' fk' gen) (TTerm en' fk' att' gen sk))
 evalSigmaInst f i o = do d <- createProver (instToCol s p) o
-                         return $ initialInstance p (\(EQ (l,r)) -> prove d Map.empty (EQ (l,r))) s 
+                         return $ initialInstance p (\(EQ (l,r)) -> prove d Map.empty (EQ (l,r))) s
  where p = subs f $ pres i
        s = dst f
 
