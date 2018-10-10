@@ -111,3 +111,10 @@ transform t = literal : I1 -> I {
 		xw2 -> w2
 		xw3 -> w3
 } 
+
+transform t2 = sigma F t {
+	options
+	program_allow_nontermination_unsafe = true
+	program_allow_nonconfluence_unsafe = true	
+	allow_empty_sorts_unsafe = true
+}

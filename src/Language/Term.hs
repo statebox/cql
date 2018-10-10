@@ -261,10 +261,6 @@ iterGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att
 iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
-iterGround2 :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> Integer -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
-iterGround2 _ 0 r = r
-iterGround2 col n r = closeGround col $ (iterGround2 col (n-1) r)
-
 computeGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 computeGround col = iterGround col $ initGround col
 
@@ -274,10 +270,6 @@ allSortsInhabited col = t && f
        t = and $ Map.elems me
        f = and $ Map.elems mt
 
--- TODO
---data Err1 t
---  = CannotFindVar t
---  | Undefined t
 
 -- I've given up on non string based error handling for now
 typeOf'

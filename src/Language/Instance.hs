@@ -524,18 +524,24 @@ subs :: forall var ty sym en fk att en' fk' att' gen sk.
   -> Presentation var ty sym en fk att gen sk -> Presentation var ty sym en' fk' att' gen sk
 subs (m@(Mapping _ _ ens fks atts)) (p@(Presentation gens sks eqs)) = Presentation gens' sks eqs'
  where gens' = Map.map (\k -> fromJust $ Map.lookup k ens) gens 
-       eqs'  = Set.map (\(EQ (l, r)) -> EQ (f l, f r)) eqs
-       f :: Term Void ty sym en fk att gen sk -> Term Void ty sym en' fk' att' gen sk 
-       f (Var v) = absurd v
-       f (Sym h as) = Sym h $ Prelude.map f as 
-       f (Sk k) = Sk k
-       f (Gen g) = Gen g
-       f (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ f a
-       f (Att h a) = subst (up5 $ fromJust $ Map.lookup h atts) $ f a
+       eqs'  = Set.map (\(EQ (l, r)) -> EQ (changeEn fks atts l, changeEn fks atts r)) eqs
       
 
+--changeEn :: Term Void ty sym en fk att gen sk -> Term Void ty sym en' fk' att' gen sk 
+changeEn fks atts (Var v) = absurd v
+changeEn fks atts (Sym h as) = Sym h $ Prelude.map (changeEn fks atts) as 
+changeEn fks atts (Sk k) = Sk k
+changeEn fks atts (Gen g) = Gen g
+changeEn fks atts (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ changeEn fks atts a
+changeEn fks atts (Att h a) = subst (up5 $ fromJust $ Map.lookup h atts) $ changeEn fks atts a
 
-
+changeEn' fks atts (Var v) = absurd v
+changeEn' fks atts (Sym h as) = absurd h
+changeEn' fks atts (Sk k) = absurd k
+changeEn' fks atts (Gen g) = Gen g
+changeEn' fks atts (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ changeEn' fks atts a
+changeEn' fks atts (Att h a) = absurd h
+    
 evalSigmaInst
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
       Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',

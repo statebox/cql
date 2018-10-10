@@ -67,11 +67,18 @@ typecheckTransExp :: Prog -> TransformExp -> Err (InstanceExp, InstanceExp)
 typecheckTransExp p (TransformVar v) = do t <- note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
                                           typecheckTransExp p t  
 typecheckTransExp p (TransformId s) = pure (s, s)
+typecheckTransExp p (TransformSigma f h o) = do (s,t) <- typecheckMapExp p f
+                                                (i,j) <- typecheckTransExp p h
+                                                s' <- typecheckInstExp p i
+                                                if s == s'  
+                                                then pure (InstanceSigma f i o, InstanceSigma f j o) 
+                                                else Left $ "Source of mapping does not match instance schema"
 typecheckTransExp p (TransformRaw r) = do l' <- typecheckInstExp p $ transraw_src r
                                           r' <- typecheckInstExp p $ transraw_dst r
                                           if   l' == r' 
                                           then pure $ (transraw_src r, transraw_src r)
                                           else Left "Mapping has non equal schemas"
+
 
 typecheckMapExp :: Prog -> MappingExp -> Err (SchemaExp, SchemaExp) 
 typecheckMapExp p (MappingVar v) = do t <- note ("Undefined mapping: " ++ show v) $ Map.lookup v $ mappings p
@@ -166,6 +173,11 @@ evalTransform p env (TransformRaw r) = do s0 <- evalInstance p env $ transraw_sr
                                            InstanceEx s -> case s1 of 
                                             InstanceEx (t :: Instance var ty sym en fk att gen sk x y) -> 
                                              evalTransformRaw ((convInstance s)::Instance var ty sym en fk att gen sk x y) t r --ok bc typecheck says same ts 
+evalTransform prog env (TransformSigma f i o) = do (MappingEx (f' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f 
+                                                   (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i 
+                                                   o' <- toOptions o
+                                                   r <- evalSigmaTrans f' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'     
+                                                   return $ TransformEx r
 
 
 evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx 

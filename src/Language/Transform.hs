@@ -8,14 +8,29 @@ import Data.Map.Strict as Map
 import Language.Common
 import Language.Term
 import Language.Instance as I
-import Language.Mapping
+import Language.Mapping as M
 import Language.Query
 import Data.Void
 import Language.Schema as S
 import Data.Typeable
 import Data.Maybe
 import Data.List
+import Language.Options
 
+evalSigmaTrans
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord gen', Ord sk, Ord sk', Ord x', Ord y', Eq x, Eq y, Eq en',
+      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
+      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
+      Show gen, Show sk, Show gen', Show sk', Show x', Show y' )
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Options 
+  -> Err (Transform var ty sym en' fk' att' gen sk (GTerm en' fk' gen) (TTerm en' fk' att' gen sk) gen' sk' (GTerm en' fk' gen') (TTerm en' fk' att' gen' sk'))
+evalSigmaTrans f (Transform src0 dst0 gens sks) o = 
+ do src' <- evalSigmaInst f src0 o
+    dst' <- evalSigmaInst f dst0 o
+    return $ Transform src' dst' gens' sks'
+ where gens' = Map.fromList $ Prelude.map (\(gen,term) -> (gen, changeEn' (M.fks f) (M.atts f) term)) $ Map.toList gens
+       sks' = Map.fromList $ Prelude.map (\(sk,term) -> (sk, changeEn (M.fks f) (M.atts f) term)) $ Map.toList sks
 
 transToMor :: (Ord att', Ord fk', Ord en', Ord var, Ord ty,
                      Ord sym, Ord gen, Ord sk, Ord gen', Ord sk', Show var, Show ty,
@@ -38,7 +53,9 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
 
 data TransformEx :: * where
   TransformEx :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y') =>
+   (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
+    Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk, Typeable x, Typeable y, Typeable gen', Typeable sk', Typeable x', Typeable y',
+    Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y' ) =>
     Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> TransformEx
 
 deriving instance Show TransformEx
@@ -70,7 +87,7 @@ data TransformExp  where
   TransformQueryUnit :: QueryExp -> TransformExp
   TransformQueryCoUnit :: MappingExp -> TransformExp
   TransformDelta :: MappingExp -> TransformExp -> TransformExp
-  TransformSigma :: MappingExp -> TransformExp -> TransformExp
+  TransformSigma :: MappingExp -> TransformExp -> [(String,String)] -> TransformExp
   TransformPi :: MappingExp -> TransformExp -> TransformExp
   TransformCoEval :: QueryExp -> TransformExp -> TransformExp
   TransformEval :: QueryExp -> TransformExp -> TransformExp
@@ -111,17 +128,15 @@ validateTransform (m@(Transform src' dst' _ _)) = do _ <- mapM f (Set.toList $ e
 evalTransformRaw :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
   (Ord var, Ord ty, Ord sym, Show att, Show sym, Show var, Show ty, Typeable en, Ord en, Show en, Typeable sym, Typeable att, Typeable fk, Show fk,
     Ord att,  Ord en, Ord fk, Typeable sk', Typeable gen', Ord sk', Ord gen', Ord sk, Ord gen, Typeable sk, Typeable gen, Ord x, Ord y, Ord x', Ord y'
-    , Show gen, Show gen', Show sk ,Show x, Show y, Show x', Show y', Show sk') =>
+    , Show gen, Show gen', Show sk ,Show x, Show y, Show x', Show y', Show sk', Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y') =>
   Instance var ty sym en fk att gen sk x y -> Instance var ty sym en fk att gen' sk' x' y' -> TransExpRaw'
  -> Err (TransformEx)
 evalTransformRaw src' dst' (TransExpRaw' _ _ sec _) =
   do x <- f' gens0
      y <- f  sks0
-     --_ <- check
      z <- typecheckTransform $ Transform src' dst' x y
      pure $ TransformEx z
  where
- -- non0 = Prelude.filter (\(x,_) -> not ( (elem' x $ keys' gens') || (elem' x $ keys' sks') )) sec
   
   gens'' = Map.toList $ I.gens $ pres src'
   sks'' = Map.toList $ I.sks $ pres src'

@@ -8,6 +8,7 @@ import           Language.Parser.Instance
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
 import           Language.Term
+import           Language.Parser.Mapping
 
 
 gParser :: Parser (String, RawTerm)
@@ -37,6 +38,12 @@ transformRawParser = do
                       (fromMaybe [] x)
 
 
+sigmaParser' :: Parser TransformExp
+sigmaParser' = do _ <- constant "sigma"
+                  f <- mapExpParser
+                  i <- transExpParser
+                  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                  return $ TransformSigma f i $ fromMaybe [] o
 
 
 transExpParser :: Parser TransformExp
@@ -44,7 +51,8 @@ transExpParser =
     TransformRaw <$> transformRawParser
     <|>
       TransformVar <$> identifier
-    <|>
+
+    <|> sigmaParser' <|>
        do
         _ <- constant "identity"
         x <- instExpParser
