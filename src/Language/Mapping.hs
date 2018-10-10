@@ -35,7 +35,11 @@ mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCo
 
 data MappingEx :: * where
   MappingEx :: forall var ty sym en fk att en' fk' att'.
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att',
+    Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable en', Typeable fk', Typeable att',
+    Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord en', Ord fk', Ord att'
+   
+    ) =>
     Mapping var ty sym en fk att en' fk' att' -> MappingEx
 
 deriving instance Show MappingEx
@@ -191,7 +195,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
 evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk',
    Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk,
    Ord att, Show att, Show fk, Show en', Typeable sym, Ord fk, Show var, Typeable fk', Typeable att', Ord att',
-   Ord fk' )
+   Ord fk' , Typeable var)
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> Err MappingEx
 evalMappingRaw src' dst' t =
  do r <- evalMappingRaw' src' dst' t

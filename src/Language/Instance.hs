@@ -61,7 +61,10 @@ appearsIn _ _ = undefined
 findGen :: Eq y => Set (EQ Void ty sym Void Void Void Void y) -> Maybe (y, Term Void ty sym Void Void Void Void y)
 findGen = f . Set.toList
  where g (Sk y) t = if appearsIn y t then Nothing else Just (y, t)
-       g _ _ = undefined
+       g (Sym f []) t = Nothing
+       g (Sym f (a:b)) t = case g a t of 
+                             Nothing -> g (Sym f b) t
+                             Just y -> Just y                            
        f [] = Nothing
        f ((EQ (lhs, rhs)):tl) = case g lhs rhs of
           Nothing -> case g rhs lhs of
@@ -91,7 +94,8 @@ simplify (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') = case findGen 
                                    ty2 t = Set.delete toRemove (ty' t)
                                    nf2 e = replace toRemove replacer $ nf'''' e
                                    repr2 = repr'''
-                 in Just $ Algebra sch en' nf''' repr'' ty2 nf2 repr2 teqs2
+                                   teqs3 = Set.filter (\(EQ (x,y)) -> not (x == y)) teqs2 
+                 in Just $ Algebra sch en' nf''' repr'' ty2 nf2 repr2 teqs3
  --where gens = reifyGens en $ ens sch
 
 castX :: Term Void ty sym en fk att gen sk -> Maybe (Term Void Void Void en fk Void gen Void)
@@ -130,7 +134,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
   show (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') =
     "algebra\n" ++ l ++ "\ntype-algeba\n" ++ w ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs')
       where w = "nulls\n" ++ sepBy' "\n" (Prelude.map (\ty'' -> show ty'' ++ " = { " ++ show (Set.toList $ ty' ty'') ++ " }") (Set.toList $ Typeside.tys $ Schema.typeside sch))
-            h = Prelude.map (\en'' -> show en'' ++ "\n-------------\n" ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": "
+            h = Prelude.map (\en'' -> show en'' ++ " (" ++ show (Set.size (en' en'')) ++ ")\n-------------\n" ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": "
                  ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en'') ",") ++ ", "
                  ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en'') ",")) $ Set.toList $ en' en'')) (Set.toList $ Schema.ens sch)
             l = sepBy' "\n" h
@@ -389,7 +393,7 @@ close1 :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show f
 close1 col _ e = e:(Prelude.map (\(x,_) -> Fk x e) l)
  where t = typeOf col e
        l = fksFrom col t
-      -- f [] =
+      
 
 
 typeOf :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
@@ -410,7 +414,7 @@ data InstanceExp where
   InstanceInitial :: SchemaExp -> InstanceExp
 
   InstanceDelta :: MappingExp -> InstanceExp -> InstanceExp
-  InstanceSigma :: MappingExp -> InstanceExp -> InstanceExp
+  InstanceSigma :: MappingExp -> InstanceExp -> [(String, String)] -> InstanceExp
   InstancePi :: MappingExp -> InstanceExp -> InstanceExp
 
   InstanceEval :: QueryExp -> InstanceExp -> InstanceExp
@@ -511,12 +515,39 @@ evalInstanceRaw ty' t =
 
 ----------------------------------------------------------------------------------
 
+subs :: forall var ty sym en fk att en' fk' att' gen sk. 
+ (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq en',
+      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
+      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
+      Show gen, Show sk ) =>
+ Mapping var ty sym en fk att en' fk' att'
+  -> Presentation var ty sym en fk att gen sk -> Presentation var ty sym en' fk' att' gen sk
+subs (m@(Mapping _ _ ens fks atts)) (p@(Presentation gens sks eqs)) = Presentation gens' sks eqs'
+ where gens' = Map.map (\k -> fromJust $ Map.lookup k ens) gens 
+       eqs'  = Set.map (\(EQ (l, r)) -> EQ (f l, f r)) eqs
+       f :: Term Void ty sym en fk att gen sk -> Term Void ty sym en' fk' att' gen sk 
+       f (Var v) = absurd v
+       f (Sym h as) = Sym h $ Prelude.map f as 
+       f (Sk k) = Sk k
+       f (Gen g) = Gen g
+       f (Fk h a) = subst (up13 $ fromJust $ Map.lookup h fks) $ f a
+       f (Att h a) = subst (up5 $ fromJust $ Map.lookup h atts) $ f a
+      
+
+
+
 evalSigmaInst
-  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
+      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
+      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
+      Show gen, Show sk )
   => Mapping var ty sym en fk att en' fk' att'
-  -> Instance var ty sym en fk att gen sk x y
-  -> Instance var ty sym en' fk' att' gen sk (GTerm en fk gen) (TTerm en fk att gen sk)
-evalSigmaInst = undefined 
+  -> Instance var ty sym en fk att gen sk x y -> Options 
+  -> Err (Instance var ty sym en' fk' att' gen sk (GTerm en' fk' gen) (TTerm en' fk' att' gen sk))
+evalSigmaInst f i o = do d <- createProver (instToCol s p) o
+                         return $ initialInstance p (\(EQ (l,r)) -> prove d Map.empty (EQ (l,r))) s 
+ where p = subs f $ pres i
+       s = dst f
 
 evalDeltaAlgebra
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en', Eq fk', Eq att')
@@ -531,8 +562,5 @@ evalDeltaInst
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Instance var ty sym en fk att (en',gen) sk (en',x) y
 evalDeltaInst = undefined --todo
-
--- TODO all of these need to be changed at once
---data ErrEval = ErrSchemaMismatch | ErrQueryEvalTodo | ErrMappingEvalTodo | ErrInstanceEvalTodo
 
 

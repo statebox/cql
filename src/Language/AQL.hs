@@ -22,6 +22,7 @@ import Language.Parser (parseAqlProgram)
 import Language.Program as P
 import Data.Void
 import Data.Typeable
+import Language.Options 
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -89,6 +90,11 @@ typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ sho
                                         typecheckInstExp p t  
 typecheckInstExp p (InstanceInitial s) = pure s
 typecheckInstExp p (InstanceRaw r) = pure $ instraw_schema r
+typecheckInstExp p (InstanceSigma f i o) = do  (s,t) <- typecheckMapExp p f 
+                                               s' <- typecheckInstExp p i
+                                               if s == s' 
+                                               then pure t 
+                                               else Left "(Sigma): Instance not on mapping source." 
 
 typecheckTypesideExp :: Prog -> TypesideExp -> Err TypesideExp
 typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
@@ -201,6 +207,10 @@ evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_sc
                                            case t of
                                             SchemaEx t' -> do l <- evalInstanceRaw t' r 
                                                               pure $ l
-
+evalInstance prog env (InstanceSigma f i o) = do (MappingEx (f' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f 
+                                                 (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i 
+                                                 o' <- toOptions o
+                                                 r <- evalSigmaInst f' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'     
+                                                 return $ InstanceEx r
 evalInstance _ _ _ = undefined
 
