@@ -59,7 +59,7 @@ toBoolOption (k,v) = case matches of
         parseBool x       = Left $ "Not a bool: " ++ x
 
 boolDef :: [(BoolOption, Bool)]
-boolDef = [(Program_Allow_Nontermination_Unsafe, False), (Allow_Empty_Sorts_Unsafe, False)]
+boolDef = [(Program_Allow_Nontermination_Unsafe, False), (Allow_Empty_Sorts_Unsafe, False), (Program_Allow_Nonconfluence_Unsafe, False)]
 
 defaultOptions :: Options
 defaultOptions = Options Map.empty (Map.fromList boolDef) Map.empty
@@ -85,6 +85,7 @@ data BoolOption =
 --  | Allow_Java_Eqs_Unsafe
   | Dont_Validate_Unsafe
   | Always_Reload
+  | Program_Allow_Nonconfluence_Unsafe
 --  | Query_Compose_Use_Incomplete
   | Query_Remove_Redundancy
   | Import_As_Theory

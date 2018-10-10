@@ -40,7 +40,8 @@ freeProver col = if (Set.size (ceqs col) == 0)
                  else Left "Cannot use free prover when there are equations"
  where p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
-createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en, Show en, Show ty)
+createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en, Show en, Show ty,
+  Show var, Show sym, Show fk, Show att, Show gen, Show sk)
  => Collage var ty sym en fk att gen sk -> Options
   -> Err (Prover var ty sym en fk att gen sk)
 createProver col ops =  do p <- proverStringToName ops
@@ -58,15 +59,16 @@ createProver col ops =  do p <- proverStringToName ops
 
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
-orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Show en, Show ty) =>
+orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Show en, Show ty
+  ,Show var,Show sym,Show fk, Show att, Show en, Show gen, Show sk) =>
                     Collage var ty sym en fk att gen sk -> Options
                     -> Err (Prover var ty sym en fk att gen sk)
 orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
-                     then if noOverlaps  eqs2
+                     then if nonConOk || noOverlaps  eqs2
                           then if allSortsInhabited col  || allow_empty
                             then pure $ Prover col p
                             else Left "Rewriting Error: contains uninhabited sorts"
-                          else Left "Rewriting Error: not orthogonal"
+                          else Left $ "Rewriting Error: not orthogonal.  Pairs are " ++ show (xxx eqs2)
                      else Left "Rewriting Error: not size decreasing"
  where p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col
@@ -76,9 +78,13 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
               y:_ -> nf $ result y
        allow_nonTerm = lookup2 Program_Allow_Nontermination_Unsafe (bOps ops)
        allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)
+       nonConOk = lookup2 Program_Allow_Nonconfluence_Unsafe (bOps ops)
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
+
+xxx x = Prelude.map (\y -> (CP.left y, CP.right y)) $ Prelude.filter g $ cps' x
+  where g q = not $ (CP.left q) == (CP.right q)
 
 noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
 --noOverlaps x = y && (Prelude.null $ trace (show $ cps' x) $ cps' x)

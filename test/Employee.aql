@@ -13,7 +13,7 @@ typeside T = literal {
 	 	forall x y : nat. plus(succ(x),y) = succ(plus(x,y))  
 	options  
 		prover = program  
-		program_allow_nonterm_unsafe = true  
+		program_allow_nontermination_unsafe = true  
  }
 
 schema S = literal : T {   
@@ -31,7 +31,7 @@ schema S = literal : T {
      	name : Department -> string 
     options 
 		prover = program 
-		program_allow_nonterm_unsafe = true   
+		program_allow_nontermination_unsafe = true   
 		allow_empty_sorts_unsafe = true   
     }
 
@@ -43,6 +43,6 @@ instance I = literal : S {
 	    b.manager=a b.worksIn = a.worksIn    
 
     options  
-        program_allow_nonterm_unsafe = true   
+        program_allow_nontermination_unsafe = true   
         allow_empty_sorts_unsafe = true   
 }    

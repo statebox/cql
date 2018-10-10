@@ -84,6 +84,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
      Sk  s      -> show s
      Fk  fk  a  -> show a ++ "." ++ show fk
      Att att a  -> show a ++ "." ++ show att
+     Sym sym [] -> show sym 
      Sym sym az -> show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
 
 deriving instance (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) => Eq (Term var ty sym en fk att gen sk)
@@ -192,7 +193,7 @@ checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor
         f fk = if Map.member fk $ m_fks  mor then pure () else Left $ "No fk mapping for " ++ show fk
         a at = if Map.member at $ m_atts mor then pure () else Left $ "No att mapping for " ++ show at
         g gn = if Map.member gn $ m_gens mor then pure () else Left $ "No gen mapping for " ++ show gn
-        s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No gen mapping for " ++ show sk
+        s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No sk mapping for " ++ show sk
 
 typeOfMor
   :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .

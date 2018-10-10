@@ -11,6 +11,7 @@ import           Text.Megaparsec
 
 import           Language.Instance          as I
 import           Language.Parser.Schema
+import Language.Parser.Mapping as M 
 import           Language.Schema            as S
 import           Language.Term
 
@@ -31,6 +32,12 @@ genParser = do x <- some identifier
                y <- identifier
                return $ map (\a -> (a,y)) x
 
+sigmaParser :: Parser InstanceExp
+sigmaParser = do _ <- constant "sigma"
+                 f <- mapExpParser
+                 i <- instExpParser
+                 o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                 return $ InstanceSigma f i $ fromMaybe [] o
 
 instRawParser :: Parser InstExpRaw'
 instRawParser = do
@@ -59,6 +66,8 @@ instExpParser =
     InstanceRaw <$> instRawParser
     <|>
       InstanceVar <$> identifier
+    <|>
+       sigmaParser 
     <|>
        do
         _ <- constant "empty"

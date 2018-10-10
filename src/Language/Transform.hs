@@ -117,14 +117,17 @@ evalTransformRaw :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
 evalTransformRaw src' dst' (TransExpRaw' _ _ sec _) =
   do x <- f' gens0
      y <- f  sks0
-     _ <- check
+     --_ <- check
      z <- typecheckTransform $ Transform src' dst' x y
      pure $ TransformEx z
  where
-  non0 = Prelude.filter (\(x,_) -> not ( (elem' x $ keys' gens') || (elem' x $ keys' sks') )) sec
-  check = if Prelude.null non0 then pure () else Left $ "Not a gen or null: " ++ show non0
-  gens0 =  Prelude.filter (\(x,_) -> elem' x $ keys' gens') sec
-  sks0 =  Prelude.filter (\(x,_) -> elem' x $ keys' sks') sec
+ -- non0 = Prelude.filter (\(x,_) -> not ( (elem' x $ keys' gens') || (elem' x $ keys' sks') )) sec
+  
+  gens'' = Map.toList $ I.gens $ pres src'
+  sks'' = Map.toList $ I.sks $ pres src'
+  --check = if Prelude.null non0 then pure () else Left $ "Not a gen or null: " ++ show non0
+  gens0 =  Prelude.filter (\(x,_) -> elem' x $ keys' gens'') sec
+  sks0 =  Prelude.filter (\(x,_) -> elem' x $ keys' sks'') sec
 
   keys' = fst . unzip
   gens' = Map.toList $ I.gens $ pres dst'
