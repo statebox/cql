@@ -73,7 +73,7 @@ nf'' alg (Att f a) = nf' alg $ Right (nf alg (fromJust $ castX a), f)
 nf'' _ _ = undefined
 
 aTerm :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk Void Void Void -> x
-aTerm alg g = undefined
+aTerm _ _ = undefined
 
 aGen :: Algebra var ty sym en fk att gen sk x y -> gen -> x
 aGen alg g = nf alg $ Gen g
@@ -530,8 +530,11 @@ evalSigmaInst f i o = do d <- createProver (instToCol s p) o
  where p = subs f $ pres i
        s = dst f
 
+mapGen :: (t1 -> t2)
+                -> Term var ty sym en (t2 -> t2) att t1 sk -> t2
 mapGen f (Gen g) = f g
 mapGen f (Fk fk a) = fk $ mapGen f a
+mapGen _ _ = undefined
 
 evalDeltaAlgebra
   :: forall var ty sym en fk att gen sk x y en' fk' att' .
@@ -540,48 +543,49 @@ evalDeltaAlgebra
   => Mapping  var ty sym en  fk  att  en'       fk' att'
   -> Instance var ty sym en' fk' att' gen       sk  x       y
   -> Algebra  var ty sym en  fk  att  (en, x)   y   (en, x) y
-evalDeltaAlgebra (mp@(Mapping src dst ens fks0 atts0))
-  (Instance sch pres dp (alg@(Algebra _ en nf repr ty nf' repr' teqs))) 
-  = Algebra src en' nf''x repr'' ty nf''' repr''' teqs
- where en' e = Set.map (\x -> (e,x)) $ en $ fromJust $ Map.lookup e ens 
+evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
+  (Instance _ _ _ (alg@(Algebra _ en' nf''' repr'' ty' _ _ teqs')))
+  = Algebra src' en'' nf''x repr'''' ty' nf'''' repr''''' teqs'
+ where en'' e = Set.map (\x -> (e,x)) $ en' $ fromJust $ Map.lookup e ens'
        nf''x :: Term Void Void Void en fk Void (en,x) Void -> (en, x)
        nf''x (Gen g) = g
-       nf''x (Fk f a) = let (en,x) = nf''x a 
-                       in (snd $ fromJust $ Map.lookup f $ Schema.fks src, 
-                           nf $ subst (up13 $ fromJust $ Map.lookup f fks0) (repr x) )
-       repr'' :: (en, x) -> Term Void Void Void en fk Void (en, x) Void
-       repr'' (en, x) = Gen (en, x)
-       repr''' :: y -> Term Void ty sym en fk att (en,x) y         
-       repr''' y = Sk y 
-       nf''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
-       nf''' (Left y) = Sk y 
-       nf''' (Right ((en,x), att)) = 
-         nf'' alg $ subst (q $ fromJust $ Map.lookup att atts0) (p $ repr x)
-       p :: Term Void Void Void en' fk' Void gen Void -> Term Void ty sym  en' fk' att' gen sk  
+       nf''x (Fk f a) = let (_,x) = nf''x a
+                       in (snd $ fromJust $ Map.lookup f $ Schema.fks src',
+                           nf''' $ subst (up13 $ fromJust $ Map.lookup f fks0) (repr'' x) )
+       nf''x _ = undefined
+       repr'''' :: (en, x) -> Term Void Void Void en fk Void (en, x) Void
+       repr'''' (en''', x) = Gen (en''', x)
+       repr''''' :: y -> Term Void ty sym en fk att (en,x) y
+       repr''''' y = Sk y
+       nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
+       nf'''' (Left y) = Sk y
+       nf'''' (Right ((_,x), att)) =
+         nf'' alg $ subst (q $ fromJust $ Map.lookup att atts0) (p $ repr'' x)
+       p :: Term Void Void Void en' fk' Void gen Void -> Term Void ty sym  en' fk' att' gen sk
        p = up
-       q :: Term () ty sym en' fk' att' Void Void -> Term () ty sym en' fk' att' gen sk  
+       q :: Term () ty sym en' fk' att' Void Void -> Term () ty sym en' fk' att' gen sk
        q = up5
-           
+
 
 evalDeltaInst
  :: forall var ty sym en fk att gen sk x y en' fk' att' .
   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show en', Show fk', Show att',
    Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, Ord en', Ord fk', Ord att')
   => Mapping var ty sym en fk att en' fk' att'
-  -> Instance var ty sym en' fk' att' gen sk x y -> Options 
-  -> Err (Instance var ty sym en fk att (en,x) y (en,x) y) 
-evalDeltaInst m i _ = return $ Instance s p eq j
- where j = evalDeltaAlgebra m i 
+  -> Instance var ty sym en' fk' att' gen sk x y -> Options
+  -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
+evalDeltaInst m i _ = return $ Instance s p eq' j
+ where j = evalDeltaAlgebra m i
        p = algebraToPresentation j
-       s = src m  
-       eq (EQ (l, r)) = dp i $ EQ (f l, f r)
+       s = src m
+       eq' (EQ (l, r)) = dp i $ EQ (f l, f r)
        f :: Term Void ty sym en fk att (en, x) y -> Term Void ty sym en' fk' att' gen sk
-       f (Var v) = absurd v 
-       f (Sym s as) = Sym s $ Prelude.map f as
+       f (Var v) = absurd v
+       f (Sym s' as) = Sym s' $ Prelude.map f as
        f (Fk fk a) = subst (up13 $ fromJust $ Map.lookup fk (Mapping.fks m)) $ f a
        f (Att att a) = subst (up5 $ fromJust $ Map.lookup att (Mapping.atts m)) $ f a
-       f (Gen (_, x)) = up12 $ repr (algebra i) x  
-       f (Sk y) = repr' (algebra i) y   
+       f (Gen (_, x)) = up12 $ repr (algebra i) x
+       f (Sk y) = repr' (algebra i) y
 
 
 

@@ -102,7 +102,7 @@ typecheckInstExp p (InstanceSigma f' i _) = do  (s,t) <- typecheckMapExp p f'
                                                 if s == s'
                                                 then pure t
                                                 else Left "(Sigma): Instance not on mapping source."
-typecheckInstExp p (InstanceDelta f' i _) = do  (s,t) <- typecheckMapExp p f'
+typecheckInstExp p (InstanceDelta f' i _) = do  (_,t) <- typecheckMapExp p f'
                                                 t' <- typecheckInstExp p i
                                                 if t == t'
                                                 then pure t
