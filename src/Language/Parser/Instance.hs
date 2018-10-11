@@ -39,6 +39,14 @@ sigmaParser = do _ <- constant "sigma"
                  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
                  return $ InstanceSigma f i $ fromMaybe [] o
 
+
+deltaParser :: Parser InstanceExp
+deltaParser = do _ <- constant "delta"
+                 f <- mapExpParser
+                 i <- instExpParser
+                 o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                 return $ InstanceDelta f i $ fromMaybe [] o
+
 instRawParser :: Parser InstExpRaw'
 instRawParser = do
         _ <- constant "literal"
@@ -67,7 +75,7 @@ instExpParser =
     <|>
       InstanceVar <$> identifier
     <|>
-       sigmaParser 
+       sigmaParser  <|> deltaParser
     <|>
        do
         _ <- constant "empty"

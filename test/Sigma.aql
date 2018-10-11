@@ -80,12 +80,13 @@ mapping F = literal : C -> D {
 
 instance J = sigma F I {
 	options
-	prover = program
-		
+		prover = program	
 		program_allow_nontermination_unsafe = true
 		allow_empty_sorts_unsafe = true	
-
 }
+
+
+instance K = delta F J
 
 instance I1 = literal : C {
 	generators 

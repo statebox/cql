@@ -102,6 +102,12 @@ typecheckInstExp p (InstanceSigma f' i _) = do  (s,t) <- typecheckMapExp p f'
                                                 if s == s'
                                                 then pure t
                                                 else Left "(Sigma): Instance not on mapping source."
+typecheckInstExp p (InstanceDelta f' i _) = do  (s,t) <- typecheckMapExp p f'
+                                                t' <- typecheckInstExp p i
+                                                if t == t'
+                                                then pure t
+                                                else Left "(Delta): Instance not on mapping target."
+
 typecheckInstExp _ _ = undefined
 
 typecheckTypesideExp :: Prog -> TypesideExp -> Err TypesideExp
@@ -237,5 +243,11 @@ evalInstance prog env (InstanceSigma f' i o) = do (MappingEx (f'' :: Mapping var
                                                   o' <- toOptions o
                                                   r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
                                                   return $ InstanceEx r
+evalInstance prog env (InstanceDelta f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
+                                                  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
+                                                  o' <- toOptions o
+                                                  r <- evalDeltaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
+                                                  return $ InstanceEx r
+
 evalInstance _ _ _ = undefined
 

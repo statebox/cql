@@ -51,7 +51,6 @@ replace' toReplace replacer (Sym f a) = Sym f $ Prelude.map (replace' toReplace 
 replace' toReplace replacer (Fk f a) = Fk f $ replace' toReplace replacer a
 replace' toReplace replacer (Att f a) = Att f $ replace' toReplace replacer a
 replace' _ _ (Var v) = Var v
-replace' _ _ _ = undefined
 
 replaceRepeatedly :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) =>
  [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)] ->
@@ -227,7 +226,15 @@ up12 (Att f _) = absurd f
 up12 (Sym f _) = absurd f
 
 
-up13 :: Term () Void Void en' fk' Void Void Void -> Term () ty sym en' fk' att' gen' sk'
+up16 :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
+up16 (Gen g) = Gen g
+up16 (Sk sk) = absurd sk
+up16 (Var v) = Var v
+up16 (Fk f a) = Fk f $ up16 a
+up16 (Att f _) = absurd f
+up16 (Sym f _) = absurd f
+
+up13 :: Term x Void Void en' fk' Void Void Void -> Term x ty sym en' fk' att' gen' sk'
 up13 (Gen g) = absurd g
 up13 (Sk sk) = absurd sk
 up13 (Var v) = Var v
