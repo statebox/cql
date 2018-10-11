@@ -53,13 +53,13 @@ data Algebra var ty sym en fk att gen sk x y
 simplifyA :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk, Ord x, Show x, Ord y, Show y) =>
  Algebra var ty sym en fk att gen sk x y -> Algebra var ty sym en fk att gen sk x y
-simplifyA (Algebra sch en nf repr ty nf' repr' teqs') = Algebra sch en nf repr ty' nf'' repr' teqs''''
+simplifyA (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') = Algebra sch en' nf''' repr'' ty'' nf''''' repr''' teqs''''
    where teqs''' = Set.map (\x -> (Map.empty, x)) $ teqs'
          (teqs'', f) = simplify'' teqs''' []
          teqs'''' = Set.map snd teqs''
-         ty' t = Set.filter (\x -> not $ Prelude.elem (HSk x) $ fst $ unzip f) $ ty t
-         nf'' e = replaceRepeatedly f $ nf' e
-         
+         ty'' t = Set.filter (\x -> not $ Prelude.elem (HSk x) $ fst $ unzip f) $ ty' t
+         nf''''' e = replaceRepeatedly f $ nf'''' e
+
 
 castX :: Term Void ty sym en fk att gen sk -> Maybe (Term Void Void Void en fk Void gen Void)
 castX (Gen g) = Just $ Gen g
