@@ -38,7 +38,7 @@ data MappingEx :: * where
    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att',
     Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable en', Typeable fk', Typeable att',
     Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord en', Ord fk', Ord att'
-   
+
     ) =>
     Mapping var ty sym en fk att en' fk' att' -> MappingEx
 
@@ -114,7 +114,8 @@ trans'' mor (Fk f a) = let x = trans'' mor a :: Term var' Void Void en' fk' Void
                      in subst (up13 y) x
 trans'' _ (Sym _ _) = undefined
 trans'' _ (Att _ _) = undefined
-trans'' mor (Gen (_,g)) = Gen g 
+trans'' _ (Gen (_,g)) = Gen g
+trans'' _ _ = undefined
 
 data MappingExp   where
   MappingVar     :: String -> MappingExp
