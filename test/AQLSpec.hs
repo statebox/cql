@@ -1,20 +1,40 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module AQLSpec where
 
-import           Data.Map.Strict   as Map
-import           Data.Set          as Set
-import           Prelude           hiding (EQ)
-
--- hspec
-import           Test.Hspec
-
+import           Language.AQL
 import           Language.Schema
 import           Language.Term
 import           Language.Typeside
 
+--base
+import           Data.Either            (isRight)
+import           Data.Map.Strict        as Map
+import           Data.Set               as Set
+import           Prelude                hiding (EQ)
+
+-- hspec
+import           Test.Hspec
+
+-- transformers
+import           Control.Monad.IO.Class (liftIO)
+
 
 spec :: Spec
 spec = do
-  it "does not test anything" $ True
+  it "processes correctly the example file Mapping.aql" $ do
+    fileContent <- liftIO $ readFile ("test/Mapping.aql" :: String)
+    parsed <- pure $ runProg fileContent
+    isRight parsed `shouldBe` True
+  it "processes correctly the example file Employee.aql" $ do
+    fileContent <- liftIO $ readFile ("test/Employee.aql" :: String)
+    parsed <- pure $ runProg fileContent
+    isRight parsed `shouldBe` True
+  it "processes correctly the example file Sigma.aql" $ do
+    fileContent <- liftIO $ readFile ("test/Sigma.aql" :: String)
+    parsed <- pure $ runProg fileContent
+    isRight parsed `shouldBe` True
+
   -- print typesideDom
   -- print schemaOne
   -- print schemaTwo
