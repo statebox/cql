@@ -12,6 +12,92 @@ import Language.Common
 import Data.Maybe
 
 
+occurs :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) 
+ => Head ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Bool
+occurs h (Var v) = False 
+occurs h (Sk h') = h == HSk h' 
+occurs h (Gen h') = h == HGen h'
+occurs h (Fk h' a) = h == HFk h' || occurs h a 
+occurs h (Att h' a) = h == HAtt h' || occurs h a 
+occurs h (Sym h' as) = h == HSym h' || or (Prelude.map (occurs h) as)
+
+
+find :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) 
+ => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk) -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
+find = f . Set.toList
+ where g (Var _) _ = Nothing
+       g (Sk y) t = if occurs (HSk y) t then Nothing else Just (HSk y, t)
+       g (Gen y) t = if occurs (HGen y) t then Nothing else Just (HGen y, t) 
+       g (Sym y []) t = Nothing --if occurs (HSym y) t then Nothing else Just (HSym y, t)
+       --g (Sym f' (a:b)) t = --Nothing --case g a t of
+                            -- Nothing -> g (Sym f' b) t
+                             --Just y -> Just y
+       g _ _ = Nothing
+       f [] = Nothing
+       f ((m, _):tl) | not (Map.null m) = Nothing
+       f ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
+          Nothing -> case g rhs lhs of
+            Nothing -> f tl
+            Just (y, r) -> Just (y, r)
+          Just (y, r) -> Just (y, r)
+
+
+replace' :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) 
+ => Head ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk 
+replace' toReplace replacer (Sk s) = if (HSk s == toReplace) then replacer else Sk s
+replace' toReplace replacer (Gen s) = if (HGen s == toReplace) then replacer else Gen s
+replace' toReplace replacer (Sym f []) = if (HSym f == toReplace) then replacer else Sym f []
+replace' toReplace replacer (Sym f a) = Sym f $ Prelude.map (replace' toReplace replacer) a
+replace' toReplace replacer (Fk f a) = Fk f $ replace' toReplace replacer a
+replace' toReplace replacer (Att f a) = Att f $ replace' toReplace replacer a
+replace' _ _ (Var v) = Var v
+replace' _ _ _ = undefined
+
+replaceRepeatedly :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) =>
+ [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)] ->
+ Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
+replaceRepeatedly [] t = t
+replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
+
+
+simplifyCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
+  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
+ Collage var ty sym en fk att gen sk
+  -> (Collage var ty sym en fk att gen sk,
+    [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplifyCol (col@(Collage ceqs ctys cens csyms cfks catts cgens csks)) 
+  = (Collage ceqs' ctys cens csyms cfks catts cgens' csks', f)
+ where (ceqs', f) = simplify'' ceqs []
+       cgens' = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HGen x) $ fst $ unzip f) $ Map.toList cgens
+       csks'  = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HSk x) $ fst $ unzip f) $ Map.toList csks
+
+
+
+simplify'' :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
+  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
+ Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk) ->
+ [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)] 
+ -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk),
+    [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplify'' eqs subst = case simplify eqs of
+  Nothing -> (eqs, subst)
+  Just (eqs1, subst1) -> simplify'' eqs1 $ subst ++ [subst1] 
+
+
+simplify :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
+  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
+ Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk) ->
+ Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk),
+    (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
+simplify eqs = case find eqs of
+ Nothing -> Nothing
+ Just (toRemove, replacer) -> let eqs2 = Set.map (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
+                                  eqs3 = Set.filter (\(_,EQ (x,y)) -> not (x == y)) eqs2
+                 in Just $ (eqs3,(toRemove, replacer))
+ 
+
+
+
 data Term var ty sym en fk att gen sk
   = Var var
   | Sym sym  [Term var ty sym en fk att gen sk]
@@ -20,7 +106,13 @@ data Term var ty sym en fk att gen sk
   | Gen gen
   | Sk  sk
 
-type Head ty sym en fk att gen sk = sym + (fk + (att + (gen + sk)))
+data Head ty sym en fk att gen sk =
+   HSym sym
+ | HFk fk
+ | HAtt att
+ | HGen gen
+ | HSk sk
+  deriving (Eq, Show, Ord)
 
 size :: Term var ty sym en fk att gen sk -> Integer
 size (Var _) = 1

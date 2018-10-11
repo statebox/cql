@@ -81,7 +81,7 @@ mapping F = literal : C -> D {
 instance J = sigma F I {
 	options
 	prover = program
-		program_allow_nonconfluence_unsafe = true	
+		
 		program_allow_nontermination_unsafe = true
 		allow_empty_sorts_unsafe = true	
 
@@ -115,6 +115,6 @@ transform t = literal : I1 -> I {
 transform t2 = sigma F t {
 	options
 	program_allow_nontermination_unsafe = true
-	program_allow_nonconfluence_unsafe = true	
+
 	allow_empty_sorts_unsafe = true
 }

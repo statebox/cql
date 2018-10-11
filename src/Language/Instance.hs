@@ -48,56 +48,18 @@ data Algebra var ty sym en fk att gen sk x y
 
   } -- omit Eq, doesn't seem to be necessary for now
 
-appearsIn :: Eq y => y -> Term Void ty sym Void Void Void Void y -> Bool
-appearsIn y (Sk y') | y == y' = True
-                    | otherwise = False
-appearsIn _ (Fk f _) = absurd f
-appearsIn _ (Att f _) = absurd f
-appearsIn _ (Gen _) = False
-appearsIn y (Sym _ as) = or (Prelude.map (appearsIn y) as)
-appearsIn _ _ = undefined
 
 
-findGen :: Eq y => Set (EQ Void ty sym Void Void Void Void y) -> Maybe (y, Term Void ty sym Void Void Void Void y)
-findGen = f . Set.toList
- where g (Sk y) t = if appearsIn y t then Nothing else Just (y, t)
-       g (Sym _ []) _ = Nothing
-       g (Sym f' (a:b)) t = case g a t of
-                             Nothing -> g (Sym f' b) t
-                             Just y -> Just y
-       g _ _ = undefined
-       f [] = Nothing
-       f ((EQ (lhs, rhs)):tl) = case g lhs rhs of
-          Nothing -> case g rhs lhs of
-            Nothing -> f tl
-            Just (y, r) -> Just (y, r)
-          Just (y, r) -> Just (y, r)
-
-
-replace :: Eq y => y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym Void Void Void Void y
-replace toReplace replacer (Sk s) = if (s == toReplace) then replacer else Sk s
-replace toReplace replacer (Sym f a) = Sym f $ Prelude.map (replace toReplace replacer) a
-replace _ _ _ = undefined
-
-simplify' :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
+simplifyA :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk, Ord x, Show x, Ord y, Show y) =>
  Algebra var ty sym en fk att gen sk x y -> Algebra var ty sym en fk att gen sk x y
-simplify' alg = case simplify alg of
-  Nothing -> alg
-  Just alg' -> simplify' alg'
-
-simplify :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk, Ord x, Show x, Ord y, Show y) =>
- Algebra var ty sym en fk att gen sk x y -> Maybe (Algebra var ty sym en fk att gen sk x y)
-simplify (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') = case findGen teqs' of
-  Nothing -> Nothing
-  Just (toRemove, replacer) -> let teqs2 = Set.map (\(EQ (lhs, rhs)) -> EQ (replace toRemove replacer lhs, replace toRemove replacer rhs)) teqs'
-                                   ty2 t = Set.delete toRemove (ty' t)
-                                   nf2 e = replace toRemove replacer $ nf'''' e
-                                   repr2 = repr'''
-                                   teqs3 = Set.filter (\(EQ (x,y)) -> not (x == y)) teqs2
-                 in Just $ Algebra sch en' nf''' repr'' ty2 nf2 repr2 teqs3
- --where gens = reifyGens en $ ens sch
+simplifyA (Algebra sch en nf repr ty nf' repr' teqs') = Algebra sch en nf repr ty' nf'' repr' teqs''''
+   where teqs''' = Set.map (\x -> (Map.empty, x)) $ teqs'
+         (teqs'', f) = simplify'' teqs''' []
+         teqs'''' = Set.map snd teqs''
+         ty' t = Set.filter (\x -> not $ Prelude.elem (HSk x) $ fst $ unzip f) $ ty t
+         nf'' e = replaceRepeatedly f $ nf' e
+         
 
 castX :: Term Void ty sym en fk att gen sk -> Maybe (Term Void Void Void en fk Void gen Void)
 castX (Gen g) = Just $ Gen g
@@ -134,7 +96,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
   => Show (Algebra var ty sym en fk att gen sk x y) where
   show (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') =
     "algebra\n" ++ l ++ "\ntype-algeba\n" ++ w ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs')
-      where w = "nulls\n" ++ sepBy' "\n" (Prelude.map (\ty'' -> show ty'' ++ " = { " ++ show (Set.toList $ ty' ty'') ++ " }") (Set.toList $ Typeside.tys $ Schema.typeside sch))
+      where w = "nulls\n" ++ sepBy' "\n" (Prelude.map (\ty'' -> show ty'' ++ " (" ++ show (Set.size (ty' ty'')) ++ ") = " ++ show (Set.toList $ ty' ty'') ++ " ") (Set.toList $ Typeside.tys $ Schema.typeside sch))
             h = Prelude.map (\en'' -> show en'' ++ " (" ++ show (Set.size (en' en'')) ++ ")\n-------------\n" ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": "
                  ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en'') ",") ++ ", "
                  ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en'') ",")) $ Set.toList $ en' en'')) (Set.toList $ Schema.ens sch)
@@ -293,7 +255,7 @@ initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en
  => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
  Algebra var ty sym en fk att gen sk (GTerm en fk gen) (TTerm en fk att gen sk)
-initialAlgebra p dp' sch = simplify' this
+initialAlgebra p dp' sch = simplifyA this
  where this = Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs'
        col = instToCol sch p
        ens'  = assembleGens col (close col dp')

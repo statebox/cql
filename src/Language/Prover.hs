@@ -40,7 +40,7 @@ freeProver col = if (Set.size (ceqs col) == 0)
                  else Left "Cannot use free prover when there are equations"
  where p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
-createProver ::  (Ord var, Ord ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Ord en, Show en, Show ty,
+createProver ::  (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord en, Show en, Show ty,
   Show var, Show sym, Show fk, Show att, Show gen, Show sk)
  => Collage var ty sym en fk att gen sk -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -59,19 +59,21 @@ createProver col ops =  do p <- proverStringToName ops
 
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
-orthProver :: (Ord var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk, Ord ty, Ord en, Show en, Show ty
+orthProver :: (Ord var, Ord sym, Ord fk, Ord att, Ord gen, Ord sk, Ord ty, Ord en, Show en, Show ty
   ,Show var,Show sym,Show fk, Show att, Show en, Show gen, Show sk) =>
                     Collage var ty sym en fk att gen sk -> Options
                     -> Err (Prover var ty sym en fk att gen sk)
-orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
+orthProver col ops = if isDecreasing eqs1 || allow_nonTerm 
                      then if nonConOk || noOverlaps  eqs2
                           then if allSortsInhabited col  || allow_empty
-                            then pure $ Prover col p
+                            then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r) 
+                                 in pure $ Prover col p'
                             else Left "Rewriting Error: contains uninhabited sorts"
                           else Left $ "Rewriting Error: not orthogonal.  Pairs are " ++ show (xxx eqs2)
                      else Left "Rewriting Error: not size decreasing"
- where p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
-       eqs1 = Prelude.map snd $ Set.toList $ ceqs col
+ where (col', f) = simplifyCol col 
+       p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
+       eqs1 = Prelude.map snd $ Set.toList $ ceqs col'
        eqs2 = Prelude.map convert' eqs1
        nf x = case outerRewrite eqs2 x of
               [] -> x
@@ -100,11 +102,11 @@ isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing 
 
 convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
 convert (S.Var v) = T.Var v
-convert (S.Gen g) = T.Fun (Right $ Right $ Right $ Left  g) []
-convert (S.Sk  g) = T.Fun (Right $ Right $ Right $ Right g) []
-convert (S.Att g a) = T.Fun (Right $ Right $ Left g) [convert a]
-convert (S.Fk  g a) = T.Fun (Right $ Left g) [convert a]
-convert (S.Sym g as) = T.Fun (Left g) $ Prelude.map convert as
+convert (S.Gen g) = T.Fun (HGen  g) []
+convert (S.Sk  g) = T.Fun (HSk g) []
+convert (S.Att g a) = T.Fun (HAtt g) [convert a]
+convert (S.Fk  g a) = T.Fun (HFk g) [convert a]
+convert (S.Sym g as) = T.Fun (HSym g) $ Prelude.map convert as
 
 
 
