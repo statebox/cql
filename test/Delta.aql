@@ -82,3 +82,15 @@ transform h = literal : J -> J0 {
 }
 
 transform h0 = delta F h
+
+instance sigmadeltaFJ = sigma F deltaFJ {
+	options
+		program_allow_nontermination_unsafe = true
+		allow_empty_sorts_unsafe = true
+}
+
+transform u = counit F J {
+	options
+		program_allow_nontermination_unsafe = true
+		allow_empty_sorts_unsafe = true
+}

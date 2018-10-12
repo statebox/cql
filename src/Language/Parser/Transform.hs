@@ -45,6 +45,21 @@ sigmaParser' = do _ <- constant "sigma"
                   o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
                   return $ TransformSigma f i $ fromMaybe [] o
 
+sigmaDeltaUnitParser' :: Parser TransformExp
+sigmaDeltaUnitParser' = do _ <- constant "unit"
+                           f <- mapExpParser
+                           i <- instExpParser
+                           o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                           return $ TransformSigmaDeltaUnit f i $ fromMaybe [] o
+
+
+sigmaDeltaCoUnitParser' :: Parser TransformExp
+sigmaDeltaCoUnitParser' = do _ <- constant "counit"
+                             f <- mapExpParser
+                             i <- instExpParser
+                             o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                             return $ TransformSigmaDeltaCoUnit f i $ fromMaybe [] o
+
 
 deltaParser' :: Parser TransformExp
 deltaParser' = do _ <- constant "delta"
@@ -59,7 +74,7 @@ transExpParser =
     <|>
       TransformVar <$> identifier
 
-    <|> sigmaParser' <|> deltaParser' <|>
+    <|> sigmaParser' <|> deltaParser' <|> sigmaDeltaUnitParser' <|> sigmaDeltaCoUnitParser' <|>
        do
         _ <- constant "identity"
         x <- instExpParser

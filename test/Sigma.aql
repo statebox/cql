@@ -85,9 +85,6 @@ instance J = sigma F I {
 		allow_empty_sorts_unsafe = true	
 }
 
-
-instance K = delta F J
-
 instance I1 = literal : C {
 	generators 
 		xa1 : Amphibian
@@ -113,9 +110,18 @@ transform t = literal : I1 -> I {
 		xw3 -> w3
 } 
 
-transform t2 = sigma F t {
+transform u = sigma F t {
 	options
-	program_allow_nontermination_unsafe = true
-
-	allow_empty_sorts_unsafe = true
+		program_allow_nontermination_unsafe = true
+		allow_empty_sorts_unsafe = true
 }
+
+
+instance K = delta F J
+
+transform v = unit F I {
+	options
+		program_allow_nontermination_unsafe = true
+		allow_empty_sorts_unsafe = true
+}
+

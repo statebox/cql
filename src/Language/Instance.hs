@@ -70,13 +70,12 @@ castX (Fk f a) = do { x <- castX a ; Just $ Fk f $ x }
 castX (Var v) = absurd v
 castX _ = Nothing
 
+
 nf'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk att gen sk -> Term Void ty sym Void Void Void Void y
 nf'' alg (Sym f as) = Sym f $ Prelude.map (nf'' alg) as
 nf'' alg (Att f a) = nf' alg $ Right (nf alg (fromJust $ castX a), f)
-nf'' _ _ = undefined
-
-aTerm :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk Void Void Void -> x
-aTerm _ _ = undefined
+nf'' alg (Sk s) = nf' alg (Left s)
+nf''_ _ = undefined 
 
 aGen :: Algebra var ty sym en fk att gen sk x y -> gen -> x
 aGen alg g = nf alg $ Gen g

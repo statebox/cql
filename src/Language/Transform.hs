@@ -76,6 +76,42 @@ up20 (Att f a) = absurd f
 up20 (Gen g) = absurd g
 up20 (Sk k) = Sk k 
 
+evalDeltaSigmaUnit :: forall var ty sym en fk att gen sk x y en' fk' att'.
+     (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
+      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
+      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
+      Show gen, Show sk, Show x, Show y, Ord x, Ord y) 
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Instance var ty sym en fk att gen sk x y -> Options 
+  -> Err (Transform var ty sym en fk att gen sk x y (en, GTerm en' fk' gen) (TTerm en' fk' att' gen sk) (en,GTerm en' fk' gen) (TTerm en' fk' att' gen sk)) 
+evalDeltaSigmaUnit m i o = do j <- evalSigmaInst m i o
+                              k <- evalDeltaInst m j o
+                              return $ Transform i k (Map.fromList $ fmap (f j) $ Map.toList $ I.gens $ pres i) $ (Map.fromList $ fmap (g j) $ Map.toList $ I.sks $ pres i)
+ where 
+       f j (gen, en) = (gen, Gen (en, nf (algebra j) (Gen gen)))
+       g j (sk,  ty) =  (sk, up20 $ nf'' (algebra j) (Sk sk))
+       
+evalDeltaSigmaCoUnit :: forall var ty sym en fk att gen sk x y en' fk' att'.
+     (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
+      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
+      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
+      Show gen, Show sk, Show x, Show y, Ord x, Ord y) 
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Instance var ty sym en' fk' att' gen sk x y -> Options 
+  -> Err (Transform var ty sym en' fk' att' (en, x) y (GTerm en' fk' (en, x)) (TTerm en' fk' att' (en, x) y) gen sk x y)
+evalDeltaSigmaCoUnit m i o = do j <- evalDeltaInst m i o
+                                k <- evalSigmaInst m j o
+                                return $ Transform k i (Map.fromList $ fmap (f j) $ Map.toList $ I.gens $ pres k) $ (Map.fromList $ fmap (g j) $ Map.toList $ I.sks $ pres k)
+ where 
+       f j ((en', x), en) = ((en',x), repr (algebra i) x) 
+       g j (sk,  ty) = (sk, repr' (algebra i) ( sk))       
+{--
+for (Pair<En1, X> gen : src().gens().keySet()) {
+      gens.put(gen, I.algebra().repr(gen.second).map(Util.voidFn(), Util.voidFn(), Function.identity(), Util.voidFn(), Function.identity(), Util.voidFn()));
+    }
+    for (Y sk : src().sks().keySet()) {
+      sks.put(sk, I.algebra().reprT(Term.Sk(sk)));
+    }  --}
 
 evalDeltaTrans
  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord gen', Ord sk, Ord sk', Ord x', Ord y', Eq x, Eq y, Eq en',
@@ -140,8 +176,8 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
 data TransformExp  where
   TransformVar :: String -> TransformExp
   TransformId :: InstanceExp -> TransformExp
-  TransformSigmaDeltaUnit :: MappingExp -> TransformExp
-  TransformSigmaDeltaCoUnit :: MappingExp -> TransformExp
+  TransformSigmaDeltaUnit :: MappingExp -> InstanceExp -> [(String,String)] -> TransformExp
+  TransformSigmaDeltaCoUnit :: MappingExp -> InstanceExp -> [(String,String)] -> TransformExp
   TransformDeltaPiUnit :: MappingExp -> TransformExp
   TransformDeltaPiCoUnit :: MappingExp -> TransformExp
   TransformQueryUnit :: QueryExp -> TransformExp
