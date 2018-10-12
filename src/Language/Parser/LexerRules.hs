@@ -14,7 +14,7 @@ spaceConsumer :: Parser ()
 spaceConsumer = L.space space1 lineComment blockComment
   where
     lineComment = L.skipLineComment "//"
-    blockComment = L.skipBlockComment "(*" "*)"
+    blockComment = L.skipBlockComment "(*" "*)" <|> L.skipBlockComment "/*" "*/"
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
