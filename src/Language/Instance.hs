@@ -75,7 +75,7 @@ nf'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk att ge
 nf'' alg (Sym f as) = Sym f $ Prelude.map (nf'' alg) as
 nf'' alg (Att f a) = nf' alg $ Right (nf alg (fromJust $ castX a), f)
 nf'' alg (Sk s) = nf' alg (Left s)
-nf''_ _ = undefined 
+nf'' _ _ = undefined
 
 aGen :: Algebra var ty sym en fk att gen sk x y -> gen -> x
 aGen alg g = nf alg $ Gen g
