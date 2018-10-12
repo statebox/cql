@@ -23,15 +23,19 @@ import           Control.Monad.IO.Class (liftIO)
 spec :: Spec
 spec = do
   it "processes correctly the example file Mapping.aql" $ do
-    fileContent <- liftIO $ readFile ("test/Mapping.aql" :: String)
+    fileContent <- liftIO $ readFile ("examples/Mapping.aql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
   it "processes correctly the example file Employee.aql" $ do
-    fileContent <- liftIO $ readFile ("test/Employee.aql" :: String)
+    fileContent <- liftIO $ readFile ("examples/Employee.aql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
   it "processes correctly the example file Sigma.aql" $ do
-    fileContent <- liftIO $ readFile ("test/Sigma.aql" :: String)
+    fileContent <- liftIO $ readFile ("examples/Sigma.aql" :: String)
+    parsed <- pure $ runProg fileContent
+    isRight parsed `shouldBe` True
+  it "processes correctly the example file Delta.aql" $ do
+    fileContent <- liftIO $ readFile ("examples/Delta.aql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
 
