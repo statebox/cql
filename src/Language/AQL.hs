@@ -72,12 +72,12 @@ typecheckTransExp p (TransformSigma f' h o) = do (s,_) <- typecheckMapExp p f'
                                                  if s == s'
                                                  then pure (InstanceSigma f' i o, InstanceSigma f' j o)
                                                  else Left $ "Source of mapping does not match instance schema"
-typecheckTransExp p (TransformSigmaDeltaUnit f' i o) = do (s,t) <- typecheckMapExp p f'
+typecheckTransExp p (TransformSigmaDeltaUnit f' i o) = do (s,_) <- typecheckMapExp p f'
                                                           x <- typecheckInstExp p i
                                                           if s == x
                                                           then pure (i, InstanceDelta f' (InstanceSigma f' i o) o)
                                                           else Left $ "Source of mapping does not match instance schema"
-typecheckTransExp p (TransformSigmaDeltaCoUnit f' i o) = do (s,t) <- typecheckMapExp p f'
+typecheckTransExp p (TransformSigmaDeltaCoUnit f' i o) = do (_,t) <- typecheckMapExp p f'
                                                             x <- typecheckInstExp p i
                                                             if t == x
                                                             then pure (i, InstanceSigma f' (InstanceDelta f' i o) o)
@@ -217,15 +217,15 @@ evalTransform prog env (TransformDelta f' i o) = do (MappingEx (f'' :: Mapping v
                                                     o' <- toOptions o
                                                     r <- evalDeltaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
                                                     return $ TransformEx r
-evalTransform prog env (TransformSigmaDeltaUnit f' i o) = 
+evalTransform prog env (TransformSigmaDeltaUnit f' i o) =
   do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
-     (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i 
+     (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
      o' <- toOptions o
      r <- evalDeltaSigmaUnit f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
      return $ TransformEx r
-evalTransform prog env (TransformSigmaDeltaCoUnit f' i o) = 
+evalTransform prog env (TransformSigmaDeltaCoUnit f' i o) =
   do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
-     (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i 
+     (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
      o' <- toOptions o
      r <- evalDeltaSigmaCoUnit f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
      return $ TransformEx r
