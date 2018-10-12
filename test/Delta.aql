@@ -81,4 +81,4 @@ transform h = literal : J -> J0 {
 	 XF221 -> XF22
 }
 
-//transform h0 = delta F h
+transform h0 = delta F h

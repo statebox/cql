@@ -72,6 +72,12 @@ typecheckTransExp p (TransformSigma f' h o) = do (s,_) <- typecheckMapExp p f'
                                                  if s == s'
                                                  then pure (InstanceSigma f' i o, InstanceSigma f' j o)
                                                  else Left $ "Source of mapping does not match instance schema"
+typecheckTransExp p (TransformDelta f' h o) = do (_,t) <- typecheckMapExp p f'
+                                                 (i,j) <- typecheckTransExp p h
+                                                 t' <- typecheckInstExp p i
+                                                 if t == t'
+                                                 then pure (InstanceDelta f' i o, InstanceDelta f' j o)
+                                                 else Left $ "Target of mapping does not match instance schema"
 
 typecheckTransExp p (TransformRaw r) = do l' <- typecheckInstExp p $ transraw_src r
                                           r' <- typecheckInstExp p $ transraw_dst r
@@ -195,6 +201,12 @@ evalTransform prog env (TransformSigma f' i o) = do (MappingEx (f'' :: Mapping v
                                                     o' <- toOptions o
                                                     r <- evalSigmaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
                                                     return $ TransformEx r
+evalTransform prog env (TransformDelta f' i o) = do (MappingEx (f'' :: Mapping var ty sym en' fk' att' en fk att)) <- evalMapping prog env f'
+                                                    (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
+                                                    o' <- toOptions o
+                                                    r <- evalDeltaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
+                                                    return $ TransformEx r
+
 evalTransform _ _ _ = undefined
 
 

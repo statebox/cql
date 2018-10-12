@@ -49,6 +49,9 @@ data Algebra var ty sym en fk att gen sk x y
   } -- omit Eq, doesn't seem to be necessary for now
 
 
+--reprT :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y ->
+-- Term Void ty sym en fk att gen sk
+--reprT = undefined
 
 simplifyA :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk, Ord x, Show x, Ord y, Show y) =>

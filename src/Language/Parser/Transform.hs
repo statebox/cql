@@ -46,13 +46,20 @@ sigmaParser' = do _ <- constant "sigma"
                   return $ TransformSigma f i $ fromMaybe [] o
 
 
+deltaParser' :: Parser TransformExp
+deltaParser' = do _ <- constant "delta"
+                  f <- mapExpParser
+                  i <- transExpParser
+                  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+                  return $ TransformDelta f i $ fromMaybe [] o
+
 transExpParser :: Parser TransformExp
 transExpParser =
     TransformRaw <$> transformRawParser
     <|>
       TransformVar <$> identifier
 
-    <|> sigmaParser' <|>
+    <|> sigmaParser' <|> deltaParser' <|>
        do
         _ <- constant "identity"
         x <- instExpParser
