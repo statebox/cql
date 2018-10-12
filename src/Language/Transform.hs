@@ -33,10 +33,10 @@ evalSigmaTrans f (Transform src0 dst0 gens' sks') o =
        sks'' = Map.fromList $ Prelude.map (\(sk,term) -> (sk, changeEn (M.fks f) (M.atts f) term)) $ Map.toList sks'
 
 gensAlt :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map gen (Term Void Void Void en fk Void gen' Void)
-gensAlt (Transform _ _ gens _) = gens
+gensAlt (Transform _ _ gens' _) = gens'
 
 sksAlt :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map sk (Term Void  ty   sym  en fk att  gen' sk')
-sksAlt (Transform _ _ _ sks) = sks
+sksAlt (Transform _ _ _ sks') = sks'
 
 transTrans :: (Ord gen, Ord sk) =>
  Transform Void ty sym en' fk' att' gen sk x y gen' sk' x' y' ->
@@ -47,7 +47,7 @@ transTrans t (Fk f a) = Fk f $ transTrans t a
 transTrans t (Att f a) = Att f $ transTrans t a
 transTrans t (Gen g) = up12 $ fromJust $ Map.lookup g $ gensAlt t
 transTrans t (Sk g) = fromJust $ Map.lookup g $ sksAlt t
- 
+
 
 transTrans'' :: (Ord gen, Ord sk) =>
  Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y' ->
@@ -60,21 +60,21 @@ transTrans'' t (Gen g) = up12 $ fromJust $ Map.lookup g $ gensAlt t
 transTrans'' t (Sk g) = fromJust $ Map.lookup g $ sksAlt t
 
 transTrans' :: (Ord gen) => Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y' ->
- Term Void Void Void en' fk' Void gen Void -> Term Void Void Void en' fk' Void gen' Void 
+ Term Void Void Void en' fk' Void gen Void -> Term Void Void Void en' fk' Void gen' Void
 transTrans' _ (Var v) = absurd v
-transTrans' t (Sym f as) = absurd f
+transTrans' _ (Sym f _) = absurd f
 transTrans' t (Fk f a) = Fk f $ transTrans' t a
-transTrans' t (Att f a) = absurd f 
+transTrans' _ (Att f _) = absurd f
 transTrans' t (Gen g) = fromJust $ Map.lookup g $ gensAlt t
-transTrans' t (Sk g) = absurd g
+transTrans' _ (Sk g) = absurd g
 
 up20 :: Term Void ty sym Void Void Void Void y' -> Term Void ty sym en fk att gen y'
 up20 (Var v) = Var v
 up20 (Sym f as) = Sym f $ fmap up20 as
-up20 (Fk f a) = absurd f
-up20 (Att f a) = absurd f
+up20 (Fk f _) = absurd f
+up20 (Att f _) = absurd f
 up20 (Gen g) = absurd g
-up20 (Sk k) = Sk k 
+up20 (Sk k) = Sk k
 
 
 evalDeltaTrans
@@ -82,15 +82,15 @@ evalDeltaTrans
       Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
       Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
       Show gen, Show sk, Show gen', Show sk', Show x', Show y', Show x, Show y, Ord x, Ord y) => Mapping var ty sym en fk att en' fk' att'
-  -> Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y' -> Options 
-  -> Err (Transform var ty sym en fk att (en,x) y (en,x) y (en,x') y' (en,x') y') 
+  -> Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y' -> Options
+  -> Err (Transform var ty sym en fk att (en,x) y (en,x) y (en,x') y' (en,x') y')
 evalDeltaTrans m h o = do i <- evalDeltaInst m (srcT h) o
                           j <- evalDeltaInst m (dstT h) o
-                          return $ Transform i j (gens' i) $ sks' i 
- where 
+                          return $ Transform i j (gens' i) $ sks' i
+ where
        gens' i = Map.fromList $ Prelude.map (\((gen,x),en') -> ((gen,x), Gen (en', nf (algebra $ dstT h) $ transTrans' h $ repr (algebra $ srcT h) x) )) $ Map.toList $ I.gens $ pres i
-       sks' i = Map.fromList $ Prelude.map (\(y,ty) -> (y, up20 $ nf'' (algebra $ dstT h) $ transTrans'' h $ repr' (algebra $ srcT h) y)) $ Map.toList $ I.sks $ pres i
-       
+       sks' i = Map.fromList $ Prelude.map (\(y,_) -> (y, up20 $ nf'' (algebra $ dstT h) $ transTrans'' h $ repr' (algebra $ srcT h) y)) $ Map.toList $ I.sks $ pres i
+
 
 transToMor :: (Ord att', Ord fk', Ord en', Ord var, Ord ty,
                      Ord sym, Ord gen, Ord sk, Ord gen', Ord sk', Show var, Show ty,
