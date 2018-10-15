@@ -14,7 +14,6 @@ import Data.Void
 import Language.Schema as S
 import Data.Typeable
 import Data.Maybe
-import Data.List
 import Language.Options
 
 evalSigmaTrans

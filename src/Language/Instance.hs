@@ -5,7 +5,7 @@ module Language.Instance where
 import Prelude hiding (EQ)
 import Data.Set as Set
 import Data.Map.Strict as Map
-import Data.List
+import Data.List hiding (intercalate)
 import Language.Common
 import Language.Term as Term
 import Language.Typeside as Typeside
