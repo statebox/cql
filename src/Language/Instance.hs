@@ -90,14 +90,6 @@ aAtt alg f x = nf'' alg $ Att f $ up15 $ repr alg x
 aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Void Void Void y
 aSk alg g = nf'' alg $ Sk g
 
-sepBy :: [[Char]] -> [Char] -> [Char]
-sepBy [] _ = ""
-sepBy (x:[]) _ = x
-sepBy (x:y ) sep = x ++ sep ++ (sepBy y sep)
-
-sepBy' :: [Char] -> [[Char]] -> [Char]
-sepBy' x y = sepBy y x
-
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
   show alg@(Algebra sch _ _ _ ty' _ _ teqs') =
