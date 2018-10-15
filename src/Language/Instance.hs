@@ -98,24 +98,11 @@ sepBy (x:y ) sep = x ++ sep ++ (sepBy y sep)
 sepBy' :: [Char] -> [[Char]] -> [Char]
 sepBy' x y = sepBy y x
 
--- instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
---   => Show (Algebra var ty sym en fk att gen sk x y) where
---   show (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') =
---     "algebra\n" ++ l ++ "\ntype-algeba\n" ++ w ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs')
---       where w = "nulls\n" ++ sepBy' "\n" (Prelude.map (\ty'' -> show ty'' ++ " (" ++ show (Set.size (ty' ty'')) ++ ") = " ++ show (Set.toList $ ty' ty'') ++ " ") (Set.toList $ Typeside.tys $ Schema.typeside sch))
---             h = Prelude.map (\en'' -> show en'' ++ " (" ++ show (Set.size (en' en'')) ++ ")\n-------------\n" ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": "
---                  ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en'') ",") ++ ", "
---                  ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en'') ",")) $ Set.toList $ en' en'')) (Set.toList $ Schema.ens sch)
---             l = sepBy' "\n" h
---             f x (fk,_) = show   fk  ++ " = " ++ (show $ aFk alg  fk x )
---             g x (att,_) = show   att ++ " = " ++ (show $ aAtt alg att x )
---             alg = Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs'
-
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
-  show alg@(Algebra sch en' _ _ ty' _ _ teqs') =
+  show alg@(Algebra sch _ _ _ ty' _ _ teqs') =
     "algebra" ++ "\n" ++
-    intercalate "\n\n" prettyEntities ++ "\n" ++
+    (intercalate "\n\n" prettyEntities) ++ "\n" ++
     "type-algebra" ++ "\n" ++
     "nulls" ++ "\n" ++
     w ++
@@ -123,28 +110,32 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
     where w = "  " ++ (intercalate "\n  " . mapl w2 . Typeside.tys . Schema.typeside $ sch)
           w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
 
-          prettyEntities = prettyEntity `mapl` Schema.ens sch
-
-          prettyEntity e =
-            show e ++ " (" ++ show (Set.size $ en' e) ++ ")\n" ++
-            "-------------\n" ++
-            (intercalate "\n" $ prettyEntityRow e `mapl` en' e)
-
-          prettyEntityRow en'' e =
-            show e ++ ": " ++
-            intercalate "," (prettyFk  e <$> fksFrom'  sch en'') ++ ", " ++
-            intercalate "," (prettyAtt e <$> attsFrom' sch en'')
-
-          prettyAtt :: x -> (att, w) -> String
-          prettyAtt x (att,_) = show att ++ " = " ++ (prettyTerm $ aAtt alg att x)
-
-          prettyFk  x (fk, _) = show fk  ++ " = " ++ (show $ aFk  alg fk  x)
-
-          prettyTerm = show
-
+          prettyEntities = prettyEntity alg `mapl` Schema.ens sch
           prettyTypeEqns = intercalate "\n" (Set.map show teqs')
 
-          mapl fn = fmap fn . Foldable.toList
+prettyEntity
+  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  => Algebra var ty sym en fk att gen sk x y
+  -> en
+  -> String
+prettyEntity alg@(Algebra sch en' _ _ _ _ _ _) es =
+  show es ++ " (" ++ (show . Set.size $ en' es) ++ ")\n" ++
+  "-------------\n" ++
+  (intercalate "\n" $ prettyEntityRow es `mapl` en' es)
+  where
+    -- prettyEntityRow :: en -> x -> String
+    prettyEntityRow en'' e =
+      show e ++ ": " ++
+      intercalate "," (prettyFk  e <$> fksFrom'  sch en'') ++ ", " ++
+      intercalate "," (prettyAtt e <$> attsFrom' sch en'')
+
+    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt x (att,_) = show att ++ " = " ++ (prettyTerm $ aAtt alg att x)
+
+    prettyFk  x (fk, _) = show fk  ++ " = " ++ (show $ aFk alg fk x)
+
+    prettyTerm = show
+
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch
