@@ -273,11 +273,14 @@ initialAlgebra p dp' sch = simplifyA this
 
        tys' = assembleSks col ens'
        ty' y = lookup2 y tys'
-       nf'''' (Left g) = Sk $ Left g
-       nf'''' (Right (x, att)) = Sk $ Right (repr'' x, att)
-       --repr' :: (TTerm en fk att gen sk) -> Term Void ty sym en fk att gen sk
-       repr''' (Left g) = Sk g
-       repr''' (Right (x, att)) = Att att $ up15 $ repr'' x
+
+       nf'''' (Left g)          = Sk $ MkTTerm $ Left g
+       nf'''' (Right (gt, att)) = Sk $ MkTTerm $ Right (repr'' gt, att)
+
+       repr''' :: TTerm en fk att gen sk -> Term Void ty sym en fk att gen sk
+       repr''' (MkTTerm (Left g))         = Sk g
+       repr''' (MkTTerm (Right (x, att))) = Att att $ up15 $ repr'' x
+
        teqs'' = Prelude.concatMap (\(e, EQ (lhs,rhs)) -> Prelude.map (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
        teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
@@ -316,15 +319,24 @@ assembleSks :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, S
  => Collage var ty sym en fk att gen sk -> Map en (Set (GTerm en fk gen)) ->
  Map ty (Set (TTerm en fk att gen sk))
 assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
- where gens' = Prelude.concatMap (\(en',set) -> Prelude.concatMap (\term -> Prelude.concatMap (\(att,ty') -> [(ty',(Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
-       sks' = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (Left sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
+ where gens' = Prelude.concatMap (\(en',set) -> Prelude.concatMap (\term -> Prelude.concatMap (\(att,ty') -> [(ty',(MkTTerm . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
+       sks' = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTTerm . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
        ret = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toList $ ctys col
 
 
 type GTerm en fk gen = Term Void Void Void en fk Void gen Void
 
-type TTerm en fk att gen sk = Either sk (GTerm en fk gen, att)
+-- | T means type. This can be either a labeled null (`sk`) or... a proper value
+-- | This type allows us to define e.g. a custom Show instance.
+newtype TTerm en fk att gen sk = MkTTerm (Either sk (GTerm en fk gen, att))
 
+instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TTerm en fk att gen sk) where
+  show (MkTTerm (Left  x)) = show x
+  show (MkTTerm (Right x)) = show x
+
+deriving instance (Ord en, Ord fk, Ord att, Ord gen, Ord sk) => Ord (TTerm en fk att gen sk)
+
+deriving instance (Eq en, Eq fk, Eq att, Eq gen, Eq sk) => Eq (TTerm en fk att gen sk)
 
 assembleGens :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
  => Collage var ty sym en fk att gen sk -> [ GTerm en fk gen ] -> Map en (Set (GTerm en fk gen))
