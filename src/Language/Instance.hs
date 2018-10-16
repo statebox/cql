@@ -17,7 +17,6 @@ import Data.Void
 import Data.Typeable hiding (typeOf)
 import Language.Prover
 import Language.Options
-import Text.Tabular as Tab ((^|^), (+.+))
 import qualified Text.Tabular as T
 import qualified Text.Tabular.AsciiArt   as Ascii
 import Data.Maybe
@@ -131,6 +130,7 @@ prettyEntity alg@(Algebra sch en' _ _ _ _ _ _) es =
 
     prettyTerm = show
 
+-- TODO unquote identifiers; stick fks and attrs in separate `Group`s?
 prettyEntityTable
   :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
   => Algebra var ty sym en fk att gen sk x y
@@ -138,28 +138,30 @@ prettyEntityTable
   -> String
 prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
   show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
-  (Ascii.render id id id $ mkTab es (en' es))
+  (Ascii.render show id id tbl)
   where
-    -- mkTab :: en -> Set x -> T.Table String String String
-    mkTab en'' e = Set.foldl (\tbl row -> tbl +.+ prettyRow en'' row) prettyHeader e
+    -- tbl :: T.Table x String String
+    tbl = T.Table
+      (T.Group T.SingleLine (T.Header <$> Foldable.toList (en' es)))
+      (T.Group T.SingleLine (T.Header <$> prettyColumnHeaders))
+      (prettyRow <$> Foldable.toList (en' es))
 
-    prettyHeader = Foldable.foldl (\acc x -> acc ^|^ (T.colH x)) T.empty prettyHeaderCols
+    prettyColumnHeaders :: [String]
+    prettyColumnHeaders =
+      (prettyTypedIdent <$> fksFrom' sch es) ++
+      (prettyTypedIdent <$> attsFrom' sch es)
 
-    prettyHeaderCols =
-      (show <$> fksFrom' sch es) ++
-      (show <$> attsFrom' sch es)
+    prettyRow e =
+      (prettyFk e <$> fksFrom' sch es) ++ (prettyAtt e <$> attsFrom' sch es)
 
-    -- prettyRow :: en -> x -> T.SemiTable String [Char]
-    prettyRow en'' e =
-      T.row (show e) $ (prettyFk e <$> fksFrom' sch en'') ++ (prettyAtt e <$> attsFrom' sch en'')
+    prettyTypedIdent (ident, typ) = show ident ++ " : " ++ show typ
+
+    prettyFk x (fk, _) = show $ aFk alg fk x
 
     -- prettyAtt :: x -> (att, w) -> String
     prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
 
-    prettyFk  x (fk, _) = show $ aFk alg fk x
-
     prettyTerm = show
-
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch
