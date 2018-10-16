@@ -10,15 +10,15 @@ import           Data.Maybe
 import           Text.Megaparsec
 
 import           Language.Instance          as I
+import           Language.Parser.Mapping    as M
 import           Language.Parser.Schema
-import Language.Parser.Mapping as M 
 import           Language.Schema            as S
 import           Language.Term
 
 eqParser :: Parser (RawTerm, RawTerm)
-eqParser = do l <- rawTermParser
+eqParser = do l <- optionalParens rawTermParser
               _ <- constant "="
-              r <- rawTermParser
+              r <- optionalParens rawTermParser
               return (l,r)
 
 
@@ -34,16 +34,16 @@ genParser = do x <- some identifier
 
 sigmaParser :: Parser InstanceExp
 sigmaParser = do _ <- constant "sigma"
-                 f <- mapExpParser
-                 i <- instExpParser
+                 f <- optionalParens mapExpParser
+                 i <- optionalParens instExpParser
                  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
                  return $ InstanceSigma f i $ fromMaybe [] o
 
 
 deltaParser :: Parser InstanceExp
 deltaParser = do _ <- constant "delta"
-                 f <- mapExpParser
-                 i <- instExpParser
+                 f <- optionalParens mapExpParser
+                 i <- optionalParens instExpParser
                  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
                  return $ InstanceDelta f i $ fromMaybe [] o
 
@@ -51,7 +51,7 @@ instRawParser :: Parser InstExpRaw'
 instRawParser = do
         _ <- constant "literal"
         _ <- constant ":"
-        t <- schemaExpParser
+        t <- optionalParens schemaExpParser
         x <- (braces $ p t)
         pure $ x
  where p t = do  e <- optional $ do
@@ -80,5 +80,5 @@ instExpParser =
        do
         _ <- constant "empty"
         _ <- constant ":"
-        x <- schemaExpParser
+        x <- optionalParens schemaExpParser
         return $ InstanceInitial x

@@ -47,3 +47,9 @@ spec = do
   describe "boolParser" $ do
     it "parses correctly a false" $ parse boolParser "" "false" == Right False
     it "parses correctly a true" $ parse boolParser "" "true" == Right True
+
+  describe "optionalParens" $ do
+    specify "parses correctly a string without parentheses" $
+      forAll identifierGen $ \s -> parse (optionalParens identifier) "" s == Right s
+    specify "parses correctly a string with parentheses" $
+      forAll identifierGen $ \s -> parse (optionalParens identifier) "" ("(" ++ s ++ ")") == Right s
