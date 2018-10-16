@@ -17,6 +17,9 @@ import Data.Void
 import Data.Typeable hiding (typeOf)
 import Language.Prover
 import Language.Options
+import Text.Tabular as Tab ((^|^), (+.+))
+import qualified Text.Tabular as T
+import qualified Text.Tabular.AsciiArt   as Ascii
 import Data.Maybe
 
 --------------------------------------------------------------------------------
@@ -102,7 +105,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
     where w = "  " ++ (intercalate "\n  " . mapl w2 . Typeside.tys . Schema.typeside $ sch)
           w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
 
-          prettyEntities = prettyEntity alg `mapl` Schema.ens sch
+          prettyEntities = prettyEntityTable alg `mapl` Schema.ens sch
           prettyTypeEqns = intercalate "\n" (Set.map show teqs')
 
 prettyEntity
@@ -125,6 +128,35 @@ prettyEntity alg@(Algebra sch en' _ _ _ _ _ _) es =
     prettyAtt x (att,_) = show att ++ " = " ++ (prettyTerm $ aAtt alg att x)
 
     prettyFk  x (fk, _) = show fk  ++ " = " ++ (show $ aFk alg fk x)
+
+    prettyTerm = show
+
+prettyEntityTable
+  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  => Algebra var ty sym en fk att gen sk x y
+  -> en
+  -> String
+prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
+  show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
+  (Ascii.render id id id $ mkTab es (en' es))
+  where
+    -- mkTab :: en -> Set x -> T.Table String String String
+    mkTab en'' e = Set.foldl (\tbl row -> tbl +.+ prettyRow en'' row) prettyHeader e
+
+    prettyHeader = Foldable.foldl (\acc x -> acc ^|^ (T.colH x)) T.empty prettyHeaderCols
+
+    prettyHeaderCols =
+      (show <$> fksFrom' sch es) ++
+      (show <$> attsFrom' sch es)
+
+    -- prettyRow :: en -> x -> T.SemiTable String [Char]
+    prettyRow en'' e =
+      T.row (show e) $ (prettyFk e <$> fksFrom' sch en'') ++ (prettyAtt e <$> attsFrom' sch en'')
+
+    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
+
+    prettyFk  x (fk, _) = show $ aFk alg fk x
 
     prettyTerm = show
 
