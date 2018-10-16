@@ -7,7 +7,6 @@ import Prelude hiding (EQ)
 import Data.Set as Set hiding (size, foldr)
 import Data.Map.Strict as Map hiding (size, foldr)
 import Data.Void
-import Data.List (intercalate)
 import Language.Common
 import Data.Maybe
 

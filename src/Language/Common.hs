@@ -2,7 +2,8 @@
 ,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
 
 module Language.Common where
-import Data.Map.Strict as Map
+import Data.Map.Strict as Map hiding (foldl, toList)
+import Data.Foldable (foldl, toList)
 
 type a + b = Either a b
 
@@ -30,3 +31,14 @@ lookup2 :: Ord k => k -> Map k a -> a
 lookup2 m x = case Map.lookup m x of
   Just y -> y
   Nothing -> undefined
+
+-- | A version of intercalate that works on Foldables instead of just List,
+-- | adapted from PureScript.
+intercalate :: (Foldable f, Monoid m) => m -> f m -> m
+intercalate sep xs = snd (foldl go (True, mempty) xs)
+  where
+    go (True, _)   x = (False, x)
+    go (_   , acc) x = (False, acc <> sep <> x)
+
+mapl :: Foldable f => (a -> b) -> f a -> [b]
+mapl fn = fmap fn . toList

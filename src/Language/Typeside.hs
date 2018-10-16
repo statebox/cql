@@ -11,7 +11,6 @@ import Data.Void
 import Language.Prover
 import Language.Options
 import Data.Typeable
-import Data.List (intercalate)
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l

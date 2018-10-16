@@ -12,7 +12,6 @@ import Language.Typeside
 import Language.Options
 import Language.Prover
 import Data.Typeable
-import Data.List (intercalate)
 import Data.Maybe
 
 

@@ -14,7 +14,6 @@ import Language.Mapping as M
 import Language.Typeside as T
 import Language.Transform as Tr
 import Language.Query as Q
-import Data.List (intercalate)
 
 
 data Exp =

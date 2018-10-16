@@ -11,7 +11,6 @@ import Language.Common
 import Data.Typeable
 import Data.Set as Set
 import Data.Maybe
-import Data.List
 
 
 

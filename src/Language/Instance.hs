@@ -5,7 +5,8 @@ module Language.Instance where
 import Prelude hiding (EQ)
 import Data.Set as Set
 import Data.Map.Strict as Map
-import Data.List
+import Data.List hiding (intercalate)
+import qualified Data.Foldable as Foldable
 import Language.Common
 import Language.Term as Term
 import Language.Typeside as Typeside
@@ -16,6 +17,8 @@ import Data.Void
 import Data.Typeable hiding (typeOf)
 import Language.Prover
 import Language.Options
+import qualified Text.Tabular as T
+import qualified Text.Tabular.AsciiArt   as Ascii
 import Data.Maybe
 
 --------------------------------------------------------------------------------
@@ -89,29 +92,76 @@ aAtt alg f x = nf'' alg $ Att f $ up15 $ repr alg x
 aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Void Void Void y
 aSk alg g = nf'' alg $ Sk g
 
-sepBy :: [[Char]] -> [Char] -> [Char]
-sepBy [] _ = ""
-sepBy (x:[]) _ = x
-sepBy (x:y ) sep = x ++ sep ++ (sepBy y sep)
-
-sepBy' :: [Char] -> [[Char]] -> [Char]
-sepBy' x y = sepBy y x
-
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
-  show (Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs') =
-    "algebra\n" ++ l ++ "\ntype-algeba\n" ++ w ++ sepBy' "\n" (Prelude.map show $ Set.toList $ teqs')
-      where w = "nulls\n" ++ sepBy' "\n" (Prelude.map (\ty'' -> show ty'' ++ " (" ++ show (Set.size (ty' ty'')) ++ ") = " ++ show (Set.toList $ ty' ty'') ++ " ") (Set.toList $ Typeside.tys $ Schema.typeside sch))
-            h = Prelude.map (\en'' -> show en'' ++ " (" ++ show (Set.size (en' en'')) ++ ")\n-------------\n" ++ (sepBy' "\n" $ Prelude.map (\x -> show x ++ ": "
-                 ++ (sepBy (Prelude.map (f x) $ fksFrom'  sch en'') ",") ++ ", "
-                 ++ (sepBy (Prelude.map (g x) $ attsFrom' sch en'') ",")) $ Set.toList $ en' en'')) (Set.toList $ Schema.ens sch)
-            l = sepBy' "\n" h
-            f x (fk,_) = show   fk  ++ " = " ++ (show $ aFk alg  fk x )
-            g x (att,_) = show   att ++ " = " ++ (show $ aAtt alg att x )
-            alg = Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs'
+  show alg@(Algebra sch _ _ _ ty' _ _ teqs') =
+    "algebra" ++ "\n" ++
+    (intercalate "\n\n" prettyEntities) ++ "\n" ++
+    "type-algebra" ++ "\n" ++
+    "nulls" ++ "\n" ++
+    w ++
+    prettyTypeEqns
+    where w = "  " ++ (intercalate "\n  " . mapl w2 . Typeside.tys . Schema.typeside $ sch)
+          w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
 
+          prettyEntities = prettyEntityTable alg `mapl` Schema.ens sch
+          prettyTypeEqns = intercalate "\n" (Set.map show teqs')
 
+prettyEntity
+  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  => Algebra var ty sym en fk att gen sk x y
+  -> en
+  -> String
+prettyEntity alg@(Algebra sch en' _ _ _ _ _ _) es =
+  show es ++ " (" ++ (show . Set.size $ en' es) ++ ")\n" ++
+  "-------------\n" ++
+  (intercalate "\n" $ prettyEntityRow es `mapl` en' es)
+  where
+    -- prettyEntityRow :: en -> x -> String
+    prettyEntityRow en'' e =
+      show e ++ ": " ++
+      intercalate "," (prettyFk  e <$> fksFrom'  sch en'') ++ ", " ++
+      intercalate "," (prettyAtt e <$> attsFrom' sch en'')
 
+    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt x (att,_) = show att ++ " = " ++ (prettyTerm $ aAtt alg att x)
+
+    prettyFk  x (fk, _) = show fk  ++ " = " ++ (show $ aFk alg fk x)
+
+    prettyTerm = show
+
+-- TODO unquote identifiers; stick fks and attrs in separate `Group`s?
+prettyEntityTable
+  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  => Algebra var ty sym en fk att gen sk x y
+  -> en
+  -> String
+prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
+  show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
+  (Ascii.render show id id tbl)
+  where
+    -- tbl :: T.Table x String String
+    tbl = T.Table
+      (T.Group T.SingleLine (T.Header <$> Foldable.toList (en' es)))
+      (T.Group T.SingleLine (T.Header <$> prettyColumnHeaders))
+      (prettyRow <$> Foldable.toList (en' es))
+
+    prettyColumnHeaders :: [String]
+    prettyColumnHeaders =
+      (prettyTypedIdent <$> fksFrom' sch es) ++
+      (prettyTypedIdent <$> attsFrom' sch es)
+
+    prettyRow e =
+      (prettyFk e <$> fksFrom' sch es) ++ (prettyAtt e <$> attsFrom' sch es)
+
+    prettyTypedIdent (ident, typ) = show ident ++ " : " ++ show typ
+
+    prettyFk x (fk, _) = show $ aFk alg fk x
+
+    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
+
+    prettyTerm = show
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch
@@ -273,11 +323,14 @@ initialAlgebra p dp' sch = simplifyA this
 
        tys' = assembleSks col ens'
        ty' y = lookup2 y tys'
-       nf'''' (Left g) = Sk $ Left g
-       nf'''' (Right (x, att)) = Sk $ Right (repr'' x, att)
-       --repr' :: (TTerm en fk att gen sk) -> Term Void ty sym en fk att gen sk
-       repr''' (Left g) = Sk g
-       repr''' (Right (x, att)) = Att att $ up15 $ repr'' x
+
+       nf'''' (Left g)          = Sk $ MkTTerm $ Left g
+       nf'''' (Right (gt, att)) = Sk $ MkTTerm $ Right (repr'' gt, att)
+
+       repr''' :: TTerm en fk att gen sk -> Term Void ty sym en fk att gen sk
+       repr''' (MkTTerm (Left g))         = Sk g
+       repr''' (MkTTerm (Right (x, att))) = Att att $ up15 $ repr'' x
+
        teqs'' = Prelude.concatMap (\(e, EQ (lhs,rhs)) -> Prelude.map (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
        teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
@@ -316,15 +369,24 @@ assembleSks :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, S
  => Collage var ty sym en fk att gen sk -> Map en (Set (GTerm en fk gen)) ->
  Map ty (Set (TTerm en fk att gen sk))
 assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
- where gens' = Prelude.concatMap (\(en',set) -> Prelude.concatMap (\term -> Prelude.concatMap (\(att,ty') -> [(ty',(Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
-       sks' = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (Left sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
+ where gens' = Prelude.concatMap (\(en',set) -> Prelude.concatMap (\term -> Prelude.concatMap (\(att,ty') -> [(ty',(MkTTerm . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
+       sks' = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTTerm . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
        ret = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toList $ ctys col
 
 
 type GTerm en fk gen = Term Void Void Void en fk Void gen Void
 
-type TTerm en fk att gen sk = Either sk (GTerm en fk gen, att)
+-- | T means type. This can be either a labeled null (`sk`) or... a proper value
+-- | This type allows us to define e.g. a custom Show instance.
+newtype TTerm en fk att gen sk = MkTTerm (Either sk (GTerm en fk gen, att))
 
+instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TTerm en fk att gen sk) where
+  show (MkTTerm (Left  x)) = show x
+  show (MkTTerm (Right x)) = show x
+
+deriving instance (Ord en, Ord fk, Ord att, Ord gen, Ord sk) => Ord (TTerm en fk att gen sk)
+
+deriving instance (Eq en, Eq fk, Eq att, Eq gen, Eq sk) => Eq (TTerm en fk att gen sk)
 
 assembleGens :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
  => Collage var ty sym en fk att gen sk -> [ GTerm en fk gen ] -> Map en (Set (GTerm en fk gen))

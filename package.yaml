@@ -27,6 +27,7 @@ dependencies:
 - scientific
 - semigroups
 - term-rewriting
+- tabular
 
 library:
   source-dirs: src
