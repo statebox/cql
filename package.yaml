@@ -39,7 +39,7 @@ ghc-options:
 executables:
   aql-exe:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         cli
     ghc-options:
     - -threaded
     - -rtsopts
