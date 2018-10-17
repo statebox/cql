@@ -87,3 +87,4 @@ schemaExpParser =
         _ <- constant ":"
         x <- typesideExpParser
         return $ SchemaInitial x
+    <|> parens schemaExpParser

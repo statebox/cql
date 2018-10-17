@@ -10,8 +10,8 @@ import           Data.Maybe
 import           Text.Megaparsec
 
 import           Language.Instance          as I
+import           Language.Parser.Mapping    as M
 import           Language.Parser.Schema
-import Language.Parser.Mapping as M 
 import           Language.Schema            as S
 import           Language.Term
 
@@ -82,3 +82,4 @@ instExpParser =
         _ <- constant ":"
         x <- schemaExpParser
         return $ InstanceInitial x
+    <|> parens instExpParser

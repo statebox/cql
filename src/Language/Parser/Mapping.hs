@@ -71,3 +71,4 @@ mapExpParser =
         _ <- constant "identity"
         x <- schemaExpParser
         return $ MappingId x
+    <|> parens mapExpParser

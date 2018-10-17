@@ -6,9 +6,9 @@ import           Text.Megaparsec
 
 import           Language.Parser.Instance
 import           Language.Parser.LexerRules
+import           Language.Parser.Mapping
 import           Language.Parser.Parser
 import           Language.Term
-import           Language.Parser.Mapping
 
 
 gParser :: Parser (String, RawTerm)
@@ -79,3 +79,4 @@ transExpParser =
         _ <- constant "identity"
         x <- instExpParser
         return $ TransformId x
+    <|> parens transExpParser
