@@ -49,10 +49,8 @@ constant = L.symbol spaceConsumer
 braces :: Parser a -> Parser a
 braces = between (constant "{") (constant "}")
 
-optionalParens :: Parser a -> Parser a
-optionalParens parser
-  = parser
-  <|> between (constant "(") (constant ")") parser
+parens :: Parser a -> Parser a
+parens = between (constant "(") (constant ")")
 
 integerParser :: Parser Integer -- TODO: write tests
 integerParser = lexeme L.decimal

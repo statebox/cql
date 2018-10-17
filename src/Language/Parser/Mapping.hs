@@ -31,9 +31,9 @@ mappingRawParser :: Parser MappingExpRaw'
 mappingRawParser = do
         _ <- constant "literal"
         _ <- constant ":"
-        s <- optionalParens schemaExpParser
+        s <- schemaExpParser
         _ <- constant "->"
-        t <- optionalParens schemaExpParser
+        t <- schemaExpParser
         m <- braces $ (q' s t)
         pure $ m
  where p   = do  x <- do
@@ -69,5 +69,6 @@ mapExpParser =
     <|>
        do
         _ <- constant "identity"
-        x <- optionalParens schemaExpParser
+        x <- schemaExpParser
         return $ MappingId x
+    <|> parens mapExpParser

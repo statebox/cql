@@ -30,9 +30,9 @@ parseRaw = do _ <- constant "literal"
 
 eqParser :: Parser ([(String, String)], RawTerm, RawTerm)
 eqParser = do o <- p
-              l <- optionalParens rawTermParser
+              l <- rawTermParser
               _ <- constant "="
-              r <- optionalParens rawTermParser
+              r <- rawTermParser
               return (o,l,r) --(fromMaybe [] o, l, r)
  where p = do _ <- constant "forall"
               g <- sepBy varParser $ constant ","

@@ -18,9 +18,9 @@ obsEqParser = do _ <- constant "forall"
                  i <- identifier
                  j <- optional $ do { _ <- constant ":"; identifier }
                  _ <- constant "."
-                 l <- optionalParens rawTermParser
+                 l <- rawTermParser
                  _ <- constant "="
-                 r <- optionalParens rawTermParser
+                 r <- rawTermParser
                  case j of
                     Nothing -> error $ "Type inference not supported for now"
                     Just s' -> return (i,s',l,r)
@@ -47,7 +47,7 @@ schemaRawParser :: Parser SchemaExpRaw'
 schemaRawParser = do
         _ <- constant "literal"
         _ <- constant ":"
-        t <- optionalParens typesideExpParser
+        t <- typesideExpParser
         schemaLiteral <- (braces $ p t)
         pure $ schemaLiteral
  where p t = do  e <- optional $ do
@@ -85,5 +85,6 @@ schemaExpParser =
        do
         _ <- constant "empty"
         _ <- constant ":"
-        x <- optionalParens typesideExpParser
+        x <- typesideExpParser
         return $ SchemaInitial x
+    <|> parens schemaExpParser
