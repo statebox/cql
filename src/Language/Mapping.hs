@@ -122,14 +122,36 @@ data MappingExp   where
   MappingRaw     :: MappingExpRaw' -> MappingExp
  deriving (Eq, Show)
 
-data MappingExpRaw' = MappingExpRaw' {
-    mapraw_src :: SchemaExp,
-    mapraw_dst :: SchemaExp,
-    mapraw_ens  :: [(String, String)]
+data SchemaPath
+  = SchemaPathArrowId String
+  | SchemaPathDotted SchemaPath String
+  | SchemaPathParen String SchemaPath
+  deriving (Eq)
+
+instance Show SchemaPath where
+  show (SchemaPathArrowId schemaArrowId) = schemaArrowId
+  show (SchemaPathDotted schemaPath schemaArrowId) =
+    (show schemaPath) ++ "." ++ schemaArrowId
+  show (SchemaPathParen schemaArrowId schemaPath) =
+    schemaArrowId ++ "(" ++ (show schemaPath) ++ ")"
+
+data MappingApp
+  = MappingAppLambda (String, (String, RawTerm))
+  | MappingAppPointFree SchemaPath
+  deriving (Eq)
+
+instance Show MappingApp where
+  show (MappingAppLambda app) = show app
+  show (MappingAppPointFree app) = show app
+
+data MappingExpRaw' = MappingExpRaw'
+  { mapraw_src :: SchemaExp
+  , mapraw_dst :: SchemaExp
+  , mapraw_ens  :: [(String, String)]
   , mapraw_fks :: [(String, [String])]
-  , mapraw_atts  :: [(String, (String, RawTerm))]
+  , mapraw_atts  :: [MappingApp] -- [(String, (String, RawTerm))]
   , mapraw_options :: [(String, String)]
-} deriving (Eq, Show)
+  } deriving (Eq, Show)
 
 --todo: combine with schema
 conv'' :: forall ty ty2. (Typeable ty,Show ty, Typeable ty2, Show ty2) => [(String, String)] -> Err [(ty2, ty)]
@@ -169,10 +191,11 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
   ens' = Set.toList $ X.ens dst'
   atts' = Map.toList $ X.atts dst'
   f [] = pure $ Map.empty
-  f  ((att, (v, t)):ts) = do t'   <- return $ g v (keys' fks') (keys' atts') t
-                             rest <- f ts
-                             att' <- cast' att $ "Not an attribute " ++ att
-                             pure $ Map.insert att' t' rest
+  f ((MappingAppLambda (att, (v, t))):ts) = do t'   <- return $ g v (keys' fks') (keys' atts') t
+                                               rest <- f ts
+                                               att' <- cast' att $ "Not an attribute " ++ att
+                                               pure $ Map.insert att' t' rest
+  f _ = undefined
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a

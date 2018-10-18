@@ -1,11 +1,11 @@
 module Language.Parser.Mapping where
 
+import           Data.List                  (foldl')
 import           Data.Maybe
 import           Language.Mapping
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
 import           Language.Parser.Schema     hiding (attParser, fkParser)
-import           Language.Term
 import           Text.Megaparsec
 
 --------------------------------------------------------------------------------
@@ -16,16 +16,30 @@ fkParser = do x <- identifier
               y <- sepBy1 identifier $ constant "."
               return (x, y)
 
-attParser :: Parser (String, (String, RawTerm))
-attParser = do x <- identifier
-               _ <- constant "->"
-               _ <- constant "lambda"
-               y <- identifier
-             --  _ <- constant ":"
-            --   t <- identifier
-               _ <- constant "."
-               e <- rawTermParser
-               return (x, (y, e))
+schemaPathParser :: Parser SchemaPath
+schemaPathParser = do
+  prefix <- identifier
+  maybeParen <- optional $ constant "(" *> schemaPathParser <* constant ")"
+  suffixes <- many $ constant "." *> identifier
+  let prefixWithParens =
+        case maybeParen of
+          Just paren -> SchemaPathParen prefix paren
+          Nothing    -> SchemaPathArrowId prefix
+  pure $ foldl' SchemaPathDotted prefixWithParens suffixes
+
+attParser :: Parser MappingApp
+attParser
+  = do
+    x <- identifier
+    _ <- constant "->"
+    _ <- constant "lambda"
+    y <- identifier
+    --  _ <- constant ":"
+    --   t <- identifier
+    _ <- constant "."
+    e <- rawTermParser
+    return $ MappingAppLambda (x, (y, e))
+  <|> MappingAppPointFree <$> schemaPathParser
 
 mappingRawParser :: Parser MappingExpRaw'
 mappingRawParser = do
