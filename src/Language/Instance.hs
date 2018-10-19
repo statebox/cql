@@ -341,7 +341,7 @@ initialAlgebra p dp' sch = simplifyA this
        repr''' (MkTTerm (Left g))         = Sk g
        repr''' (MkTTerm (Right (x, att))) = Att att $ up15 $ repr'' x
 
-       teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
+       teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' x lhs, nf'' this $ subst' x rhs)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
        teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
 eqs0
@@ -349,15 +349,14 @@ eqs0
   -> Set (EQ      Void ty sym en fk att gen sk)
 eqs0 (Presentation _ _ x) = x
 
-subst' :: Term () ty sym en fk att Void Void -> GTerm en fk gen -> Term Void ty sym en fk att gen sk
-subst' s t = case s of
+subst' :: GTerm en fk gen -> Term () ty sym en fk att Void Void -> Term Void ty sym en fk att gen sk
+subst' t s = case s of
   Var ()   -> up t
-  Sym fs a -> Sym fs ((\x -> subst' x t) <$> a)
-  Fk  f  a -> Fk  f $ subst' a t
-  Att f  a -> Att f $ subst' a t
+  Sym fs a -> Sym fs $ subst' t <$> a
+  Fk  f  a -> Fk  f  $ subst' t     a
+  Att f  a -> Att f  $ subst' t     a
   Gen f    -> absurd f
   Sk  f    -> absurd f
-
 
 hasTypeType :: Term Void ty sym en fk att gen sk -> Bool
 hasTypeType t = case t of
