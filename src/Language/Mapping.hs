@@ -116,23 +116,28 @@ trans'' _ (Att _ _) = undefined
 trans'' _ (Gen (_,g)) = Gen g
 trans'' _ _ = undefined
 
-data MappingExp   where
+data MappingExp where
   MappingVar     :: String -> MappingExp
   MappingId      :: SchemaExp -> MappingExp
   MappingRaw     :: MappingExpRaw' -> MappingExp
  deriving (Eq, Show)
 
-data MappingExpRaw' = MappingExpRaw' {
-    mapraw_src :: SchemaExp,
-    mapraw_dst :: SchemaExp,
-    mapraw_ens  :: [(String, String)]
-  , mapraw_fks :: [(String, [String])]
-  , mapraw_atts  :: [(String, (String, RawTerm))]
+data MappingExpRaw' =
+  MappingExpRaw'
+  { mapraw_src     :: SchemaExp
+  , mapraw_dst     :: SchemaExp
+  , mapraw_ens     :: [(String, String)]
+  , mapraw_fks     :: [(String, [String])]
+  , mapraw_atts    :: [(String, (String, RawTerm))]
   , mapraw_options :: [(String, String)]
 } deriving (Eq, Show)
 
 --todo: combine with schema
-conv'' :: forall ty ty2. (Typeable ty,Show ty, Typeable ty2, Show ty2) => [(String, String)] -> Err [(ty2, ty)]
+conv''
+  :: forall ty ty2
+   . (Typeable ty,Show ty, Typeable ty2, Show ty2)
+  => [(String, String)]
+  -> Err [(ty2, ty)]
 conv'' [] = pure []
 conv'' ((ty2,ty):tl) = case cast ty :: Maybe ty of
    Just ty' -> do x <- conv'' tl
@@ -141,16 +146,14 @@ conv'' ((ty2,ty):tl) = case cast ty :: Maybe ty of
                     Nothing -> Left $ "Not in source schema/typeside: " ++ show ty2
    Nothing -> Left $ "Not in target schema/typeside: " ++ show ty
 
-cast' :: (Typeable x, Typeable y) => x -> String -> Err y
-cast' x s = case cast x of
-   Nothing -> Left s
-   Just y -> return y
-
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
 elem' _ [] = False
-elem' x (a:b) = case cast x of
-  Nothing -> elem' x b
-  Just x' -> x' == a || elem' x b
+elem' x (y:ys) = case cast x of
+  Nothing -> elem' x ys
+  Just x' -> x' == y || elem' x ys
+
+member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
+member' k m = elem' k (Map.keys m)
 
 evalMappingRaw' :: forall var ty sym en fk att en' fk' att' .
   (Ord var, Ord ty, Ord sym, Show att, Show att', Show sym, Show var, Show ty, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
@@ -171,7 +174,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
   f [] = pure $ Map.empty
   f  ((att, (v, t)):ts) = do t'   <- return $ g v (keys' fks') (keys' atts') t
                              rest <- f ts
-                             att' <- cast' att $ "Not an attribute " ++ att
+                             att' <- note ("Not an attribute " ++ att) (cast att)
                              pure $ Map.insert att' t' rest
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
@@ -195,7 +198,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
   k ((fk,p):eqs') =do p' <- h ens' $ reverse p
                       _ <- findEn ens' fks' p
                       rest <- k eqs'
-                      fk' <- cast' fk $ "Not a src fk: fk"
+                      fk' <- note ("Not a src fk: " ++ fk) (cast fk)
                       pure $ Map.insert fk' p' rest
   findEn ens'' _ (s:_) | elem' s ens'' = return $ fromJust $ cast s
   findEn _ fks'' (s:_) | elem' s (keys' $ fks'') = return $ fst $ fromJust $ Prelude.lookup (fromJust $ cast s) fks''
