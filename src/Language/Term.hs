@@ -266,14 +266,17 @@ trans mor (Fk f a) = let x = trans mor a :: Term var' ty sym en' fk' att' gen' s
 trans mor (Att f a) = subst (up14 $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
 
 
-subst :: Eq var => Term () ty sym en fk att gen sk ->
-  Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
-subst (Var ()) t = t
-subst (Sym f as) t = Sym f $ Prelude.map (\x -> subst x t) as
-subst (Fk f a) t = Fk f $ subst a t
-subst (Att f a) t = Att f $ subst a t
-subst (Gen g) _ = Gen g
-subst (Sk g) _ = Sk g
+subst
+  :: Eq var
+  => Term ()  ty sym en fk att gen sk
+  -> Term var ty sym en fk att gen sk
+  -> Term var ty sym en fk att gen sk
+subst (Var ()  ) t = t
+subst (Sym f as) t = Sym f $ (\a -> subst a t) <$> as
+subst (Fk  f a ) t = Fk  f $ subst a t
+subst (Att f a ) t = Att f $ subst a t
+subst (Gen g   ) _ = Gen g
+subst (Sk  g   ) _ = Sk  g
 
 
 checkDoms' :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .
@@ -351,9 +354,9 @@ initGround col = (me', mt')
 
 closeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 closeGround col (me, mt) = (me', mt'')
- where mt''= Prelude.foldr (\(_, (tys,ty)) m -> if and (Prelude.map (\ty'->lookup2 ty' mt') tys) then Map.insert ty True m else m) mt' $ Map.toList $ csyms col
-       mt' = Prelude.foldr (\(_, (en,ty)) m -> if lookup2 en me' then Map.insert ty True m else m) mt $ Map.toList $ catts col
-       me' = Prelude.foldr (\(_, (en,_)) m -> if lookup2 en me then Map.insert en True m else m) me $ Map.toList $ cfks col
+ where mt''= Prelude.foldr (\(_, (tys,ty)) m -> if and ((flip lookup2 mt') <$> tys) then Map.insert ty True m else m) mt' $ Map.toList $ csyms col
+       mt' = Prelude.foldr (\(_, (en, ty)) m -> if lookup2 en me' then Map.insert ty True m else m)                   mt  $ Map.toList $ catts col
+       me' = Prelude.foldr (\(_, (en, _))  m -> if lookup2 en me  then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
 
 iterGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 iterGround col r = if r == r' then r else iterGround col r'
@@ -379,12 +382,12 @@ typeOf'
 typeOf' _ ctx (Var v) = note ("Unbound variable: " ++ show v) $ Map.lookup v ctx
 typeOf' col _ (Gen g) = case Map.lookup g $ cgens col of
   Nothing -> Left $ "Unknown generator: " ++ show g
-  Just t -> pure $ Right t
+  Just t  -> Right $ Right t
 typeOf' col _ (Sk s) = case Map.lookup s $ csks col of
   Nothing -> Left $ "Unknown labelled null: " ++ show s
-  Just t -> pure $ Left t
+  Just t  -> Right $ Left t
 typeOf' col ctx (xx@(Fk f a)) = case Map.lookup f $ cfks col of
-  Nothing -> Left $ "Unknown foreign key: " ++ show f
+  Nothing     -> Left $ "Unknown foreign key: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx a
                     if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
@@ -397,7 +400,7 @@ typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
   Nothing -> Left $ "Unknown function symbol: " ++ show f
   Just (s, t) -> do s' <- mapM (typeOf' col ctx) a
                     if length s' == length s
-                    then if (fmap Left s) == s'
+                    then if (Left <$> s) == s'
                          then pure $ Left t
                          else Left $ "Expected arguments to have types " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show $ xx)
@@ -409,19 +412,20 @@ typeOfEq'
   => Collage var ty sym en fk att gen sk
   -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> Err (ty + en)
-typeOfEq' col (ctx, EQ (lhs, rhs)) = do lhs' <- typeOf' col ctx lhs
-                                        rhs' <- typeOf' col ctx rhs
-                                        if lhs' == rhs'
-                                        then pure lhs'
-                                        else Left $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
+typeOfEq' col (ctx, EQ (lhs, rhs)) = do
+  lhs' <- typeOf' col ctx lhs
+  rhs' <- typeOf' col ctx rhs
+  if lhs' == rhs'
+  then Right $ lhs'
+  else Left  $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
 
 checkDoms :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
-  _ <- mapM f $ Map.elems $ csyms col
-  _ <- mapM g $ Map.elems $ cfks  col
-  _ <- mapM h $ Map.elems $ catts col
+  _ <- mapM f    $ Map.elems $ csyms col
+  _ <- mapM g    $ Map.elems $ cfks  col
+  _ <- mapM h    $ Map.elems $ catts col
   _ <- mapM isEn $ Map.elems $ cgens col
   _ <- mapM isTy $ Map.elems $ csks  col
   pure ()
@@ -443,10 +447,10 @@ typeOfCol
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
   => Collage var ty sym en fk att gen sk
   -> Err ()
-typeOfCol col = do checkDoms col
-                   _ <- mapM (typeOfEq' col) $ Set.toList $ ceqs col
-                   pure ()
-
+typeOfCol col = do
+  checkDoms col
+  mapM_ (typeOfEq' col) $ Set.toList $ ceqs col
+  pure ()
 
 data RawTerm = RawApp String [RawTerm]
  deriving Eq
@@ -455,18 +459,14 @@ instance Show RawTerm where
  show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
 
 upTerm
- :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-upTerm
- (Var v) = Var v
-upTerm
- (Fk f a) = Fk f $ upTerm a
-upTerm
- (Gen g) = Gen g
-upTerm
- (Sym f _) = absurd f
-upTerm
- (Sk f) = absurd f
-upTerm
- (Att f _) = absurd f
+  :: Term var Void Void en fk Void gen Void
+  -> Term var ty   sym  en fk att  gen sk
+upTerm t = case t of
+  Var v   -> Var v
+  Fk  f a -> Fk  f $ upTerm a
+  Gen g   -> Gen g
+  Sym f _ -> absurd f
+  Sk  f   -> absurd f
+  Att f _ -> absurd f
 
 --Set is not Traversable! Lame
