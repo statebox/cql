@@ -7,7 +7,8 @@
 module Language.Transform where
 
 import Prelude hiding (EQ)
-import Data.Map.Strict as Map
+import qualified Data.Map.Strict as Map
+import Data.Map (Map, mapWithKey)
 import Data.Maybe
 import qualified Data.Set as Set
 import Data.Typeable
