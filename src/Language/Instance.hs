@@ -384,9 +384,10 @@ assembleSks
   -> Map en (Set (GTerm en fk gen))
   -> Map ty (Set (TTerm en fk att gen sk))
 assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
- where gens' = concatMap (\(en',set) -> concatMap (\term -> concatMap (\(att,ty') -> [(ty',(MkTTerm . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
-       sks'  = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTTerm . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
-       ret   = Map.fromSet (const Set.empty) $ ctys col
+ where
+   gens' = concatMap (\(en',set) -> concatMap (\term -> concatMap (\(att,ty') -> [(ty',(MkTTerm . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
+   sks'  = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTTerm . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
+   ret   = Map.fromSet (const Set.empty) $ ctys col
 
 
 type GTerm en fk gen = Term Void Void Void en fk Void gen Void
@@ -413,11 +414,15 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
             Just s' -> s'
             Nothing -> undefined --impossible
 
-close :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
- => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> [ (Term Void Void Void en fk Void gen Void) ]
-close col dp' = y' (close1m dp' col) $ Prelude.map Gen $ Map.keys $ cgens col
- where y' f x = y f x
-       y f x = let z = f x in if x == z then x else y f z
+close
+  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
+  => Collage var  ty   sym  en fk att  gen sk
+  -> (EQ     var  ty   sym  en fk att  gen sk   -> Bool)
+  -> [ (Term Void Void Void en fk Void gen Void) ]
+close col dp' =
+  y (close1m dp' col) $ fmap Gen $ Map.keys $ cgens col
+  where
+    y f x = let z = f x in if x == z then x else y f z
 
 close1m :: (Foldable t, Show var, Show gen, Show sk, Show fk,
                   Show en, Show ty, Show att, Show sym, Ord var, Ord gen, Ord sk,
@@ -623,7 +628,7 @@ mapGen _ _         = undefined
 
 evalDeltaAlgebra
   :: forall var ty sym en fk att gen sk x y en' fk' att'
-  .  ( Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show en', Show fk', Show att'
+   . ( Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show en', Show fk', Show att'
      , Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, Ord en', Ord fk', Ord att')
   => Mapping  var ty sym en  fk  att  en'       fk' att'
   -> Instance var ty sym en' fk' att' gen       sk  x       y
