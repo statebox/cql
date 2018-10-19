@@ -116,17 +116,20 @@ trans'' _ (Att _ _) = undefined
 trans'' _ (Gen (_,g)) = Gen g
 trans'' _ _ = undefined
 
-compose :: (Eq var, Eq ty, Eq sym, Eq en', Eq fk', Eq att') =>
+compose :: (Eq var, Eq ty, Eq sym, Eq en', Ord en', Eq fk', Eq att') =>
   Mapping var ty sym en  fk  att  en'  fk'  att'  ->
   Mapping var ty sym en' fk' att' en'' fk'' att'' ->
   Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
-compose (Mapping src' dst' ens' fks' atts') (Mapping src'' dst'' ens'' fks'' atts'') =
+compose (Mapping src' dst' ens' _ _) (Mapping src'' dst'' ens'' _ _) =
   if dst' == src''
-  then Right $ Mapping src' dst'' ens''' fk''' atts'''
+  then Mapping src' dst''
+    <$> (maybe (Left "Entities are not aligning correctly") Right ens''')
+    <*> Right fk'''
+    <*> Right atts'''
   else Left "The target of the first mapping does not coincide with the source of the second"
     where
-    --ens''' :: Map en en''
-      ens''' = fmap (\en -> Map.lookup en ens'') ens' -- TODO: compose ens correctly
+    --ens''' :: Maybe (Map en en'')
+      ens''' = sequence $ fmap (\en -> Map.lookup en ens'') ens'
 
     --fk''' :: Map fk (Term () Void Void en'' fk'' Void Void Void)
       fk''' = undefined
