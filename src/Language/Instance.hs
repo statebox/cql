@@ -6,10 +6,11 @@ module Language.Instance where
 
 import Prelude hiding (EQ)
 import qualified Data.Foldable as Foldable
-import Data.Map.Strict as Map
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map, unionWith)
 import Data.Maybe
 import Data.List hiding (intercalate)
-import Data.Set (Set)
+import Data.Set (Set, union)
 import qualified Data.Set as Set
 import Data.Typeable hiding (typeOf)
 import Data.Void
@@ -81,8 +82,8 @@ checkSatisfaction (Instance sch pres dp alg) = do
         g l r = dp $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
         h l r True = return ()
         h l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
-        f' l r e = Prelude.foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
-        g' l r e = Prelude.foldr (\x b -> (dp $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)  
+        f' l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
+        g' l r e = foldr (\x b -> (dp $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
 
 -- x: type of Carrier
 -- y: type of generators for type algebra presentation
@@ -434,7 +435,7 @@ assembleSks
 assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
  where
    gens' = concatMap (\(en',set) -> concatMap (\term -> concatMap (\(att,ty') -> [(ty',(MkTalgGen . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
-   sks'  = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTalgGen . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
+   sks'  = foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTalgGen . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
    ret   = Map.fromSet (const Set.empty) $ ctys col
 
 

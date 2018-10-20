@@ -105,8 +105,8 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
      eqs' <- f syms' teqs
      return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
  where a = Prelude.foldr Set.union Set.empty $ fmap tys is
-       b syms' = Prelude.foldr (\(f,(s,t)) m -> Map.insert f (s,t) m) syms' $ concatMap (\x->Map.toList $ syms x) is  
-       c = Prelude.foldr Set.union Set.empty $ fmap eqs is 
+       b syms' = Prelude.foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
+       c = Prelude.foldr Set.union Set.empty $ fmap eqs is
        f _ [] = pure $ Set.empty
        f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
                                            lhs' <- g syms' ctx' lhs
