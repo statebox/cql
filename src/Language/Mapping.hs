@@ -3,15 +3,15 @@
 
 module Language.Mapping where
 import Prelude hiding (EQ)
-import Data.Map.Strict as Map
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import Language.Term
 import Language.Schema as X
 import Data.Void
 import Language.Common
 import Data.Typeable
-import Data.Set as Set
+import qualified Data.Set as Set
 import Data.Maybe
-
 
 
 data Mapping var ty sym en fk att en' fk' att'
@@ -46,14 +46,18 @@ deriving instance Show MappingEx
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Mapping var ty sym en fk att en' fk' att') where
-  show (Mapping _ _ ens' fks' atts') = "mapping {\n" ++
-    "entities\n\t"  ++ intercalate "\n\t" ens'' ++
-    "\nforeign_keys\n\t" ++ intercalate "\n\t" fks'' ++
-    "\nattributes\n\t" ++ intercalate "\n\t" atts'' ++ " }\n"
-   where ens'' = Prelude.map (\(s,t) -> show s ++ " -> " ++ show t) $ Map.toList ens'
-         fks'' = Prelude.map (\(k,s) -> show k ++ " -> " ++ show s) $ Map.toList fks'
-         atts'' = Prelude.map (\(k,s)-> show k ++ " -> " ++ show s) $ Map.toList atts'
-
+  show (Mapping _ _ ens' fks' atts') =
+    "mapping {" ++ "\n" ++
+    "entities" ++ "\n" ++
+    "\t" ++ intercalate "\n\t" ens'' ++ "\n" ++
+    "foreign_keys\n" ++
+    "\t" ++ intercalate "\n\t" fks'' ++ "\n" ++
+    "attributes\n" ++
+    "\t" ++ intercalate "\n\t" atts'' ++ "\n" ++
+    "}\n"
+    where ens''  = (\(s,t) -> show s ++ " -> " ++ show t) <$> Map.toList ens'
+          fks''  = (\(k,s) -> show k ++ " -> " ++ show s) <$> Map.toList fks'
+          atts'' = (\(k,s) -> show k ++ " -> " ++ show s) <$> Map.toList atts'
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   => Eq (Mapping var ty sym en fk att en' fk' att') where
@@ -146,10 +150,7 @@ conv'' ((ty2,ty):tl) = case cast ty :: Maybe ty of
    Nothing -> Left $ "Not in target schema/typeside: " ++ show ty
 
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
-elem' _ [] = False
-elem' x (y:ys) = case cast x of
-  Nothing -> elem' x ys
-  Just x' -> x' == y || elem' x ys
+elem' x ys = maybe False (flip elem ys) (cast x)
 
 member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
@@ -204,9 +205,6 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
   findEn _ _ [] = Left "Path cannot be typed"
 
-
-
-
 evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk',
    Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk,
    Ord att, Show att, Show fk, Show en', Typeable sym, Ord fk, Show var, Typeable fk', Typeable att', Ord att',
@@ -216,4 +214,3 @@ evalMappingRaw src' dst' t =
  do r <- evalMappingRaw' src' dst' t
     --l <- toOptions $ mapraw_options t
     pure $ MappingEx r
-

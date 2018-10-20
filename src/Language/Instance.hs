@@ -21,10 +21,11 @@ module Language.Instance where
 
 import qualified Data.Foldable         as Foldable
 import           Data.List             hiding (intercalate)
-import           Data.Map.Strict       as Map
+import qualified Data.Map.Strict       as Map
+import           Data.Map.Strict       (Map, unionWith)
 import           Data.Maybe
-import           Data.Set              (Set)
 import qualified Data.Set              as Set
+import           Data.Set              (Set)
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.Common
@@ -98,8 +99,8 @@ checkSatisfaction (Instance sch pres' dp' alg) = do
         g l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
         h _ _ True  = return ()
         h l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
-        f' l r e = Prelude.foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
-        g' l r e = Prelude.foldr (\x b -> (dp' $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
+        f' l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
+        g' l r e = foldr (\x b -> (dp' $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
 
 -- x: type of Carrier
 -- y: type of generators for type algebra presentation
@@ -380,7 +381,8 @@ up15 = up
 
 initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
- => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
+ => Presentation var ty sym en fk att gen sk
+ -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
  Algebra var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
 initialAlgebra p dp' sch = simplifyA this
@@ -450,7 +452,7 @@ assembleSks
 assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
  where
    gens' = concatMap (\(en',set) -> concatMap (\term -> concatMap (\(att,ty') -> [(ty',(MkTalgGen . Right) (term,att))]) $ attsFrom col en') $ Set.toList $ set) $ Map.toList $ ens'
-   sks'  = Prelude.foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTalgGen . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
+   sks'  = foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTalgGen . Left $ sk) (lookup2 t m)) m) ret $ Map.toList $ csks col
    ret   = Map.fromSet (const Set.empty) $ ctys col
 
 
@@ -479,8 +481,8 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
 close
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
   => Collage var  ty   sym  en fk att  gen sk
-  -> (EQ     var  ty   sym  en fk att  gen sk   -> Bool)
-  -> [(Term Void Void Void en fk Void gen Void)]
+  -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
+  -> [Term   Void Void Void en fk Void gen Void]
 close col dp' =
   y (close1m dp' col) $ fmap Gen $ Map.keys $ cgens col
   where

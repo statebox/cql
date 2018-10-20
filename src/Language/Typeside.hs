@@ -3,8 +3,10 @@
 
 module Language.Typeside where
 import Prelude hiding (EQ)
-import Data.Set as Set
-import Data.Map.Strict as Map
+import qualified Data.Set as Set
+import Data.Set (Set)
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict hiding (foldr)
 import Language.Common
 import Language.Term
 import Data.Void
@@ -104,9 +106,9 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
      syms' <- fromList' tsyms
      eqs' <- f syms' teqs
      return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
- where a = Prelude.foldr Set.union Set.empty $ fmap tys is
-       b syms' = Prelude.foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (\x->Map.toList $ syms x) is
-       c = Prelude.foldr Set.union Set.empty $ fmap eqs is
+ where a = foldr Set.union Set.empty $ fmap tys is
+       b syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
+       c = foldr Set.union Set.empty $ fmap eqs is
        f _ [] = pure $ Set.empty
        f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
                                            lhs' <- g syms' ctx' lhs
