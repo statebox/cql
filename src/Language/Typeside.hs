@@ -65,7 +65,7 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
 showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
-typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) 
+typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym)
  => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
@@ -74,7 +74,7 @@ data TypesideRaw' = TypesideRaw' {
   , tsraw_syms :: [(String, ([String], String))]
   , tsraw_eqs  :: [([(String, String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
-  , tsraw_imports :: [TypesideExp]  
+  , tsraw_imports :: [TypesideExp]
 } deriving (Eq, Show)
 
 
@@ -96,7 +96,7 @@ evalTypesideRaw t a' =
    g ((TypesideEx ts):r) = case cast ts of
                             Nothing -> Left "Bad import"
                             Just ts' -> do r'  <- g r
-                                           return $ ts' : r' 
+                                           return $ ts' : r'
 
 evalTypesideRaw' :: TypesideRaw'  -> [Typeside String String String] -> Err (Typeside String String String)
 evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
@@ -105,8 +105,8 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
      eqs' <- f syms' teqs
      return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
  where a = Prelude.foldr Set.union Set.empty $ fmap tys is
-       b syms' = Prelude.foldr (\(f,(s,t)) m -> Map.insert f (s,t) m) syms' $ concatMap (\x->Map.toList $ syms x) is  
-       c = Prelude.foldr Set.union Set.empty $ fmap eqs is 
+       b syms' = Prelude.foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (\x->Map.toList $ syms x) is
+       c = Prelude.foldr Set.union Set.empty $ fmap eqs is
        f _ [] = pure $ Set.empty
        f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
                                            lhs' <- g syms' ctx' lhs
@@ -118,7 +118,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
                                      pure $ Sym v l'
        check [] = pure Map.empty
        check ((v,t):l) = do {x <- check l; pure $ Map.insert v t x}
-       
+
 
 -- there are practical haskell type system related reasons to not want this to be a gadt
 data TypesideExp where
