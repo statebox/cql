@@ -156,16 +156,24 @@ typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalAqlProgram [] _ e = pure e
 evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTypeside prog env $ lookup2 v (typesides prog)
+                                              _ <- case t of 
+                                                     TypesideEx x -> typecheckTypeside x
                                               evalAqlProgram l prog $ env { typesides = Map.insert v t $ typesides env }
 evalAqlProgram ((v,SCHEMA):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalSchema prog env $ lookup2 v (schemas prog)
+                                            _ <- case t of 
+                                                     SchemaEx x -> typecheckSchema x
                                             evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
 evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalInstance prog env $ lookup2 v (instances prog)
                                               _ <- case t of
-                                                     InstanceEx i -> checkSatisfaction i
+                                                     InstanceEx i -> do {_ <- typecheckPresentation (schema i) (pres i); checkSatisfaction i}
                                               evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
 evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalMapping prog env $ lookup2 v (mappings prog)
+                                             _ <- case t of
+                                                     MappingEx i -> do {_ <- typecheckMapping i; validateMapping i}                                           
                                              evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }
 evalAqlProgram ((v,TRANSFORM):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTransform prog env $ lookup2 v (transforms prog)
+                                               --_ <- case t of
+                                              --       TransformEx i -> do {_ <- typecheckTransform i; validateTransform i}     
                                                evalAqlProgram l prog $ env { transforms = Map.insert v t $ transforms env }
 
 --todo: check acyclic with Data.Graph.DAG
@@ -178,7 +186,8 @@ findOrder p = pure $ other p --todo: for now
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
-evalTypeside _ _ (TypesideRaw r) = evalTypesideRaw r
+evalTypeside p e (TypesideRaw r) = do x <- mapM (evalTypeside p e) $ tsraw_imports r
+                                      evalTypesideRaw r x
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e

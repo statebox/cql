@@ -62,18 +62,17 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
 
 typecheckMapping ::   (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
- Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att')
-typecheckMapping m = do _ <- typeOfMor $ mapToMor m
-                        _ <- validateMapping m
-                        return m
+ Mapping var ty sym en fk att en' fk' att' -> Err ()
+typecheckMapping m =  typeOfMor $ mapToMor m
+                      
 
 validateMapping :: forall var ty sym en fk att en' fk' att' .
   (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
- Mapping var ty sym en fk att en' fk' att' -> Err (Mapping var ty sym en fk att en' fk' att')
+ Mapping var ty sym en fk att en' fk' att' -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do _ <- mapM g (Set.toList $ path_eqs src')
                                                       _ <- mapM f (Set.toList $ obs_eqs src')
-                                                      pure m
+                                                      pure ()
  where f :: (en, EQ () ty sym en fk att Void Void) -> Err ()
        f (enx, EQ (l,r)) = let l' = trans (mapToMor m) l
                                r' = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
@@ -165,7 +164,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
      ens2 <- toMapSafely ens1
      x <- k fks0
      y <- f atts0
-     typecheckMapping $ Mapping src' dst' ens2 x y
+     return $ Mapping src' dst' ens2 x y
  where
   keys' = fst . unzip
   fks' = Map.toList $ X.fks dst'

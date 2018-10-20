@@ -62,6 +62,9 @@ functionParser = do x <- some identifier
 
 typesideLiteralSectionParser :: Parser X.TypesideRaw'
 typesideLiteralSectionParser = do
+    i <- optional $ do
+        _ <- constant "imports"
+        many typesideExpParser  
     t <- optional $ do
         _ <- constant "types"
         many identifier
@@ -82,4 +85,5 @@ typesideLiteralSectionParser = do
         ((concat $ fromMaybe [] c)++(concat $ fromMaybe [] f))
         (fromMaybe [] e)
         (fromMaybe [] o)
+        (fromMaybe [] i)
 

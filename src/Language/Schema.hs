@@ -24,9 +24,9 @@ data SchemaExp where
 
 
 typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en)
- => Schema var ty sym en fk att -> Err (Schema var ty sym en fk att)
-typecheckSchema t = do _ <- typeOfCol $ schToCol  t
-                       return t
+ => Schema var ty sym en fk att -> Err ()
+typecheckSchema t = typeOfCol $ schToCol  t
+                      
 
 schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att)
   => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
@@ -119,7 +119,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens' fks' atts' peqs oeqs
      atts'' <- toMapSafely cc
      peqs' <- k peqs
      oeqs' <- f oeqs
-     typecheckSchema $ Schema x (Set.fromList ens') fks'' atts'' peqs' oeqs' undefined --leave prover blank
+     return $ Schema x (Set.fromList ens') fks'' atts'' peqs' oeqs' undefined --leave prover blank
  where
   keys' = fst . unzip
   --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))

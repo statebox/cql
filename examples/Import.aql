@@ -1,0 +1,39 @@
+typeside Ty = literal { 
+	types
+ 		string 
+ 		nat
+	constants
+ 		Al Akin Bob Bo Carl Cork Dan Dunn Math CS : string
+ 		zero : nat
+ 	functions 		
+	 	succ		: nat -> nat
+	 	plus		: nat, nat -> nat
+	equations  
+	 	forall x:nat. plus(zero, x) = x
+	 	forall x y:nat. plus(succ(x),y) = succ(plus(x,y))
+	options
+		program_allow_nontermination_unsafe=true 
+}
+
+typeside Ty2 = literal { 
+	types
+ 		string2 
+ 		nat
+	constants
+ 		sdds sdfiodf wefew fffd  : string2
+ 		zero : nat
+ 	functions 		
+	 	succ		: nat -> nat
+	 	plus		: nat, nat -> nat
+	equations  
+	 	forall x:nat. plus(zero, x) = x
+	 	forall x y:nat. plus(succ(x),y) = succ(plus(x,y))
+	options
+		program_allow_nontermination_unsafe=true 
+}
+
+typeside Ty3 = literal {
+  imports Ty Ty2
+	options
+		program_allow_nontermination_unsafe=true 
+}

@@ -47,7 +47,6 @@ data TypesideEx :: * where
   Typeside var ty sym -> TypesideEx
 
 deriving instance Show (TypesideEx)
- -- todo: make pretty
 
 
 instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
@@ -66,40 +65,49 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
 showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
-typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Err (Typeside var ty sym)
-typecheckTypeside x = do _ <- (typeOfCol . tsToCol) x
-                         return x
-
+typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) 
+ => Typeside var ty sym -> Err ()
+typecheckTypeside = typeOfCol . tsToCol
 
 data TypesideRaw' = TypesideRaw' {
---  tsraw_imports :: [TypesideExp -> Either String TypesideEx]  these are going to be nasty bc of the type system?
     tsraw_tys  :: [String]
   , tsraw_syms :: [(String, ([String], String))]
   , tsraw_eqs  :: [([(String, String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
+  , tsraw_imports :: [TypesideExp]  
 } deriving (Eq, Show)
---todo: make pretty
+
 
 tsToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
-evalTypesideRaw :: TypesideRaw' -> Err TypesideEx
-evalTypesideRaw t =
- do r <- evalTypesideRaw' t
+evalTypesideRaw :: TypesideRaw' -> [TypesideEx] -> Err TypesideEx
+evalTypesideRaw t a' =
+ do a <- g a'
+    r <- evalTypesideRaw' t a
     l <- toOptions $ tsraw_options t
     p <- createProver (tsToCol r) l
     pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
  where
-  f p ctx = prove p (Map.map Left ctx)
+   f p ctx = prove p (Map.map Left ctx)
+   g :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
+   g [] = return []
+   g ((TypesideEx ts):r) = case cast ts of
+                            Nothing -> Left "Bad import"
+                            Just ts' -> do r'  <- g r
+                                           return $ ts' : r' 
 
-evalTypesideRaw' :: TypesideRaw' -> Err (Typeside String String String)
-evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _) =
+evalTypesideRaw' :: TypesideRaw'  -> [Typeside String String String] -> Err (Typeside String String String)
+evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
   do tys' <- fromList'' ttys
      syms' <- fromList' tsyms
      eqs' <- f syms' teqs
-     typecheckTypeside $ Typeside tys' syms' eqs' undefined -- leave prover blank
- where f _ [] = pure $ Set.empty
+     return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
+ where a = Prelude.foldr Set.union Set.empty $ fmap tys is
+       b syms' = Prelude.foldr (\(f,(s,t)) m -> Map.insert f (s,t) m) syms' $ concatMap (\x->Map.toList $ syms x) is  
+       c = Prelude.foldr Set.union Set.empty $ fmap eqs is 
+       f _ [] = pure $ Set.empty
        f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
                                            lhs' <- g syms' ctx' lhs
                                            rhs' <- g syms' ctx' rhs
@@ -109,8 +117,8 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _) =
        g syms' ctx (RawApp v l) = do l' <- mapM (g syms' ctx) l
                                      pure $ Sym v l'
        check [] = pure Map.empty
-       check ((v,t):l) = if elem t ttys then do {x <- check l; pure $ Map.insert v t x} else Left $ "Not a type: " ++ (show t)
-
+       check ((v,t):l) = do {x <- check l; pure $ Map.insert v t x}
+       
 
 -- there are practical haskell type system related reasons to not want this to be a gadt
 data TypesideExp where

@@ -116,13 +116,7 @@ evalDeltaSigmaCoUnit m i o = do j <- evalDeltaInst m i o
  where
        f _ ((en', x), _) = ((en',x), repr  (algebra i) x)
        g _ (sk      , _) = (sk     , repr' (algebra i) sk)
-{--
-for (Pair<En1, X> gen : src().gens().keySet()) {
-      gens.put(gen, I.algebra().repr(gen.second).map(Util.voidFn(), Util.voidFn(), Function.identity(), Util.voidFn(), Function.identity(), Util.voidFn()));
-    }
-    for (Y sk : src().sks().keySet()) {
-      sks.put(sk, I.algebra().reprT(Term.Sk(sk)));
-    }  --}
+
 
 evalDeltaTrans
  :: ( Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord gen', Ord sk, Ord sk', Ord x', Ord y', Eq x, Eq y, Eq en',
@@ -220,20 +214,18 @@ typecheckTransform ::  (Show att, Ord var, Show var, Typeable en,  Ord en, Show 
      Ord att, Ord en, Ord fk, Ord ty, Show ty, Show sym, Ord sym, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
      Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y')
   =>      Transform var ty sym en fk att gen sk x y gen' sk' x' y'
-  -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
-typecheckTransform m = do
-  _ <- typeOfMor $ transToMor m
-  _ <- validateTransform m
-  pure m
+  -> Err ()
+typecheckTransform m = typeOfMor $ transToMor m
+  
 
 validateTransform :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
    (Show att, Ord var, Show var, Typeable en,  Ord en, Show en,  Typeable sym, Typeable att, Typeable fk, Show fk,
      Ord att, Ord en, Ord fk, Ord ty, Show ty, Show sym, Ord sym, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
      Show gen, Show sk, Show x, Show y, Show gen', Show sk', Show x', Show y') =>
- Transform var ty sym en fk att gen sk x y gen' sk' x' y'  -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
+ Transform var ty sym en fk att gen sk x y gen' sk' x' y'  -> Err ()
 validateTransform (m@(Transform src' dst' _ _)) = do
   _ <- mapM_ f (Set.toList $ eqs $ pres src')
-  pure m
+  pure ()
  where f :: (EQ Void ty sym en fk att gen sk) -> Err ()
        f (EQ (l,r)) = let l' = trans (transToMor m) l
                           r' = trans (transToMor m) r :: Term Void ty sym en fk att gen' sk'
@@ -256,8 +248,7 @@ evalTransformRaw
 evalTransformRaw src' dst' (TransExpRaw' _ _ sec _) =
   do x <- f' gens0
      y <- f  sks0
-     z <- typecheckTransform $ Transform src' dst' x y
-     pure $ TransformEx z
+     return $ TransformEx $ Transform src' dst' x y
  where
   gens'' = I.gens $ pres src'
   sks''  = I.sks  $ pres src'
