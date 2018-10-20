@@ -1,29 +1,44 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-           , LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies
-#-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE ExplicitForAll         #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE ImpredicativeTypes     #-}
+{-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE LiberalTypeSynonyms    #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Language.Instance where
 
-import Prelude hiding (EQ)
-import qualified Data.Foldable as Foldable
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map, unionWith)
-import Data.Maybe
-import Data.List hiding (intercalate)
-import Data.Set (Set, union)
-import qualified Data.Set as Set
-import Data.Typeable hiding (typeOf)
-import Data.Void
-import Language.Common
-import Language.Term as Term
-import Language.Typeside as Typeside
-import Language.Schema as Schema
-import Language.Mapping as Mapping
-import Language.Query
-import Language.Prover
-import Language.Options
-import qualified Text.Tabular as T
-import qualified Text.Tabular.AsciiArt   as Ascii
+import qualified Data.Foldable         as Foldable
+import           Data.List             hiding (intercalate)
+import qualified Data.Map.Strict       as Map
+import           Data.Map.Strict       (Map, unionWith)
+import           Data.Maybe
+import qualified Data.Set              as Set
+import           Data.Set              (Set)
+import           Data.Typeable         hiding (typeOf)
+import           Data.Void
+import           Language.Common
+import           Language.Mapping      as Mapping
+import           Language.Options
+import           Language.Prover
+import           Language.Query
+import           Language.Schema       as Schema
+import           Language.Term         as Term
+import           Language.Typeside     as Typeside
+import           Prelude               hiding (EQ)
+import qualified Text.Tabular          as T
+import qualified Text.Tabular.AsciiArt as Ascii
 
 emptyInstance :: Schema var ty sym en fk att -> Instance var ty sym en fk att Void Void Void Void
 emptyInstance ts'' =
@@ -36,19 +51,21 @@ emptyInstance ts'' =
                     Set.empty)
 
 
-evalSchTerm' :: Algebra var ty sym en fk att gen sk x y -> x -> Term () Void Void en fk Void Void Void 
- -> x 
-evalSchTerm' alg x (Var ()) = x
+evalSchTerm' :: Algebra var ty sym en fk att gen sk x y -> x -> Term () Void Void en fk Void Void Void
+ -> x
+evalSchTerm' _ x (Var ())   = x
 evalSchTerm' alg x (Fk f a) = aFk alg f $ evalSchTerm' alg x a
-evalSchTerm' _ _ (Gen g) = absurd g
-evalSchTerm' _ _ (Sk g) = absurd g
-evalSchTerm' _ _ (Sym f as) = absurd f
+evalSchTerm' _ _ (Gen g)    = absurd g
+evalSchTerm' _ _ (Sk g)     = absurd g
+evalSchTerm' _ _ (Sym f _)  = absurd f
+evalSchTerm' _ _ _          = undefined
 
-evalSchTerm :: Algebra var ty sym en fk att gen sk x y -> x -> Term () ty sym en fk att Void Void 
+evalSchTerm :: Algebra var ty sym en fk att gen sk x y -> x -> Term () ty sym en fk att Void Void
  -> Term Void ty sym Void Void Void Void y
-evalSchTerm alg x (Att f a) = aAtt alg f $ evalSchTerm' alg x (down1 a)
-evalSchTerm _ _ (Sk g) = absurd g
+evalSchTerm alg x (Att f a)  = aAtt alg f $ evalSchTerm' alg x (down1 a)
+evalSchTerm _ _ (Sk g)       = absurd g
 evalSchTerm alg x (Sym f as) = Sym f $ fmap (evalSchTerm alg x) as
+evalSchTerm _ _ _            = undefined
 
 
 
@@ -64,26 +81,26 @@ typecheckPresentation sch p = do
   pure p
 
 down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
-down1 (Var v) = Var v
-down1 (Gen g) = Gen g
+down1 (Var v)  = Var v
+down1 (Gen g)  = Gen g
 down1 (Fk f a) = Fk f $ down1 a
-down1 _ = undefined 
+down1 _        = undefined
 
 checkSatisfaction
   :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk, Ord x, Ord y)
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
-checkSatisfaction (Instance sch pres dp alg) = do
-  _ <- mapM (\(EQ (l, r)) -> if hasTypeType l then h (show l) (show r) (g l r) else h (show l) (show r) (f l r)) $ Set.toList $ eqs0 pres
-  _ <- mapM (\(en, EQ (l, r)) -> h (show l) (show r) (g' l r en)) $ Set.toList $ obs_eqs sch
-  _ <- mapM (\(en, EQ (l, r)) -> h (show l) (show r) (f' l r en)) $ Set.toList $ path_eqs sch
-  return ()  
+checkSatisfaction (Instance sch pres' dp' alg) = do
+  _ <- mapM (\(EQ (l, r)) -> if hasTypeType l then h (show l) (show r) (g l r) else h (show l) (show r) (f l r)) $ Set.toList $ eqs0 pres'
+  _ <- mapM (\(en'', EQ (l, r)) -> h (show l) (show r) (g' l r en'')) $ Set.toList $ obs_eqs sch
+  _ <- mapM (\(en'', EQ (l, r)) -> h (show l) (show r) (f' l r en'')) $ Set.toList $ path_eqs sch
+  return ()
   where f l r = nf alg (down1 l) == nf alg (down1 r)
-        g l r = dp $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
-        h l r True = return ()
+        g l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
+        h _ _ True  = return ()
         h l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
         f' l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
-        g' l r e = foldr (\x b -> (dp $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
+        g' l r e = foldr (\x b -> (dp' $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
 
 -- x: type of Carrier
 -- y: type of generators for type algebra presentation
@@ -109,8 +126,8 @@ simplifyA
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
 simplifyA
-  (Algebra sch en' nf''' repr'' ty'  nf''''  repr''' teqs'   ) =
-   Algebra sch en' nf''' repr'' ty'' nf''''' repr''' teqs''''
+  (Algebra sch en' nf''' repr''' ty'  nf''''  repr'''' teqs'   ) =
+   Algebra sch en' nf''' repr''' ty'' nf''''' repr'''' teqs''''
    where teqs''       = Set.map (\x -> (Map.empty, x)) teqs'
          (teqs''', f) = simplify'' teqs'' []
          teqs''''     = Set.map snd teqs'''
@@ -133,7 +150,7 @@ nf'' alg t = case t of
   Sk  s    -> nf' alg $ Left s
   _        -> undefined
 
-repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk 
+repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk
 repr'' alg t = case t of
   Sym f as -> Sym f (repr'' alg <$> as)
   Sk  s    -> repr' alg s
@@ -224,25 +241,25 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch
-  where f [] = []
+  where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
 
 attsFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(att,ty)]
 attsFrom sch en' = f $ Map.assocs $ catts sch
-  where f [] = []
+  where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
 
 fksFrom' :: Eq en => Schema var ty sym en fk att  -> en -> [(fk,en)]
 fksFrom' sch en' = f $ Map.assocs $ Schema.fks sch
-  where f [] = []
+  where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
 
 attsFrom' :: Eq en => Schema var ty sym en fk att -> en -> [(att,ty)]
 attsFrom' sch en' = f $ Map.assocs $ Schema.atts sch
-  where f [] = []
+  where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
 data Presentation var ty sym en fk att gen sk
@@ -340,11 +357,11 @@ algebraToPresentation (alg@(Algebra sch en' _ _ ty' _ _ _)) = Presentation gens'
 
 
 up6 :: Term Void ty sym Void Void Void Void sk -> Term var ty sym en fk att gen sk
-up6 (Var v) = absurd v
-up6 (Gen g) = absurd g
-up6 (Sk  s) = Sk s
-up6 (Fk  f _) = absurd f
-up6 (Att f _) = absurd f
+up6 (Var v)    = absurd v
+up6 (Gen g)    = absurd g
+up6 (Sk  s)    = Sk s
+up6 (Fk  f _)  = absurd f
+up6 (Att f _)  = absurd f
 up6 (Sym f as) = Sym f $ Prelude.map up6 as
 
 reify :: (Ord x, Ord en) => (en -> Set x) -> Set en -> [(x, en)]
@@ -369,30 +386,30 @@ initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en
  -> Schema var ty sym en fk att ->
  Algebra var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
 initialAlgebra p dp' sch = simplifyA this
- where this = Algebra sch en' nf''' repr'' ty' nf'''' repr''' teqs'
+ where this = Algebra sch en' nf''' repr''' ty' nf'''' repr'''' teqs'
        col = instToCol sch p
        ens'  = assembleGens col (close col dp')
        en' k = lookup2 k ens'
        nf''' e = let t = typeOf col e
-                     f [] = undefined -- impossible
+                     f []    = undefined -- impossible
                      f (a:b) = if dp' (EQ (up a, up e)) then a else f b
               in f $ Set.toList $ lookup2 t ens'
-       repr'' x = x
+       repr''' x = x
 
        tys' = assembleSks col ens'
        ty' y = lookup2 y tys'
 
        nf'''' (Left g)          = Sk $ MkTalgGen $ Left g
-       nf'''' (Right (gt, att)) = Sk $ MkTalgGen $ Right (repr'' gt, att)
+       nf'''' (Right (gt, att)) = Sk $ MkTalgGen $ Right (repr''' gt, att)
 
-       repr''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
-       repr''' (MkTalgGen (Left g))         = Sk g
-       repr''' (MkTalgGen (Right (x, att))) = Att att $ up15 $ repr'' x
+       repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
+       repr'''' (MkTalgGen (Left g))         = Sk g
+       repr'''' (MkTalgGen (Right (x, att))) = Att att $ up15 $ repr''' x
 
        teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' x lhs, nf'' this $ subst' x rhs)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
        teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
---created as an alias because of name clashes 
+--created as an alias because of name clashes
 eqs0
   :: Presentation var  ty sym en fk att gen sk
   -> Set (EQ      Void ty sym en fk att gen sk)
@@ -459,7 +476,7 @@ assembleGens col [] = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toL
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
  where m = assembleGens col tl
        t = typeOf col e
-       s = fromJust $ Map.lookup t m 
+       s = fromJust $ Map.lookup t m
 
 close
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
@@ -498,7 +515,7 @@ typeOf :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show f
 typeOf col e = case typeOf' col Map.empty (up e) of
   Left _ -> undefined
   Right x -> case x of
-               Left _ -> undefined
+               Left _  -> undefined
                Right y -> y
 
 
@@ -681,14 +698,14 @@ evalDeltaAlgebra
   -> Instance var ty sym en' fk' att' gen       sk  x       y
   -> Algebra  var ty sym en  fk  att  (en, x)   y   (en, x) y
 evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
-  (Instance _ _ _ (alg@(Algebra _ en' nf''' repr'' ty' _ _ teqs')))
+  (Instance _ _ _ (alg@(Algebra _ en' nf''' repr''' ty' _ _ teqs')))
   = Algebra src' en'' nf''x repr'''' ty' nf'''' repr''''' teqs'
  where en'' e = Set.map (\x -> (e,x)) $ en' $ fromJust $ Map.lookup e ens'
        nf''x :: Term Void Void Void en fk Void (en,x) Void -> (en, x)
        nf''x (Gen g) = g
        nf''x (Fk f a) = let (_,x) = nf''x a
                        in (snd $ fromJust $ Map.lookup f $ Schema.fks src',
-                           nf''' $ subst (up13 $ fromJust $ Map.lookup f fks0) (repr'' x) )
+                           nf''' $ subst (up13 $ fromJust $ Map.lookup f fks0) (repr''' x) )
        nf''x _ = undefined
        repr'''' :: (en, x) -> Term Void Void Void en fk Void (en, x) Void
        repr'''' (en''', x) = Gen (en''', x)
@@ -697,7 +714,7 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
        nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
        nf'''' (Left y) = Sk y
        nf'''' (Right ((_,x), att)) =
-         nf'' alg $ subst (q $ fromJust $ Map.lookup att atts0) (p $ repr'' x)
+         nf'' alg $ subst (q $ fromJust $ Map.lookup att atts0) (p $ repr''' x)
        p :: Term Void Void Void en' fk' Void gen Void -> Term Void ty sym  en' fk' att' gen sk
        p = up
        q :: Term () ty sym en' fk' att' Void Void -> Term () ty sym en' fk' att' gen sk
