@@ -150,7 +150,7 @@ conv'' ((ty2,ty):tl) = case cast ty :: Maybe ty of
    Nothing -> Left $ "Not in target schema/typeside: " ++ show ty
 
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
-elem' x ys = maybe False (\x' -> any ((==) x') ys) (cast x)
+elem' x ys = maybe False (flip elem ys) (cast x)
 
 member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
