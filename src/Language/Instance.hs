@@ -317,7 +317,8 @@ up15 = up
 
 initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
   Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
- => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
+ => Presentation var ty sym en fk att gen sk
+ -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
  Algebra var ty sym en fk att gen sk (GTerm en fk gen) (TTerm en fk att gen sk)
 initialAlgebra p dp' sch = simplifyA this
@@ -417,8 +418,8 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
 close
   :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
   => Collage var  ty   sym  en fk att  gen sk
-  -> (EQ     var  ty   sym  en fk att  gen sk   -> Bool)
-  -> [ (Term Void Void Void en fk Void gen Void) ]
+  -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
+  -> [Term   Void Void Void en fk Void gen Void]
 close col dp' =
   y (close1m dp' col) $ fmap Gen $ Map.keys $ cgens col
   where
