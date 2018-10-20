@@ -41,7 +41,8 @@ instance I = literal : S {
 	equations  
 	    a.manager=a a.worksIn.secretary=a     
 	    b.manager=a b.worksIn = a.worksIn    
-
+        first(a) = Al
+		first(b) = Bob  last(b) = Bo
     options  
         program_allow_nontermination_unsafe = true   
         allow_empty_sorts_unsafe = true   

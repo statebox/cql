@@ -160,6 +160,8 @@ evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- wrapError ("Eval Error in " +
 evalAqlProgram ((v,SCHEMA):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalSchema prog env $ lookup2 v (schemas prog)
                                             evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
 evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalInstance prog env $ lookup2 v (instances prog)
+                                              _ <- case t of
+                                                     InstanceEx i -> checkSatisfaction i
                                               evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
 evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalMapping prog env $ lookup2 v (mappings prog)
                                              evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }

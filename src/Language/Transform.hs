@@ -30,7 +30,7 @@ evalSigmaTrans
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Options
-  -> Err (Transform var ty sym en' fk' att' gen sk (GTerm en' fk' gen) (TTerm en' fk' att' gen sk) gen' sk' (GTerm en' fk' gen') (TTerm en' fk' att' gen' sk'))
+  -> Err (Transform var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk) gen' sk' (Carrier en' fk' gen') (TalgGen en' fk' att' gen' sk'))
 evalSigmaTrans f (Transform src0 dst0 gens' sks') o =
  do src' <- evalSigmaInst f src0 o
     dst' <- evalSigmaInst f dst0 o
@@ -91,7 +91,7 @@ evalDeltaSigmaUnit
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y
   -> Options
-  -> Err (Transform var ty sym en fk att gen sk x y (en, GTerm en' fk' gen) (TTerm en' fk' att' gen sk) (en,GTerm en' fk' gen) (TTerm en' fk' att' gen sk))
+  -> Err (Transform var ty sym en fk att gen sk x y (en, Carrier en' fk' gen) (TalgGen en' fk' att' gen sk) (en,Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
 evalDeltaSigmaUnit m i o = do
   j <- evalSigmaInst m i o
   k <- evalDeltaInst m j o
@@ -109,7 +109,7 @@ evalDeltaSigmaCoUnit :: forall var ty sym en fk att gen sk x y en' fk' att'.
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Options
-  -> Err (Transform var ty sym en' fk' att' (en, x) y (GTerm en' fk' (en, x)) (TTerm en' fk' att' (en, x) y) gen sk x y)
+  -> Err (Transform var ty sym en' fk' att' (en, x) y (Carrier en' fk' (en, x)) (TalgGen en' fk' att' (en, x) y) gen sk x y)
 evalDeltaSigmaCoUnit m i o = do j <- evalDeltaInst m i o
                                 k <- evalSigmaInst m j o
                                 return $ Transform k i (Map.fromList $ fmap (f j) $ Map.toList $ I.gens $ pres k) $ (Map.fromList $ fmap (g j) $ Map.toList $ I.sks $ pres k)
