@@ -262,7 +262,7 @@ evalTransformRaw s t h is =
  where
    --g :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. (Typeable sym, Typeable att, Typeable fk, Typeable en, Typeable sk, Typeable gen
    --  , Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y', Typeable sk', Typeable gen') 
-    => [TransformEx] -> Err [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
+    -- => [TransformEx] -> Err [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
    g [] = return []
    g ((TransformEx ts):r) = case cast ts of
                             Nothing -> Left "Bad import"
