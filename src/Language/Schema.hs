@@ -129,7 +129,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   
   keys' = fst . unzip
   --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
-  f fks' atts' [] = pure $ Set.empty
+  f _ _ [] = pure $ Set.empty
   f fks' atts' ((v, en, lhs, rhs):eqs') = do _ <- return $ Map.fromList [((),en)]
                                              lhs' <- return $ g v (keys' fks') (keys' atts') lhs
                                              rhs' <- return $ g v (keys' fks') (keys' atts') rhs
@@ -148,7 +148,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   h ens'' (s:ex) | otherwise = Fk s $ h ens'' ex
   h _ [] = Var ()
   --k :: [([String], [String])] -> Err (Set (En, EQ () Void Void en fk Void Void Void))
-  k ens' fks' [] = pure $ Set.empty
+  k _ _ [] = pure $ Set.empty
   k ens' fks' ((l,r):eqs') = do lhs' <- return $ h ens' $ reverse l
                                 rhs' <- return $ h ens' $ reverse r
                                 en <- findEn ens' fks' l
@@ -173,8 +173,8 @@ evalSchemaRaw ty t a' =
     pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
  where
    f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (up2 l, up2 r))
-   g :: forall var ty sym en fk att. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att) 
-    => [SchemaEx] -> Err [Schema var ty sym en fk att]
+  -- g :: forall var ty sym en fk att. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att) 
+   -- => [SchemaEx] -> Err [Schema var ty sym en fk att]
    g [] = return []
    g ((SchemaEx ts):r) = case cast ts of
                             Nothing -> Left "Bad import"
