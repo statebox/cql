@@ -260,8 +260,8 @@ evalTransformRaw s t h is =
       --l <- toOptions $ mapraw_options t
      pure $ TransformEx r
  where
-   g :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. (Typeable sym, Typeable att, Typeable fk, Typeable en, Typeable sk, Typeable gen
-     , Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y', Typeable sk', Typeable gen') 
+   --g :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. (Typeable sym, Typeable att, Typeable fk, Typeable en, Typeable sk, Typeable gen
+   --  , Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y', Typeable sk', Typeable gen') 
     => [TransformEx] -> Err [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
    g [] = return []
    g ((TransformEx ts):r) = case cast ts of
@@ -318,11 +318,11 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is =
 
   g  (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do a' <- g a
                                                                      case cast x of
-                                                                       Just x' -> return $ Fk x' a'
+                                                                       Just x'2 -> return $ Fk x'2 a'
                                                                        Nothing -> undefined
   g  (RawApp x (a:[])) | x `member'` (sch_atts $ I.schema dst') = do a' <- g a
                                                                      case cast x of
-                                                                       Just x' -> return $ Att x' a'
+                                                                       Just x'2 -> return $ Att x'2 a'
                                                                        Nothing -> undefined
   g  (RawApp v l)                                               = do l' <- mapM g l
                                                                      case cast v :: Maybe sym of
@@ -333,6 +333,6 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is =
   h (RawApp x [])     | x `member'` gens'                      = pure $ Gen $ fromJust $ cast x
   h (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do a' <- h a
                                                                     case cast x of
-                                                                      Just x' -> return $ Fk x' a'
+                                                                      Just x'2 -> return $ Fk x'2 a'
                                                                       Nothing -> undefined
   h _                                                          = undefined
