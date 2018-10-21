@@ -569,11 +569,11 @@ split' ((w, ei):tl) =
 
 split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, String)] -> Err ([(a, en)], [(a, ty)])
 split'' _ _ []           = return ([],[])
-split'' ens tys ((w, ei):tl) =
-  do (a,b) <- split'' ens tys tl
-     if elem' ei ens 
+split'' ens2 tys2 ((w, ei):tl) =
+  do (a,b) <- split'' ens2 tys2 tl
+     if elem' ei ens2 
      then return ((w, fromJust $ cast ei):a, b)
-     else if elem' ei tys 
+     else if elem' ei tys2 
           then return (a, (w, fromJust $ cast ei):b)
           else Left $ "Not an entity or type: " ++ show ei
 
@@ -635,8 +635,8 @@ evalInstanceRaw ty' t is =
     pure $ InstanceEx $ initialInstance r (f p) ty'
  where
    f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
-   g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk) 
-    => [InstanceEx] -> Err [Presentation var ty sym en fk att gen sk]
+   --g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk) 
+    -- => [InstanceEx] -> Err [Presentation var ty sym en fk att gen sk]
    g [] = return []
    g ((InstanceEx ts):r) = case cast (pres ts) of
                             Nothing -> Left "Bad import"
