@@ -26,7 +26,10 @@ transformRawParser = do
         t <- instExpParser
         m <- braces $ p s t
         pure m
- where p s t  = do  e <- optional $ do
+ where p s t  = do  i <- optional $ do
+                      _ <- constant "imports"
+                      many transExpParser 
+                    e <- optional $ do
                       _ <- constant "generators"
                       y <- many gParser
                       return y
@@ -36,6 +39,7 @@ transformRawParser = do
                     pure $ TransExpRaw' s t
                       (fromMaybe [] e)
                       (fromMaybe [] x)
+                      (fromMaybe [] i)
 
 
 sigmaParser' :: Parser TransformExp

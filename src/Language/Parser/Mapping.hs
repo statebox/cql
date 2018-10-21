@@ -16,16 +16,16 @@ fkParser = do x <- identifier
               y <- sepBy1 identifier $ constant "."
               return (x, y)
 
-attParser :: Parser (String, (String, RawTerm))
+attParser :: Parser (String, (String, Maybe String, RawTerm))
 attParser = do x <- identifier
                _ <- constant "->"
                _ <- constant "lambda"
                y <- identifier
-             --  _ <- constant ":"
-            --   t <- identifier
+               z <- optional $ do _ <- constant ":"
+                                  identifier
                _ <- constant "."
                e <- rawTermParser
-               return (x, (y, e))
+               return (x, (y, z, e))
 
 mappingRawParser :: Parser MappingExpRaw'
 mappingRawParser = do
@@ -49,13 +49,16 @@ mappingRawParser = do
                     _ <- constant "attributes"
                     many attParser
                  pure $ (x,fromMaybe [] f, fromMaybe [] a)
-       q' s t = do m <- many p
+       q' s t = do i <- optional $ do
+                      _ <- constant "imports"
+                      many mapExpParser  
+                   m <- many p
                    o <- optional $ do
                           _ <- constant "options"
                           many optionParser
-                   pure $ q s t (fromMaybe [] o) m
+                   pure $ q s t (fromMaybe [] o) (fromMaybe [] i) m 
 
-       q s t o = Prelude.foldr (\(x,fm,am) (MappingExpRaw' s' t' ens' fks' atts' o') -> MappingExpRaw' s' t' (x:ens') (fm++fks') (am++atts') o') (MappingExpRaw' s t [] [] [] o)
+       q s t o i = Prelude.foldr (\(x,fm,am) (MappingExpRaw' s' t' ens' fks' atts' o' i') -> MappingExpRaw' s' t' (x:ens') (fm++fks') (am++atts') o' i') (MappingExpRaw' s t [] [] [] o i)
 
 
 

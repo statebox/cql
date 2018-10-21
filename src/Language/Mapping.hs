@@ -6,7 +6,7 @@ import Prelude hiding (EQ)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Language.Term
-import Language.Schema as X
+import Language.Schema as Schema
 import Data.Void
 import Language.Common
 import Data.Typeable
@@ -24,6 +24,14 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
+getEns :: Mapping var ty sym en fk att en' fk' att' -> Map en  en'
+getEns = ens
+
+getFks :: Mapping var ty sym en fk att en' fk' att' -> Map fk  (Term () Void Void en' fk' Void Void Void)
+getFks = fks
+
+getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sym  en' fk' att' Void Void)
+getAtts = atts
 
 mapToMor :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att,
                    Ord en', Ord fk', Ord att', Show var, Show ty, Show sym, Show en,
@@ -131,8 +139,9 @@ data MappingExpRaw' =
   , mapraw_dst     :: SchemaExp
   , mapraw_ens     :: [(String, String)]
   , mapraw_fks     :: [(String, [String])]
-  , mapraw_atts    :: [(String, (String, RawTerm))]
+  , mapraw_atts    :: [(String, (String, Maybe String, RawTerm))]
   , mapraw_options :: [(String, String)]
+  , mapraw_imports :: [MappingExp]
 } deriving (Eq, Show)
 
 --todo: combine with schema
@@ -155,27 +164,45 @@ elem' x ys = maybe False (flip elem ys) (cast x)
 member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
 
+mergeMaps :: Ord k => [Map k v] -> Map k v
+mergeMaps [] = Map.empty
+mergeMaps (x:y) = Map.union x $ mergeMaps y
+
 evalMappingRaw' :: forall var ty sym en fk att en' fk' att' .
   (Ord var, Ord ty, Ord sym, Show att, Show att', Show sym, Show var, Show ty, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
     Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk) =>
-  Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw'
- -> Err (Mapping var ty sym en fk att en' fk' att')
-evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
+  Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> [Mapping var ty sym en fk att en' fk' att'] -> 
+   Err (Mapping var ty sym en fk att en' fk' att')
+evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   do ens1 <- conv'' ens0
      ens2 <- toMapSafely ens1
-     x <- k fks0
-     y <- f atts0
-     return $ Mapping src' dst' ens2 x y
+     x <- k  fks0
+     y <- f (q ens2) atts0
+     return $ Mapping src' dst' (q ens2) (mergeMaps $ x:(map getFks is)) (mergeMaps $ y:(map getAtts is))
  where
+  q ensX = Map.fromList $ (Map.toList ensX) ++ (concatMap (Map.toList . getEns) is)
   keys' = fst . unzip
-  fks' = Map.toList $ X.fks dst'
-  ens' = Set.toList $ X.ens dst'
-  atts' = Map.toList $ X.atts dst'
-  f [] = pure $ Map.empty
-  f  ((att, (v, t)):ts) = do t'   <- return $ g v (keys' fks') (keys' atts') t
-                             rest <- f ts
-                             att' <- note ("Not an attribute " ++ att) (cast att)
-                             pure $ Map.insert att' t' rest
+  fks' = Map.toList $ Schema.fks dst'
+  ens' = Set.toList $ Schema.ens dst'
+  atts' = Map.toList $ Schema.atts dst'
+  transE ens en = case (Map.lookup en ens) of
+                    Just x -> return x
+                    Nothing -> Left $ "No entity mapping for " ++ (show en)
+       
+  f x [] = pure $ Map.empty
+  f x ((att, (v, t2, t)):ts) = do t'  <- return $ g v (keys' fks') (keys' atts') t
+                                  rest <- f x ts
+                                  att' <- note ("Not an attribute " ++ att) (cast att)
+                                  let ret = pure $ Map.insert att' t' rest
+                                      (s,t) = fromJust $ Map.lookup att' $ Schema.atts src'
+                                  s' <- transE x s
+                                  case t2 of
+                                       Nothing -> ret
+                                       Just t3 -> case cast t3 of 
+                                         Nothing -> Left $ "Not an entity: " ++ t3
+                                         Just t4 -> if t4 == s'
+                                                    then ret
+                                                    else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
@@ -194,23 +221,37 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _) =
                | otherwise = Left $ "Not a target fk: " ++ s
   h _ [] = return $ Var ()
  -- k :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
-  k [] = pure $ Map.empty
-  k ((fk,p):eqs') =do p' <- h ens' $ reverse p
-                      _ <- findEn ens' fks' p
-                      rest <- k eqs'
-                      fk' <- note ("Not a src fk: " ++ fk) (cast fk)
-                      pure $ Map.insert fk' p' rest
+  k  [] = pure $ Map.empty
+  k  ((fk,p):eqs') = do p' <- h ens' $ reverse p
+                        _ <- findEn ens' fks' p
+                        rest <- k  eqs'
+                        fk' <- note ("Not a src fk: " ++ fk) (cast fk)
+                        pure $ Map.insert fk' p' rest
   findEn ens'' _ (s:_) | elem' s ens'' = return $ fromJust $ cast s
   findEn _ fks'' (s:_) | elem' s (keys' $ fks'') = return $ fst $ fromJust $ Prelude.lookup (fromJust $ cast s) fks''
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
-  findEn _ _ [] = Left "Path cannot be typed"
+  findEn _ _ x = Left $ "Path cannot be typed: " ++ (show x)
 
 evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk',
    Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk,
    Ord att, Show att, Show fk, Show en', Typeable sym, Ord fk, Show var, Typeable fk', Typeable att', Ord att',
    Ord fk' , Typeable var)
-  => Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> Err MappingEx
-evalMappingRaw src' dst' t =
- do r <- evalMappingRaw' src' dst' t
+  => Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> [MappingEx] -> Err MappingEx
+evalMappingRaw src' dst' t is =
+ do (a :: [Mapping var ty sym en fk att en' fk' att']) <- g is
+    r <- evalMappingRaw' src' dst' t a
     --l <- toOptions $ mapraw_options t
     pure $ MappingEx r
+ where
+   g :: forall var ty sym en fk att en' fk' att'. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att') 
+    => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
+   g [] = return []
+   g ((MappingEx ts):r) = case cast ts of
+                            Nothing -> Left "Bad import"
+                            Just ts' -> do r'  <- g r
+                                           return $ ts' : r'
+
+
+
+
+

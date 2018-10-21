@@ -158,6 +158,12 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   , sks  :: Map sk  (Term Void ty   sym  en fk att  gen' sk')
   }
 
+tGens :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map gen (Term Void Void Void en fk Void gen' Void)
+tGens = gens
+
+tSks :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map sk  (Term Void ty   sym  en fk att  gen' sk')
+tSks = sks
+
 data TransformEx :: * where
   TransformEx :: forall var ty sym en fk att gen sk x y gen' sk' x' y' .
    (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, Ord gen', Ord sk', Ord x', Ord y',
@@ -208,6 +214,7 @@ data TransExpRaw'
   , transraw_dst     :: InstanceExp
   , transraw_gens    :: [(String, RawTerm)]
   , transraw_options :: [(String, String)]
+  , transraw_imports :: [TransformExp]
 } deriving Show
 
 typecheckTransform ::  (Show att, Ord var, Show var, Typeable en,  Ord en, Show en,  Typeable sym, Typeable att, Typeable fk, Show fk,
@@ -233,7 +240,36 @@ validateTransform (m@(Transform src' dst' _ _)) = do
                              then pure ()
                              else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
+
 evalTransformRaw
+  :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
+   . ( Ord var, Ord ty, Ord sym, Ord en
+     , Ord att, Ord en, Ord fk, Ord sk', Ord gen', Ord sk, Ord gen, Ord x, Ord y, Ord x', Ord y'
+     , Show en, Show fk
+     , Show att, Show sym, Show var, Show ty, Show gen, Show gen', Show sk, Show x, Show y, Show x', Show y', Show sk'
+     , Typeable sym, Typeable att, Typeable fk, Typeable en, Typeable sk, Typeable gen
+     , Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y',  Typeable sk', Typeable gen')
+  => Instance var ty sym en fk att gen  sk  x  y
+  -> Instance var ty sym en fk att gen' sk' x' y'
+  -> TransExpRaw'
+  -> [TransformEx]
+  -> Err (TransformEx)
+evalTransformRaw s t h is = 
+  do (a :: [Transform var ty sym en fk att gen sk x y gen' sk' x' y']) <- g is
+     r <- evalTransformRaw' s t h a
+      --l <- toOptions $ mapraw_options t
+     pure $ TransformEx r
+ where
+   g :: forall var ty sym en fk att gen sk x y gen' sk' x' y'. (Typeable sym, Typeable att, Typeable fk, Typeable en, Typeable sk, Typeable gen
+     , Typeable var, Typeable ty, Typeable x, Typeable y, Typeable x', Typeable y', Typeable sk', Typeable gen') 
+    => [TransformEx] -> Err [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
+   g [] = return []
+   g ((TransformEx ts):r) = case cast ts of
+                            Nothing -> Left "Bad import"
+                            Just ts' -> do r'  <- g r
+                                           return $ ts' : r'
+
+evalTransformRaw'
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
    . ( Ord var, Ord ty, Ord sym, Ord en
      , Ord att, Ord en, Ord fk, Typeable sk', Typeable gen', Ord sk', Ord gen', Ord sk, Ord gen, Ord x, Ord y, Ord x', Ord y'
@@ -244,12 +280,15 @@ evalTransformRaw
   => Instance var ty sym en fk att gen  sk  x  y
   -> Instance var ty sym en fk att gen' sk' x' y'
   -> TransExpRaw'
-  -> Err (TransformEx)
-evalTransformRaw src' dst' (TransExpRaw' _ _ sec _) =
+  -> [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
+  -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
+evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is =
   do x <- f' gens0
      y <- f  sks0
-     return $ TransformEx $ Transform src' dst' x y
+     return $ Transform src' dst' (x' x) (y' y)
  where
+  x' x = foldr Map.union x $ map tGens is
+  y' y = foldr Map.union y $ map tSks is
   gens'' = I.gens $ pres src'
   sks''  = I.sks  $ pres src'
 

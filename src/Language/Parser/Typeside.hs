@@ -10,7 +10,7 @@ import           Language.Typeside          as X
 import           Text.Megaparsec
 
 typesideExpParser :: Parser TypesideExp
-typesideExpParser = parseRaw <|> parseEmpty <|> parseVar
+typesideExpParser = parseRaw <|> parseEmpty <|> parseVar <|> parens typesideExpParser
 
 parseEmpty :: Parser TypesideExp
 parseEmpty = do _ <- constant "empty"

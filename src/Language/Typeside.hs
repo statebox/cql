@@ -14,6 +14,11 @@ import Language.Prover
 import Language.Options
 import Data.Typeable
 
+
+type Ty = String
+type Sym = String
+type Var = String
+
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l
                       if Set.member k l'
@@ -100,7 +105,7 @@ evalTypesideRaw t a' =
                             Just ts' -> do r'  <- g r
                                            return $ ts' : r'
 
-evalTypesideRaw' :: TypesideRaw'  -> [Typeside String String String] -> Err (Typeside String String String)
+evalTypesideRaw' :: TypesideRaw'  -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
 evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
   do tys' <- fromList'' ttys
      syms' <- fromList' tsyms
