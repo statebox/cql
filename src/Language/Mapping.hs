@@ -185,16 +185,16 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   fks' = Map.toList $ Schema.fks dst'
   ens' = Set.toList $ Schema.ens dst'
   atts' = Map.toList $ Schema.atts dst'
-  transE ens en = case (Map.lookup en ens) of
+  transE ens2 en = case (Map.lookup en ens2) of
                     Just x -> return x
                     Nothing -> Left $ "No entity mapping for " ++ (show en)
        
-  f x [] = pure $ Map.empty
+  f _ [] = pure $ Map.empty
   f x ((att, (v, t2, t)):ts) = do t'  <- return $ g v (keys' fks') (keys' atts') t
                                   rest <- f x ts
                                   att' <- note ("Not an attribute " ++ att) (cast att)
                                   let ret = pure $ Map.insert att' t' rest
-                                      (s,t) = fromJust $ Map.lookup att' $ Schema.atts src'
+                                      (s,_) = fromJust $ Map.lookup att' $ Schema.atts src'
                                   s' <- transE x s
                                   case t2 of
                                        Nothing -> ret
