@@ -567,7 +567,7 @@ split' ((w, ei):tl) =
 
 
 split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, String)] -> Err ([(a, en)], [(a, ty)])
-split'' _ _ []           = return ([],[])
+split'' _     _   []           = return ([],[])
 split'' ens2 tys2 ((w, ei):tl) =
   do (a,b) <- split'' ens2 tys2 tl
      if elem' ei ens2 
