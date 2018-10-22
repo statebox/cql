@@ -28,6 +28,8 @@ dependencies:
 - semigroups
 - term-rewriting
 - tabular
+- wai
+- wai-extra
 
 library:
   source-dirs: src
@@ -47,8 +49,8 @@ executables:
     dependencies:
     - aql
   aql-http:
-    main: Main.hs
-    source-dirs: http
+    main:                Main.hs
+    source-dirs:         http
     ghc-options:
     - -threaded
     - -rtsopts
