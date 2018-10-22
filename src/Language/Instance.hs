@@ -21,11 +21,11 @@ module Language.Instance where
 
 import qualified Data.Foldable         as Foldable
 import           Data.List             hiding (intercalate)
-import qualified Data.Map.Strict       as Map
 import           Data.Map.Strict       (Map, unionWith)
+import qualified Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set              as Set
 import           Data.Set              (Set)
+import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.Common
@@ -148,6 +148,7 @@ nf'' alg t = case t of
   Sym f as -> Sym f (nf'' alg <$> as)
   Att f a  -> nf' alg $ Right (nf alg (fromJust $ castX a), f)
   Sk  s    -> nf' alg $ Left s
+  _        -> undefined
 
 repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk
 repr'' alg t = case t of
@@ -570,9 +571,9 @@ split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, Stri
 split'' _ _ []           = return ([],[])
 split'' ens2 tys2 ((w, ei):tl) =
   do (a,b) <- split'' ens2 tys2 tl
-     if elem' ei ens2 
+     if elem' ei ens2
      then return ((w, fromJust $ cast ei):a, b)
-     else if elem' ei tys2 
+     else if elem' ei tys2
           then return (a, (w, fromJust $ cast ei):b)
           else Left $ "Not an entity or type: " ++ show ei
 
@@ -582,7 +583,7 @@ evalInstanceRaw'
   => Schema var ty sym en fk att -> InstExpRaw' -> [Presentation var ty sym en fk att Gen Sk] -> Err (Presentation var ty sym en fk att Gen Sk)
 evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
   (gens', sks') <- split'' (Set.toList $ Schema.ens sch) (Set.toList $ tys $ typeside sch) gens0
-  gens''        <- toMapSafely gens' 
+  gens''        <- toMapSafely gens'
   gens'''       <- return $ Map.toList gens''
   sks''         <- toMapSafely sks'
   sks'''        <- return $ Map.toList sks''
@@ -635,7 +636,7 @@ evalInstanceRaw ty' t is =
     pure $ InstanceEx $ initialInstance r (f p) ty'
  where
    f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
-   --g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk) 
+   --g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk)
     -- => [InstanceEx] -> Err [Presentation var ty sym en fk att gen sk]
    g [] = return []
    g ((InstanceEx ts):r) = case cast (pres ts) of
