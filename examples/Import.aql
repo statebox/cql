@@ -55,7 +55,7 @@ schema C = literal : Ty {
 		first2 last2 : T2 -> string
 		salary : T2 -> int
 	observation_equations
-		//forall x:T1. x.ssn = x.first1		
+		//forall x. x.ssn = x.first1		
 	options
 		program_allow_nontermination_unsafe=true
 		allow_empty_sorts_unsafe = true

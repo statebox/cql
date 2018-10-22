@@ -148,7 +148,6 @@ nf'' alg t = case t of
   Sym f as -> Sym f (nf'' alg <$> as)
   Att f a  -> nf' alg $ Right (nf alg (fromJust $ castX a), f)
   Sk  s    -> nf' alg $ Left s
-  _        -> undefined
 
 repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk
 repr'' alg t = case t of
@@ -630,6 +629,7 @@ evalInstanceRaw :: forall var ty sym en fk att.
 evalInstanceRaw ty' t is =
  do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
     r <- evalInstanceRaw' ty' t i
+    _ <- typecheckPresentation ty' r
     l <- toOptions $ instraw_options t
     p <- createProver (instToCol ty' r) l
     pure $ InstanceEx $ initialInstance r (f p) ty'

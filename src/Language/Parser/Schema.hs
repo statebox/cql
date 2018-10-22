@@ -14,7 +14,7 @@ import           Language.Schema            as X
 import           Language.Term
 import           Language.Typeside 
 
-obsEqParser :: Parser (String, String, RawTerm, RawTerm)
+obsEqParser :: Parser (String, Maybe String, RawTerm, RawTerm)
 obsEqParser = do _ <- constant "forall"
                  i <- identifier
                  j <- optional $ do { _ <- constant ":"; identifier }
@@ -22,9 +22,7 @@ obsEqParser = do _ <- constant "forall"
                  l <- rawTermParser
                  _ <- constant "="
                  r <- rawTermParser
-                 case j of
-                    Nothing -> error $ "Type inference not supported for now"
-                    Just s' -> return (i,s',l,r)
+                 return (i,j,l,r)
 
 attParser :: Parser [(Att, (En, Ty))]
 attParser = fkParser
