@@ -46,6 +46,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - aql
+  aql-http:
+    main: Main.hs
+    source-dirs: http
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - aql
 
 tests:
   aql-test:
