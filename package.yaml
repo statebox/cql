@@ -26,10 +26,12 @@ dependencies:
 - QuickCheck
 - scientific
 - semigroups
+- servant-server
 - term-rewriting
 - tabular
 - wai
 - wai-extra
+- warp
 
 library:
   source-dirs: src

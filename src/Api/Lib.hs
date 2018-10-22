@@ -1,6 +1,23 @@
 module Api.Lib where
 
-import           Api.Config.Config (Config (..))
+import           Api.Api                  (aqlApi)
+import           Api.Config.Config        (Config (..))
+import           Api.Config.Environment   (logger)
+
+-- servant-server
+import           Servant                  (Application, Proxy (Proxy), serve)
+
+-- warp
+import           Network.Wai.Handler.Warp (defaultSettings, runSettings,
+                                           setPort)
 
 startApp :: Config -> IO ()
-startApp _ = putStrLn "hello!"
+startApp config = runSettings
+  (setPort (apiPort config) defaultSettings)
+  (app config)
+
+app :: Config -> Application
+app config = logger (environment config) $ serve api aqlApi
+
+api :: Proxy a
+api = Proxy
