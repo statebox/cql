@@ -182,15 +182,16 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   h _ [] = Var ()
   --k :: [([String], [String])] -> Err (Set (En, EQ () Void Void en fk Void Void Void))
   k _ _ [] = pure $ Set.empty
-  k ens' fks' ((l,r):eqs') = do lhs' <- return $ h ens' $ reverse l
-                                rhs' <- return $ h ens' $ reverse r
-                                en <- findEn ens' fks' l
-                                _ <- return $ Map.fromList [((),en)]
-                                rest <- k ens' fks' eqs'
-                                _ <- if hasTypeType'' lhs'
-                                  then Left $ "Bad path equation: " ++ show lhs' ++ " = " ++ show rhs'
-                                  else pure $ Set.insert (en, EQ (lhs', rhs')) rest
-                                pure $ Set.insert (en, EQ (lhs', rhs')) rest
+  k ens' fks' ((l,r):eqs') = do 
+    lhs' <- return $ h ens' $ reverse l
+    rhs' <- return $ h ens' $ reverse r
+    en   <- findEn ens' fks' l
+    _    <- return $ Map.fromList [((),en)]
+    rest <- k ens' fks' eqs'
+    _    <- if hasTypeType'' lhs'
+            then Left $ "Bad path equation: " ++ show lhs' ++ " = " ++ show rhs'
+            else pure $ Set.insert (en, EQ (lhs', rhs')) rest
+    pure $ Set.insert (en, EQ (lhs', rhs')) rest
   findEn ens'' _ (s:_) | elem s ens'' = return s
   findEn _ fks'' (s:_) | Map.member s (Map.fromList fks'') = return $ fst $ fromJust $ Prelude.lookup s fks''
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
@@ -201,12 +202,12 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
 
 evalSchemaRaw :: forall var ty sym . (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym, Typeable var)
  => Typeside var ty sym -> SchemaExpRaw' -> [SchemaEx] -> Err SchemaEx
-evalSchemaRaw ty t a' =
- do (a :: [Schema var ty sym En Fk Att]) <- g a'
-    r <- evalSchemaRaw' ty t a
-    l <- toOptions $ schraw_options t
-    p <- createProver (schToCol r) l
-    pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
+evalSchemaRaw ty t a' = do 
+  (a :: [Schema var ty sym En Fk Att]) <- g a'
+  r <- evalSchemaRaw' ty t a
+  l <- toOptions $ schraw_options t
+  p <- createProver (schToCol r) l
+  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
  where
    f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (up2 l, up2 r))
   -- g :: forall var ty sym en fk att. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)

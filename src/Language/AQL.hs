@@ -248,8 +248,9 @@ evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx
 evalMapping _ env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
 evalMapping p env (MappingId s) = do (SchemaEx s') <- evalSchema p env s
                                      return $ MappingEx $ Prelude.foldr (\en' (Mapping s'' t e f' a) -> Mapping s'' t (Map.insert en' en' e) (f'' en' s' f') (g' en' s' a)) (Mapping s' s' Map.empty Map.empty Map.empty) (S.ens s')
- where f'' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Fk fk $ Var ()) m) f''' $ fksFrom' s' en'
-       g' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Att fk $ Var ()) m) f''' $ attsFrom' s' en'
+ where 
+  f'' en' s' f''' = foldr (\(fk,_) m -> Map.insert fk (Fk fk $ Var ()) m) f''' $ fksFrom' s' en'
+  g' en' s' f''' = foldr (\(fk,_) m -> Map.insert fk (Att fk $ Var ()) m) f''' $ attsFrom' s' en'
 
 evalMapping p env (MappingRaw r) = do s0 <- evalSchema p env $ mapraw_src r
                                       s1 <- evalSchema p env $ mapraw_dst r

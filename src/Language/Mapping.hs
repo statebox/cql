@@ -190,19 +190,20 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
                     Nothing -> Left $ "No entity mapping for " ++ (show en)
        
   f _ [] = pure $ Map.empty
-  f x ((att, (v, t2, t)):ts) = do t'  <- return $ g v (keys' fks') (keys' atts') t
-                                  rest <- f x ts
-                                  att' <- note ("Not an attribute " ++ att) (cast att)
-                                  let ret = pure $ Map.insert att' t' rest
-                                      (s,_) = fromJust $ Map.lookup att' $ Schema.atts src'
-                                  s' <- transE x s
-                                  case t2 of
-                                       Nothing -> ret
-                                       Just t3 -> case cast t3 of 
-                                         Nothing -> Left $ "Not an entity: " ++ t3
-                                         Just t4 -> if t4 == s'
-                                                    then ret
-                                                    else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
+  f x ((att, (v, Just t3, t)):ts) = do 
+    t'   <- return $ g v (keys' fks') (keys' atts') t
+    rest <- f x ts
+    att' <- note ("Not an attribute " ++ att) (cast att)
+    let ret = pure $ Map.insert att' t' rest
+        (s,_) = fromJust $ Map.lookup att' $ Schema.atts src'
+        s' <- transE x s
+        case t2 of
+          Nothing -> ret
+          Just t3 -> case cast t3 of 
+            Nothing -> Left $ "Not an entity: " ++ t3
+            Just t4 -> if t4 == s'
+                       then ret
+                       else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
@@ -222,11 +223,12 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   h _ [] = return $ Var ()
  -- k :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
   k  [] = pure $ Map.empty
-  k  ((fk,p):eqs') = do p' <- h ens' $ reverse p
-                        _ <- findEn ens' fks' p
-                        rest <- k  eqs'
-                        fk' <- note ("Not a src fk: " ++ fk) (cast fk)
-                        pure $ Map.insert fk' p' rest
+  k  ((fk,p):eqs') = do 
+    p' <- h ens' $ reverse p
+    _ <- findEn ens' fks' p
+    rest <- k  eqs'
+    fk' <- note ("Not a src fk: " ++ fk) (cast fk)
+    pure $ Map.insert fk' p' rest
   findEn ens'' _ (s:_) | elem' s ens'' = return $ fromJust $ cast s
   findEn _ fks'' (s:_) | elem' s (keys' $ fks'') = return $ fst $ fromJust $ Prelude.lookup (fromJust $ cast s) fks''
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex

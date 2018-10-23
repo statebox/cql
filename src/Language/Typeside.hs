@@ -136,14 +136,12 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
                                        ([], t : []) -> return t
                                        (t : [], []) -> return t
                                        ([], []) -> Left $ "Ambiguous variable: " ++ show v
-                                       --(l , r) -> error $ "Anomaly, please report.  Typeside 137. " ++ show l ++ " and " ++ show r
        typesOf _ _ (RawApp _ []) = []
-       typesOf v syms' (RawApp f' as) = let fn (a',t) = case a' of
-                                                      RawApp v' [] -> if v == v' then [t] else []
-                                                      RawApp _ _ -> typesOf v syms' a'
-                                      in concatMap fn $ zip as (case Map.lookup f' syms' of
-                                                                 Nothing -> []
-                                                                 Just y -> fst y)
+       typesOf v syms' (RawApp f' as) = 
+        let fn (a',t) = case a' of
+         RawApp v' [] -> if v == v' then [t] else []
+         RawApp _ _ -> typesOf v syms' a'
+        in concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
 
 
 
