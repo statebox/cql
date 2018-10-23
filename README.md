@@ -22,6 +22,10 @@ Install:
 
 `stack install`
 
+Generate docs:
+
+`stack haddock aql`
+
 ### Cabal
 
 Generate `.cabal` file:

@@ -98,14 +98,23 @@ simplify eqs = case find eqs of
                  in Just $ (eqs3,(toRemove, replacer))
 
 
-
-
 data Term var ty sym en fk att gen sk
+  -- | Variable.
   = Var var
+
+  -- | Type side function/constant symbol.
   | Sym sym  [Term var ty sym en fk att gen sk]
+
+  -- | Foreign key.
   | Fk  fk   (Term var ty sym en fk att gen sk)
+
+  -- | Attribute.
   | Att att  (Term var ty sym en fk att gen sk)
+
+  -- | Generator.
   | Gen gen
+
+  -- | Skolem term or labelled null; like a generator for a type rather than an entity.
   | Sk  sk
 
 data Head ty sym en fk att gen sk =

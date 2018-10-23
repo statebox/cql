@@ -34,7 +34,7 @@ fromList' ((k,v):l) = do l' <- fromList' l
                          else pure $ Map.insert k v l'
 fromList' [] = return Map.empty
 
-
+-- | A user-defined kind for customisation of data types.
 data Typeside var ty sym
   = Typeside
   { tys  :: Set ty
