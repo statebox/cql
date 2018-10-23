@@ -1,5 +1,6 @@
 { mkDerivation, stdenv, hpack, hspec
-, base, containers, megaparsec, term-rewriting, tabular }:
+, base, containers, megaparsec, servant-server, term-rewriting, tabular, wai
+, wai-extra, warp }:
 
 mkDerivation {
   pname = "aql";
@@ -11,7 +12,8 @@ mkDerivation {
   doCheck = true;
 
   libraryHaskellDepends = [
-    base containers megaparsec term-rewriting tabular
+    base containers megaparsec servant-server term-rewriting tabular wai wai-extra
+    warp
   ];
   executableHaskellDepends = [
     base containers megaparsec term-rewriting
