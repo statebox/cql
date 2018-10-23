@@ -1,6 +1,6 @@
 module Api.Lib where
 
-import           Api.Api                  (aqlApi)
+import           Api.Api                  (API, aqlApi)
 import           Api.Config.Config        (Config (..))
 import           Api.Config.Environment   (logger)
 
@@ -19,5 +19,5 @@ startApp config = runSettings
 app :: Config -> Application
 app config = logger (environment config) $ serve api aqlApi
 
-api :: Proxy a
+api :: Proxy API
 api = Proxy
