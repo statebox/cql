@@ -51,3 +51,7 @@ Install in current profile:
 `nix-env -f . -i`
 
 See also [default.nix](default.nix)
+
+## API
+
+To launch the APIs, use `stack exec alq-http`. Then you can start addressing http requests to the port 8080, with an AQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
