@@ -200,7 +200,7 @@ instance Deps TransformExp where
   deps (TransformDelta f i _) = (deps f) ++ (deps i)           
   deps (TransformSigma f i _) = (deps f) ++ (deps i)          
   deps (TransformRaw (TransExpRaw' s t _ _ i)) = (deps s) ++ (deps t) ++ (concatMap deps i)
-
+  deps _ = error "other transforms" 
 
 data TransformExp  where
   TransformVar              :: String                                          -> TransformExp

@@ -12,7 +12,6 @@ import Language.Common
 import Data.Typeable
 import qualified Data.Set as Set
 import Data.Maybe
-import Language.Common
 
 
 data Mapping var ty sym en fk att en' fk' att'

@@ -51,7 +51,7 @@ data QueryExp where
 instance Deps QueryExp where
  deps (QueryVar v) = [(v, QUERY)]
  deps (QueryId s) = deps s
--- deps (QueryRaw (QueryRaw' _ _ _ _)) = 
+ deps (QueryRaw (QueryRaw' _ _ _ _)) = error "todo - queries"
 
 
 --old school queries without overlapping names across entities
