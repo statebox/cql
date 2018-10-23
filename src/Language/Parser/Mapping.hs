@@ -16,16 +16,20 @@ fkParser = do x <- identifier
               y <- sepBy1 identifier $ constant "."
               return (x, y)
 
-attParser :: Parser (String, (String, Maybe String, RawTerm))
+attParser :: Parser (String, Either (String, Maybe String, RawTerm) [String])
 attParser = do x <- identifier
                _ <- constant "->"
-               _ <- constant "lambda"
-               y <- identifier
-               z <- optional $ do _ <- constant ":"
-                                  identifier
-               _ <- constant "."
-               e <- rawTermParser
-               return (x, (y, z, e))
+               let c1 = do _ <- constant "lambda"
+                           y <- identifier
+                           z <- optional $ do _ <- constant ":"
+                                              identifier
+                           _ <- constant "."
+                           e <- rawTermParser
+                           return $ (x, Left (y, z, e))
+                   c2 = do y <- sepBy1 identifier $ constant "."  
+                           return $ (x, Right y)
+               z <- c1 <|> c2     
+               return z
 
 mappingRawParser :: Parser MappingExpRaw'
 mappingRawParser = do

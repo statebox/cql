@@ -139,8 +139,8 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
        typesOf _ _ (RawApp _ []) = []
        typesOf v syms' (RawApp f' as) = 
         let fn (a',t) = case a' of
-         RawApp v' [] -> if v == v' then [t] else []
-         RawApp _ _ -> typesOf v syms' a'
+                          RawApp v' [] -> if v == v' then [t] else []
+                          RawApp _ _ -> typesOf v syms' a'
         in concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
 
 

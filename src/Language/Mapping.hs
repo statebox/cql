@@ -139,7 +139,7 @@ data MappingExpRaw' =
   , mapraw_dst     :: SchemaExp
   , mapraw_ens     :: [(String, String)]
   , mapraw_fks     :: [(String, [String])]
-  , mapraw_atts    :: [(String, (String, Maybe String, RawTerm))]
+  , mapraw_atts    :: [(String, (String, Maybe String, RawTerm)+[String])]
   , mapraw_options :: [(String, String)]
   , mapraw_imports :: [MappingExp]
 } deriving (Eq, Show)
@@ -190,25 +190,33 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
                     Nothing -> Left $ "No entity mapping for " ++ (show en)
        
   f _ [] = pure $ Map.empty
-  f x ((att, (v, Just t3, t)):ts) = do 
+  f x ((att, Right l):ts) = do 
+    att' <- note ("Not a src attribute " ++ att) (cast att)
+    att2 <- note ("Not a dst attribute " ++ att) (cast $ head $ reverse l)
+    t'x  <- h ens' $ tail $ reverse l
+    let t'  = Att att2 $ up13 t'x
+    rest <- f x ts
+    pure $ Map.insert att' t' rest
+        
+  f x ((att, Left (v, t2, t)):ts) = do 
+    att' <- note ("Not an attribute " ++ att) (cast att)
     t'   <- return $ g v (keys' fks') (keys' atts') t
     rest <- f x ts
-    att' <- note ("Not an attribute " ++ att) (cast att)
     let ret = pure $ Map.insert att' t' rest
         (s,_) = fromJust $ Map.lookup att' $ Schema.atts src'
-        s' <- transE x s
-        case t2 of
-          Nothing -> ret
-          Just t3 -> case cast t3 of 
-            Nothing -> Left $ "Not an entity: " ++ t3
-            Just t4 -> if t4 == s'
-                       then ret
-                       else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
+    s' <- transE x s
+    case t2 of
+      Nothing -> ret
+      Just t3 -> case cast t3 of 
+        Nothing -> Left $ "Not an entity: " ++ t3
+        Just t4 -> if t4 == s'
+                   then ret
+                   else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
   g' _ _ _ _ = undefined
-  --g :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
+  g :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
   g v _ _ (RawApp x []) | v == x = Var ()
   g v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
   g v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ g' v fks'' atts'' a
@@ -225,14 +233,14 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   k  [] = pure $ Map.empty
   k  ((fk,p):eqs') = do 
     p' <- h ens' $ reverse p
-    _ <- findEn ens' fks' p
+--    _ <- findEn ens' fks' p
     rest <- k  eqs'
     fk' <- note ("Not a src fk: " ++ fk) (cast fk)
     pure $ Map.insert fk' p' rest
-  findEn ens'' _ (s:_) | elem' s ens'' = return $ fromJust $ cast s
-  findEn _ fks'' (s:_) | elem' s (keys' $ fks'') = return $ fst $ fromJust $ Prelude.lookup (fromJust $ cast s) fks''
-  findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
-  findEn _ _ x = Left $ "Path cannot be typed: " ++ (show x)
+  --findEn ens'' _ (s:_) | elem' s ens'' = return $ fromJust $ cast s
+  --findEn _ fks'' (s:_) | elem' s (keys' $ fks'') = return $ fst $ fromJust $ Prelude.lookup (fromJust $ cast s) fks''
+  --findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
+  --findEn _ _ x = Left $ "Path cannot be typed: " ++ (show x)
 
 evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk',
    Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk,
