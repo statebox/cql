@@ -185,17 +185,19 @@ removeEdge :: (Eq a) => (a, a) -> Graph a -> Graph a
 removeEdge x (Graph v e) = Graph v (Prelude.filter (/=x) e)
 
 connections :: (Eq a) => ((a, a) -> a) -> a -> Graph a -> [(a, a)]
-connections f x (Graph _ e) = Prelude.filter ((==x) . f) e
+connections f0 x (Graph _ e) = Prelude.filter ((==x) . f0) e
 
+outbound :: Eq b => b -> Graph b -> [(b, b)]
 outbound a = connections fst a
 
+inbound :: Eq a => a -> Graph a -> [(a, a)]
 inbound a = connections snd a
 
 tsort :: (Eq a) => Graph a -> Err [a]
 tsort graph  = tsort' [] (noInbound graph) graph
   where noInbound (Graph v e) = Prelude.filter (flip notElem $ fmap snd e) v
         tsort' l []    (Graph _ []) = pure $ reverse l
-        tsort' l []    _            = Left "There is at least one cycle in the AQL dependency graph."
+        tsort' _ []    _            = Left "There is at least one cycle in the AQL dependency graph."
         tsort' l (n:s) g            = tsort' (n:l) s' g'
           where outEdges = outbound n g
                 outNodes = fmap snd outEdges
@@ -203,12 +205,12 @@ tsort graph  = tsort' [] (noInbound graph) graph
                 s'       = s ++ Prelude.filter (Prelude.null . flip inbound g') outNodes
 
 findOrder :: Prog -> Err [(String, Kind)]
-findOrder (p@(KindCtx t s i m q tr o)) = do 
+findOrder (KindCtx t s i m q tr o) = do 
   ret <- tsort g 
   return $ reverse ret
  where 
-  g     = Graph o $ nub $ (f t TYPESIDE) ++ (f s SCHEMA) ++ (f i INSTANCE) ++ (f m MAPPING) ++ (f q QUERY) ++ (f tr TRANSFORM) 
-  f m k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m
+  g     = Graph o $ nub $ (f0 t TYPESIDE) ++ (f0 s SCHEMA) ++ (f0 i INSTANCE) ++ (f0 m MAPPING) ++ (f0 q QUERY) ++ (f0 tr TRANSFORM) 
+  f0 m k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
