@@ -523,6 +523,17 @@ typeOf col e = case typeOf' col Map.empty (up e) of
 --------------------------------------------------------------------------------
 
 
+instance Deps InstanceExp where
+  deps (InstanceVar v) = [(v, INSTANCE)]
+  deps (InstanceInitial  t) = deps t 
+  deps (InstanceDelta  f i o) = (deps f) ++ (deps i)
+  deps (InstanceSigma  f i o) = (deps f) ++ (deps i)
+  deps (InstancePi     f i) = (deps f) ++ (deps i)
+  deps (InstanceEval   q i) = (deps q) ++ (deps i)
+  deps (InstanceCoEval q i) = (deps q) ++ (deps i)
+  deps (InstanceRaw (InstExpRaw' s _ _ _ i)) = (deps s) ++ (concatMap deps i)
+  
+
 data InstanceExp where
   InstanceVar     :: String                                          -> InstanceExp
   InstanceInitial :: SchemaExp                                       -> InstanceExp

@@ -11,6 +11,10 @@ import Language.Common
 import Data.Maybe
 
 
+
+class Deps a where
+  deps :: a -> [(String, Kind)]
+
 occurs :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
  => Head ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Bool
 occurs _ (Var _) = False

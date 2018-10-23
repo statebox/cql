@@ -24,6 +24,12 @@ data SchemaExp where
  deriving (Eq,Show)
 
 
+instance Deps SchemaExp where
+  deps (SchemaVar v) = [(v, SCHEMA)]
+  deps (SchemaInitial t) = deps t 
+  deps (SchemaCoProd a b) = (deps a) ++ (deps b) 
+  deps (SchemaRaw (SchemaExpRaw' t _ _ _ _ _ _ i)) = (deps t) ++ (concatMap deps i)
+
 typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en)
  => Schema var ty sym en fk att -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t

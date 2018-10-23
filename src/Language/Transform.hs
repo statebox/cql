@@ -191,6 +191,17 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Transform s1 s2 gens' sks') (Transform s1' s2' gens'' sks'')
     = (s1 == s1') && (s2 == s2') && (gens' == gens'') && (sks' == sks'')
 
+
+instance Deps TransformExp where
+  deps (TransformVar v) = [(v,TRANSFORM)]  
+  deps (TransformId i) = deps i                                                   
+  deps (TransformSigmaDeltaUnit f i _) = (deps f) ++ (deps i)
+  deps (TransformSigmaDeltaCoUnit f i _) = (deps f) ++ (deps i)
+  deps (TransformDelta f i _) = (deps f) ++ (deps i)           
+  deps (TransformSigma f i _) = (deps f) ++ (deps i)          
+  deps (TransformRaw (TransExpRaw' s t _ _ i)) = (deps s) ++ (deps t) ++ (concatMap deps i)
+
+
 data TransformExp  where
   TransformVar              :: String                                          -> TransformExp
   TransformId               :: InstanceExp                                     -> TransformExp

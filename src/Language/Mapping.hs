@@ -12,6 +12,7 @@ import Language.Common
 import Data.Typeable
 import qualified Data.Set as Set
 import Data.Maybe
+import Language.Common
 
 
 data Mapping var ty sym en fk att en' fk' att'
@@ -132,6 +133,11 @@ data MappingExp where
   MappingId      :: SchemaExp -> MappingExp
   MappingRaw     :: MappingExpRaw' -> MappingExp
  deriving (Eq, Show)
+
+instance Deps MappingExp where
+ deps (MappingVar v) = [(v, MAPPING)]
+ deps (MappingId s) = deps s
+ deps (MappingRaw (MappingExpRaw' s t _ _ _ _ i)) = (deps s) ++ (deps t) ++ concatMap deps i
 
 data MappingExpRaw' =
   MappingExpRaw'

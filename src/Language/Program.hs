@@ -24,6 +24,15 @@ data Exp =
  | ExpT (TransformExp)
  | ExpQ (QueryExp)
 
+instance Deps Exp where
+ deps x = case x of
+  ExpTy e -> deps e
+  ExpS e -> deps e
+  ExpI e -> deps e
+  ExpM e -> deps e
+  ExpT e -> deps e
+  ExpQ e -> deps e
+
 data KindCtx ts s i m q t o = KindCtx {
     typesides :: Ctx String ts
   , schemas :: Ctx String s

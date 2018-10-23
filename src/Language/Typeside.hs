@@ -34,10 +34,6 @@ fromList' ((k,v):l) = do l' <- fromList' l
                          else pure $ Map.insert k v l'
 fromList' [] = return Map.empty
 
-deps :: TypesideExp -> [(String, Kind)]
-deps (TypesideVar v) = [(v, TYPESIDE)]
-deps TypesideInitial = []
-deps (TypesideRaw _) = []
 
 data Typeside var ty sym
   = Typeside
@@ -150,6 +146,12 @@ data TypesideExp where
   TypesideVar :: String -> TypesideExp
   TypesideInitial :: TypesideExp
   TypesideRaw :: TypesideRaw' -> TypesideExp
+
+instance Deps TypesideExp where
+  deps (TypesideVar v) = [(v, TYPESIDE)]
+  deps TypesideInitial = [] 
+  deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
+
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp

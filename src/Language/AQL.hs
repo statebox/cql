@@ -4,7 +4,7 @@
 module Language.AQL where
 
 import Prelude hiding (EQ)
-import Data.Set as Set
+import Data.Set as Set 
 import Data.Map.Strict as Map
 import Language.Common as C
 import Language.Term as Term
@@ -14,12 +14,14 @@ import Language.Mapping as M
 import Language.Typeside as T
 import Language.Transform as Tr
 import Language.Query as Q
-import           Data.Maybe
+import Data.List as List
+import Data.Maybe
 import Language.Parser (parseAqlProgram)
 import Language.Program as P
 import Data.Void
 import Data.Typeable
 import Language.Options
+import Control.Arrow ((***), first)
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -175,14 +177,38 @@ evalAqlProgram ((v,TRANSFORM):l) prog env = do t <- wrapError ("Eval Error in " 
                                                _ <- case t of
                                                      TransformEx i -> do {_ <- typecheckTransform i; validateTransform i}     
                                                evalAqlProgram l prog $ env { transforms = Map.insert v t $ transforms env }
-
---todo: check acyclic with Data.Graph.DAG
-
 evalAqlProgram _ _ _ = undefined
 
-findOrder :: Prog -> Err [(String, Kind)]
-findOrder p = pure $ other p --todo: for now
+data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
 
+removeEdge :: (Eq a) => (a, a) -> Graph a -> Graph a
+removeEdge x (Graph v e) = Graph v (Prelude.filter (/=x) e)
+
+connections :: (Eq a) => ((a, a) -> a) -> a -> Graph a -> [(a, a)]
+connections f x (Graph _ e) = Prelude.filter ((==x) . f) e
+
+outbound a = connections fst a
+
+inbound a = connections snd a
+
+tsort :: (Eq a) => Graph a -> Err [a]
+tsort graph  = tsort' [] (noInbound graph) graph
+  where noInbound (Graph v e) = Prelude.filter (flip notElem $ fmap snd e) v
+        tsort' l []    (Graph _ []) = pure $ reverse l
+        tsort' l []    _            = Left "There is at least one cycle in the AQL dependency graph."
+        tsort' l (n:s) g            = tsort' (n:l) s' g'
+          where outEdges = outbound n g
+                outNodes = fmap snd outEdges
+                g'       = Prelude.foldr removeEdge g outEdges
+                s'       = s ++ Prelude.filter (Prelude.null . flip inbound g') outNodes
+
+findOrder :: Prog -> Err [(String, Kind)]
+findOrder (p@(KindCtx t s i m q tr o)) = do 
+  ret <- tsort g 
+  return $ reverse ret
+ where 
+  g     = Graph o $ nub $ (f t TYPESIDE) ++ (f s SCHEMA) ++ (f i INSTANCE) ++ (f m MAPPING) ++ (f q QUERY) ++ (f tr TRANSFORM) 
+  f m k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
