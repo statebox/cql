@@ -150,6 +150,7 @@ transToMor (Transform src' dst' gens' sks') =
     fks0  = mapWithKey  (\fk  _ -> Fk  fk (Var ())) (S.fks  $ I.schema src')
     atts0 = mapWithKey  (\fk  _ -> Att fk (Var ())) (S.atts $ I.schema src')
 
+-- | Map from one 'Instance' to another of the same 'Schema'.
 data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   = Transform
   { srcT :: Instance var ty sym en fk att gen sk x y

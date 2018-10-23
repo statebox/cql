@@ -275,6 +275,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
     "generators\n\t" ++ showCtx' ens' ++ "\n" ++
     "equations\n\t" ++ intercalate "\n\t" (Set.map show eqs') ++ "}"
 
+-- | Instance kinds can be thought of as the data that "fills" the 'Schema'.
 data Instance var ty sym en fk att gen sk x y
   = Instance
   { schema  :: Schema       var  ty sym en fk att
@@ -458,8 +459,10 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
 
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 
--- | T means type. This can be either a labeled null (`sk`) or... a proper value
--- | This type allows us to define e.g. a custom Show instance.
+
+-- | These are the generating labelled nulls for the type 'Algebra' of the associated 'Instance'.
+--   It can be either a labeled null ('Sk') or a proper value.
+--   This newtype allows us to define e.g. a custom 'Show' instance.
 newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
 
 instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TalgGen en fk att gen sk) where
