@@ -26,23 +26,6 @@ data Exp
  | ExpT TransformExp
  | ExpQ QueryExp
 
-<<<<<<< ryan
-instance Deps Exp where
- deps x = case x of
-  ExpTy e -> deps e
-  ExpS e -> deps e
-  ExpI e -> deps e
-  ExpM e -> deps e
-  ExpT e -> deps e
-  ExpQ e -> deps e
-
-data KindCtx ts s i m q t o = KindCtx {
-    typesides :: Ctx String ts
-  , schemas :: Ctx String s
-  , instances :: Ctx String i
-  , mappings :: Ctx String m
-  , queries :: Ctx String q
-=======
 data KindCtx ts s i m q t o
   = KindCtx
   { typesides  :: Ctx String ts
@@ -50,7 +33,6 @@ data KindCtx ts s i m q t o
   , instances  :: Ctx String i
   , mappings   :: Ctx String m
   , queries    :: Ctx String q
->>>>>>> master
   , transforms :: Ctx String t
   , other      :: o
   }
