@@ -54,7 +54,10 @@ instRawParser = do
         t <- schemaExpParser
         x <- (braces $ p t)
         pure $ x
- where p t = do  e <- optional $ do
+ where p t = do  i <- optional $ do
+                    _ <- constant "imports"
+                    many instExpParser  
+                 e <- optional $ do
                     _ <- constant "generators"
                     y <- many genParser
                     return $ concat y
@@ -68,6 +71,7 @@ instRawParser = do
                     (fromMaybe [] e)
                     (fromMaybe [] o)
                     (fromMaybe [] x)
+                    (fromMaybe [] i)
 
 instExpParser :: Parser InstanceExp
 instExpParser =

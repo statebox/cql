@@ -8,6 +8,8 @@ import Data.Map.Strict as Map
 import Language.Term
 import Data.Void
 import Language.Schema
+import Language.Common
+
 
 data Query var ty sym en fk att en' fk' att'
   = Query
@@ -45,6 +47,12 @@ data QueryExp where
   QueryId      :: SchemaExp -> QueryExp
   QueryRaw     :: QueryExpRaw' -> QueryExp
  deriving (Eq,Show)
+
+instance Deps QueryExp where
+ deps (QueryVar v) = [(v, QUERY)]
+ deps (QueryId s) = deps s
+ deps (QueryRaw (QueryExpRaw' _ _ _ _)) = error "todo - queries"
+
 
 --old school queries without overlapping names across entities
 data QueryExpRaw' = QueryExpRaw' {

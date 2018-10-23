@@ -13,6 +13,12 @@ import Data.Void
 import Language.Prover
 import Language.Options
 import Data.Typeable
+import Data.List (nub)
+
+
+type Ty = String
+type Sym = String
+type Var = String
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l
@@ -28,10 +34,6 @@ fromList' ((k,v):l) = do l' <- fromList' l
                          else pure $ Map.insert k v l'
 fromList' [] = return Map.empty
 
-deps :: TypesideExp -> [(String, Kind)]
-deps (TypesideVar v) = [(v, TYPESIDE)]
-deps TypesideInitial = []
-deps (TypesideRaw _) = []
 
 data Typeside var ty sym
   = Typeside
@@ -74,7 +76,7 @@ typecheckTypeside = typeOfCol . tsToCol
 data TypesideRaw' = TypesideRaw' {
     tsraw_tys  :: [String]
   , tsraw_syms :: [(String, ([String], String))]
-  , tsraw_eqs  :: [([(String, String)], RawTerm, RawTerm)]
+  , tsraw_eqs  :: [([(String, Maybe String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
   , tsraw_imports :: [TypesideExp]
 } deriving (Eq, Show)
@@ -100,17 +102,17 @@ evalTypesideRaw t a' =
                             Just ts' -> do r'  <- g r
                                            return $ ts' : r'
 
-evalTypesideRaw' :: TypesideRaw'  -> [Typeside String String String] -> Err (Typeside String String String)
+evalTypesideRaw' :: TypesideRaw'  -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
 evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
   do tys' <- fromList'' ttys
      syms' <- fromList' tsyms
-     eqs' <- f syms' teqs
+     eqs' <- f (b syms') teqs
      return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
  where a = foldr Set.union Set.empty $ fmap tys is
        b syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
        c = foldr Set.union Set.empty $ fmap eqs is
        f _ [] = pure $ Set.empty
-       f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check ctx
+       f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check syms' ctx lhs rhs
                                            lhs' <- g syms' ctx' lhs
                                            rhs' <- g syms' ctx' rhs
                                            rest <- f syms' eqs'
@@ -118,8 +120,25 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
        g _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
        g syms' ctx (RawApp v l) = do l' <- mapM (g syms' ctx) l
                                      pure $ Sym v l'
-       check [] = pure Map.empty
-       check ((v,t):l) = do {x <- check l; pure $ Map.insert v t x}
+       check _ [] _ _ = pure Map.empty
+       check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
+       infer _ (Just t) _ _ _= return t
+       infer v _ syms' lhs rhs = let t1s = nub $ typesOf v syms' lhs
+                                     t2s = nub $ typesOf v syms' rhs
+                                 in case (t1s, t2s) of
+                                       (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+                                       (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+                                       (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+                                       ([], t : []) -> return t
+                                       (t : [], []) -> return t
+                                       ([], []) -> Left $ "Ambiguous variable: " ++ show v
+       typesOf _ _ (RawApp _ []) = []
+       typesOf v syms' (RawApp f' as) = 
+        let fn (a',t) = case a' of
+                          RawApp v' [] -> if v == v' then [t] else []
+                          RawApp _ _ -> typesOf v syms' a'
+        in concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
+
 
 
 -- there are practical haskell type system related reasons to not want this to be a gadt
@@ -127,6 +146,12 @@ data TypesideExp where
   TypesideVar :: String -> TypesideExp
   TypesideInitial :: TypesideExp
   TypesideRaw :: TypesideRaw' -> TypesideExp
+
+instance Deps TypesideExp where
+  deps (TypesideVar v) = [(v, TYPESIDE)]
+  deps TypesideInitial = [] 
+  deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
+
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp

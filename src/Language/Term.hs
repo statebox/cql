@@ -11,6 +11,10 @@ import Language.Common
 import Data.Maybe
 
 
+
+class Deps a where
+  deps :: a -> [(String, Kind)]
+
 occurs :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
  => Head ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Bool
 occurs _ (Var _) = False
@@ -337,7 +341,7 @@ typeOfMor mor  = do checkDoms' mor
        typeOfMorSks (sk,e) | Map.member sk (csks $ m_src mor)
          = let t = fromJust $ Map.lookup sk $ csks $ m_src mor
            in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up4 e
-                 if t0 == Left t then pure () else Left $ "4 Ill typed in " ++ show sk ++ ": " ++ show e
+                 if t0 == Left t then pure () else Left $ "4Ill typed in " ++ show sk ++ ": " ++ show e
        typeOfMorSks (e,e') = Left $ "Bad null mapping " ++ show e ++ " -> " ++ show e'
 
 

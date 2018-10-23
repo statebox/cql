@@ -4,7 +4,7 @@
 module Language.AQL where
 
 import Prelude hiding (EQ)
-import Data.Set as Set
+import Data.Set as Set 
 import Data.Map.Strict as Map
 import Language.Common as C
 import Language.Term as Term
@@ -14,12 +14,14 @@ import Language.Mapping as M
 import Language.Typeside as T
 import Language.Transform as Tr
 import Language.Query as Q
-import           Data.Maybe
+import Data.List as List
+import Data.Maybe
 import Language.Parser (parseAqlProgram)
 import Language.Program as P
 import Data.Void
 import Data.Typeable
 import Language.Options
+--import Control.Arrow ((***), first)
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -172,17 +174,43 @@ evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++
                                                      MappingEx i -> do {_ <- typecheckMapping i; validateMapping i}                                           
                                              evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }
 evalAqlProgram ((v,TRANSFORM):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTransform prog env $ lookup2 v (transforms prog)
-                                               --_ <- case t of
-                                              --       TransformEx i -> do {_ <- typecheckTransform i; validateTransform i}     
+                                               _ <- case t of
+                                                     TransformEx i -> do {_ <- typecheckTransform i; validateTransform i}     
                                                evalAqlProgram l prog $ env { transforms = Map.insert v t $ transforms env }
-
---todo: check acyclic with Data.Graph.DAG
-
 evalAqlProgram _ _ _ = undefined
 
-findOrder :: Prog -> Err [(String, Kind)]
-findOrder p = pure $ other p --todo: for now
+data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
 
+removeEdge :: (Eq a) => (a, a) -> Graph a -> Graph a
+removeEdge x (Graph v e) = Graph v (Prelude.filter (/=x) e)
+
+connections :: (Eq a) => ((a, a) -> a) -> a -> Graph a -> [(a, a)]
+connections f0 x (Graph _ e) = Prelude.filter ((==x) . f0) e
+
+outbound :: Eq b => b -> Graph b -> [(b, b)]
+outbound a = connections fst a
+
+inbound :: Eq a => a -> Graph a -> [(a, a)]
+inbound a = connections snd a
+
+tsort :: (Eq a) => Graph a -> Err [a]
+tsort graph  = tsort' [] (noInbound graph) graph
+  where noInbound (Graph v e) = Prelude.filter (flip notElem $ fmap snd e) v
+        tsort' l []    (Graph _ []) = pure $ reverse l
+        tsort' _ []    _            = Left "There is at least one cycle in the AQL dependency graph."
+        tsort' l (n:s) g            = tsort' (n:l) s' g'
+          where outEdges = outbound n g
+                outNodes = fmap snd outEdges
+                g'       = Prelude.foldr removeEdge g outEdges
+                s'       = s ++ Prelude.filter (Prelude.null . flip inbound g') outNodes
+
+findOrder :: Prog -> Err [(String, Kind)]
+findOrder (KindCtx t s i m q tr o) = do 
+  ret <- tsort g 
+  return $ reverse ret
+ where 
+  g     = Graph o $ nub $ (f0 t TYPESIDE) ++ (f0 s SCHEMA) ++ (f0 i INSTANCE) ++ (f0 m MAPPING) ++ (f0 q QUERY) ++ (f0 tr TRANSFORM) 
+  f0 m0 k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m0
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
@@ -213,11 +241,11 @@ evalTransform p env (TransformId s) = do (InstanceEx i) <- evalInstance p env s
 
 evalTransform p env (TransformRaw r) = do s0 <- evalInstance p env $ transraw_src r
                                           s1 <- evalInstance p env $ transraw_dst r
-
+                                          is <- mapM (evalTransform p env) $ transraw_imports r
                                           case s0 of
                                            InstanceEx s -> case s1 of
                                             InstanceEx (t :: Instance var ty sym en fk att gen sk x y) ->
-                                             evalTransformRaw ((convInstance s)::Instance var ty sym en fk att gen sk x y) t r --ok bc typecheck says same ts
+                                             evalTransformRaw ((convInstance s)::Instance var ty sym en fk att gen sk x y) t r is 
 evalTransform prog env (TransformSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
                                                     (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
                                                     o' <- toOptions o
@@ -248,19 +276,21 @@ evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx
 evalMapping _ env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
 evalMapping p env (MappingId s) = do (SchemaEx s') <- evalSchema p env s
                                      return $ MappingEx $ Prelude.foldr (\en' (Mapping s'' t e f' a) -> Mapping s'' t (Map.insert en' en' e) (f'' en' s' f') (g' en' s' a)) (Mapping s' s' Map.empty Map.empty Map.empty) (S.ens s')
- where f'' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f''' $ fksFrom' s' en'
-       g' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Var ()) m) f''' $ attsFrom' s' en'
+ where 
+  --Prelude prefix necessary bc Set and Map also define foldr
+  f'' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Fk fk $ Var ()) m) f''' $ fksFrom' s' en'
+  g' en' s' f''' = Prelude.foldr (\(fk,_) m -> Map.insert fk (Att fk $ Var ()) m) f''' $ attsFrom' s' en'
 
 evalMapping p env (MappingRaw r) = do s0 <- evalSchema p env $ mapraw_src r
                                       s1 <- evalSchema p env $ mapraw_dst r
+                                      ix <- mapM (evalMapping p env) $ mapraw_imports r
                                       case s0 of
                                         SchemaEx s -> case s1 of
                                            SchemaEx (t::Schema var ty sym en fk att) ->
-                                             evalMappingRaw ((convSchema s) :: Schema var ty sym en fk att) t r --ok bc typecheck says same ts
-
+                                             evalMappingRaw ((convSchema s) :: Schema var ty sym en fk att) t r ix 
 
 f :: Typeside var ty sym -> Schema var ty sym Void Void Void
-f ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty undefined
+f ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> absurd x)
 
 evalSchema :: Prog -> Env -> SchemaExp -> Err SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
@@ -269,8 +299,9 @@ evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
                                              TypesideEx ts'' ->
                                                pure $ SchemaEx $ f ts''
 evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r
+                                       x <- mapM (evalSchema prog env) $ schraw_imports r
                                        case t of
-                                        TypesideEx t' -> do l <- evalSchemaRaw t' r
+                                        TypesideEx t' -> do l <- evalSchemaRaw t' r x
                                                             pure $ l
 evalSchema _ _ _ = undefined
 
@@ -282,7 +313,8 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
 
 evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_schema r
                                            case t of
-                                            SchemaEx t' -> do l <- evalInstanceRaw t' r
+                                            SchemaEx t' -> do i <- mapM (evalInstance prog env) (instraw_imports r)
+                                                              l <- evalInstanceRaw t' r i
                                                               pure $ l
 evalInstance prog env (InstanceSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
                                                   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i

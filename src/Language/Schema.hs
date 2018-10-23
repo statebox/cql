@@ -13,6 +13,7 @@ import Language.Options
 import Language.Prover
 import Data.Typeable
 import Data.Maybe
+import Data.List (nub)
 
 
 data SchemaExp where
@@ -23,10 +24,16 @@ data SchemaExp where
  deriving (Eq,Show)
 
 
+instance Deps SchemaExp where
+  deps (SchemaVar v) = [(v, SCHEMA)]
+  deps (SchemaInitial t) = deps t 
+  deps (SchemaCoProd a b) = (deps a) ++ (deps b) 
+  deps (SchemaRaw (SchemaExpRaw' t _ _ _ _ _ _ i)) = (deps t) ++ (concatMap deps i)
+
 typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en)
  => Schema var ty sym en fk att -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
-                      
+
 
 schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att)
   => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
@@ -78,8 +85,9 @@ data SchemaExpRaw' = SchemaExpRaw' {
   , schraw_fks :: [(String, (String, String))]
   , schraw_atts:: [(String, (String, String))]
   , schraw_peqs  :: [([String], [String])]
-  , schraw_oeqs  :: [(String, String, RawTerm, RawTerm)]
+  , schraw_oeqs  :: [(String, Maybe String, RawTerm, RawTerm)]
   , schraw_options :: [(String, String)]
+  , schraw_imports :: [SchemaExp]
 } deriving (Eq, Show)
 
 sch_fks :: Schema var ty sym en fk att -> Map fk (en, en)
@@ -111,27 +119,61 @@ conv ((att,(en,ty)):tl) = case cast ty of
    Nothing -> Left $ "Not a type "
 
 
+hasTypeType'' :: Term var ty sym en fk att gen sk -> Bool
+hasTypeType'' t = case t of
+  Var _   -> False
+  Sym _ _ -> True
+  Att _ _ -> True
+  Sk  _   -> True
+  Gen _   -> False
+  Fk  _ _ -> False
+
+
 evalSchemaRaw' :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty)
- => Typeside var ty sym -> SchemaExpRaw' -> Err (Schema var ty sym En Fk Att)
-evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens' fks' atts' peqs oeqs _) =
-  do fks'' <- toMapSafely fks'
-     cc <- conv atts'
-     atts'' <- toMapSafely cc
-     peqs' <- k peqs
-     oeqs' <- f oeqs
-     return $ Schema x (Set.fromList ens') fks'' atts'' peqs' oeqs' undefined --leave prover blank
+ => Typeside var ty sym -> SchemaExpRaw' -> [Schema var ty sym En Fk Att] -> Err (Schema var ty sym En Fk Att)
+evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is =
+  do ens'' <- return $ Set.fromList $ ie ++ ens'x
+     fks'' <- toMapSafely $ fks'x ++ (concatMap (Map.toList . fks) is)
+     cc <- conv atts'x
+     atts'' <- toMapSafely $ cc ++ (concatMap (Map.toList . atts) is)
+     peqs' <- k (Set.toList ens'') (Map.toList fks'') peqs
+     oeqs' <- f (Map.toList fks'') (Map.toList atts'') oeqs
+     return $ Schema x ens'' fks'' atts'' (Set.union ip peqs') (Set.union io oeqs') undefined --leave prover blank
  where
+  ie = concatMap (Set.toList . ens) is
+  ip = Set.fromList $ concatMap (Set.toList . path_eqs) is
+  io = Set.fromList $ concatMap (Set.toList . obs_eqs ) is
+
   keys' = fst . unzip
   --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
-  f [] = pure $ Set.empty
-  f ((v, en, lhs, rhs):eqs') = do _ <- return $ Map.fromList [((),en)]
-                                  lhs' <- return $ g v (keys' fks') (keys' atts') lhs
-                                  rhs' <- return $ g v (keys' fks') (keys' atts') rhs
-                                  rest <- f eqs'
-                                  pure $ Set.insert (en, EQ (lhs', rhs')) rest
---  g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
---  g' v fks atts (RawApp x []) | v == x = Var ()
---  g' v fks atts (RawApp x (a:[])) | elem x fks = Fk x $ g' v fks atts a
+  f _ _ [] = pure $ Set.empty
+  f fks' atts' ((v, en', lhs, rhs):eqs') = do en <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
+                                              _ <- return $ Map.fromList [((),en)]
+                                              lhs' <- return $ g v (keys' fks') (keys' atts') lhs
+                                              rhs' <- return $ g v (keys' fks') (keys' atts') rhs
+                                              rest <- f fks' atts' eqs'
+                                              if not $ hasTypeType'' lhs'
+                                                then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
+                                                else pure $ Set.insert (en, EQ (lhs', rhs')) rest
+  infer _ (Just t) _ _ _ _ = return t
+  infer v _ fks' atts' lhs rhs = let t1s = nub $ typesOf v fks' atts' lhs
+                                     t2s = nub $ typesOf v fks' atts' rhs
+                                 in case (t1s, t2s) of
+                                       (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+                                       (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+                                       (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+                                       ([], t : []) -> return t
+                                       (t : [], []) -> return t
+                                       ([], []) -> Left $ "Untypeable variable: " ++ show v
+                                       --(l , r) -> error $ "Anomaly, please report.  Typeside 137. " ++ show l ++ " and " ++ show r
+  typesOf _ _ _ (RawApp _ []) = []
+  typesOf v fks' atts' (RawApp f' ((RawApp a []) : [])) | a == v = case Map.lookup f' fks' of
+                                                                Nothing -> case Map.lookup f' atts' of
+                                                                             Nothing -> []
+                                                                             Just (s,_) -> [s]
+                                                                Just (s,_) -> [s]
+  typesOf v fks' atts' (RawApp _ as) = concatMap (typesOf v fks' atts') as
+
   g :: Typeable sym => String ->[String]-> [String] -> RawTerm-> Term () ty sym en Fk Att  Void Void
   g v _ _ (RawApp x' []) | v == x' = Var ()
   g v fks''' atts''' (RawApp x' (a:[])) | elem x' fks''' = Fk x' $ g v fks''' atts''' a
@@ -145,13 +187,17 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens' fks' atts' peqs oeqs
   h ens'' (s:ex) | otherwise = Fk s $ h ens'' ex
   h _ [] = Var ()
   --k :: [([String], [String])] -> Err (Set (En, EQ () Void Void en fk Void Void Void))
-  k [] = pure $ Set.empty
-  k ((l,r):eqs') = do lhs' <- return $ h ens' $ reverse l
-                      rhs' <- return $ h ens' $ reverse r
-                      en <- findEn ens' fks' l
-                      _ <- return $ Map.fromList [((),en)]
-                      rest <- k eqs'
-                      pure $ Set.insert (en, EQ (lhs', rhs')) rest
+  k _ _ [] = pure $ Set.empty
+  k ens' fks' ((l,r):eqs') = do 
+    lhs' <- return $ h ens' $ reverse l
+    rhs' <- return $ h ens' $ reverse r
+    en   <- findEn ens' fks' l
+    _    <- return $ Map.fromList [((),en)]
+    rest <- k ens' fks' eqs'
+    _    <- if hasTypeType'' lhs'
+            then Left $ "Bad path equation: " ++ show lhs' ++ " = " ++ show rhs'
+            else pure $ Set.insert (en, EQ (lhs', rhs')) rest
+    pure $ Set.insert (en, EQ (lhs', rhs')) rest
   findEn ens'' _ (s:_) | elem s ens'' = return s
   findEn _ fks'' (s:_) | Map.member s (Map.fromList fks'') = return $ fst $ fromJust $ Prelude.lookup s fks''
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
@@ -160,15 +206,24 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens' fks' atts' peqs oeqs
 
 
 
-evalSchemaRaw :: (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym, Typeable var)
- => Typeside var ty sym -> SchemaExpRaw' -> Err SchemaEx
-evalSchemaRaw ty t =
- do r <- evalSchemaRaw' ty t
-    l <- toOptions $ schraw_options t
-    p <- createProver (schToCol r) l
-    pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
+evalSchemaRaw :: forall var ty sym . (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym, Typeable var)
+ => Typeside var ty sym -> SchemaExpRaw' -> [SchemaEx] -> Err SchemaEx
+evalSchemaRaw ty t a' = do 
+  (a :: [Schema var ty sym En Fk Att]) <- g a'
+  r <- evalSchemaRaw' ty t a
+  l <- toOptions $ schraw_options t
+  p <- createProver (schToCol r) l
+  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
  where
-  f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (up8 l, up8 r))
+   f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (up2 l, up2 r))
+  -- g :: forall var ty sym en fk att. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+   -- => [SchemaEx] -> Err [Schema var ty sym en fk att]
+   g [] = return []
+   g ((SchemaEx ts):r) = case cast ts of
+                            Nothing -> Left "Bad import"
+                            Just ts' -> do r'  <- g r
+                                           return $ ts' : r'
+
 
 
 
@@ -182,8 +237,9 @@ up8 (Sk s) = absurd s
 
 data SchemaEx :: * where
   SchemaEx :: forall var ty sym en fk att.
-    (Show var, Show ty, Show sym, Show en, Show fk, Show att, Typeable sym, Typeable ty,
-      Typeable var, Typeable fk, Typeable att, Typeable en, Typeable en, Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att) =>
+    (Show var, Show ty, Show sym, Show en, Show fk, Show att,
+      Typeable sym, Typeable ty,Typeable var, Typeable fk, Typeable att, Typeable en,
+      Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att) =>
     Schema var ty sym en fk att -> SchemaEx
 
 deriving instance Show (SchemaEx)

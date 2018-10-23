@@ -10,7 +10,7 @@ import           Language.Typeside          as X
 import           Text.Megaparsec
 
 typesideExpParser :: Parser TypesideExp
-typesideExpParser = parseRaw <|> parseEmpty <|> parseVar
+typesideExpParser = parseRaw <|> parseEmpty <|> parseVar <|> parens typesideExpParser
 
 parseEmpty :: Parser TypesideExp
 parseEmpty = do _ <- constant "empty"
@@ -28,22 +28,22 @@ parseRaw = do _ <- constant "literal"
               tsLiteral <- (braces typesideLiteralSectionParser)
               pure $ TypesideRaw $ tsLiteral
 
-eqParser :: Parser ([(String, String)], RawTerm, RawTerm)
+eqParser :: Parser ([(String, Maybe String)], RawTerm, RawTerm)
 eqParser = do o <- p
               l <- rawTermParser
               _ <- constant "="
               r <- rawTermParser
               return (o,l,r) --(fromMaybe [] o, l, r)
  where p = do _ <- constant "forall"
-              g <- sepBy varParser $ constant ","
+              g <- sepBy varParser $ constant "," 
               _ <- constant "."
               return $ concat g
 
 
-varParser :: Parser [(String, String)]
+varParser :: Parser [(String, Maybe String)]
 varParser = do x <- some identifier
-               _ <- constant ":"
-               y <- identifier
+               y <- optional $ do _ <- constant ":"
+                                  identifier
                return $ map (\a -> (a,y)) x
 
 constantParser :: Parser [(String, ([String], String))]

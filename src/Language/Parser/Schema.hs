@@ -12,8 +12,9 @@ import           Text.Megaparsec
 import           Language.Parser.Typeside
 import           Language.Schema            as X
 import           Language.Term
+import           Language.Typeside 
 
-obsEqParser :: Parser (String, String, RawTerm, RawTerm)
+obsEqParser :: Parser (String, Maybe String, RawTerm, RawTerm)
 obsEqParser = do _ <- constant "forall"
                  i <- identifier
                  j <- optional $ do { _ <- constant ":"; identifier }
@@ -21,11 +22,9 @@ obsEqParser = do _ <- constant "forall"
                  l <- rawTermParser
                  _ <- constant "="
                  r <- rawTermParser
-                 case j of
-                    Nothing -> error $ "Type inference not supported for now"
-                    Just s' -> return (i,s',l,r)
+                 return (i,j,l,r)
 
-attParser :: Parser [(Fk, (En, En))]
+attParser :: Parser [(Att, (En, Ty))]
 attParser = fkParser
 
 
@@ -50,7 +49,10 @@ schemaRawParser = do
         t <- typesideExpParser
         schemaLiteral <- (braces $ p t)
         pure $ schemaLiteral
- where p t = do  e <- optional $ do
+ where p t = do  i <- optional $ do
+                    _ <- constant "imports"
+                    many schemaExpParser  
+                 e <- optional $ do
                     _ <- constant "entities"
                     many identifier
                  f <- optional $ do
@@ -75,6 +77,7 @@ schemaRawParser = do
                     (fromMaybe [] p')
                     (fromMaybe [] o)
                     (fromMaybe [] o')
+                    (fromMaybe [] i)
 
 schemaExpParser :: Parser X.SchemaExp
 schemaExpParser =

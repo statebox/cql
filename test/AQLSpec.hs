@@ -38,7 +38,10 @@ spec = do
     fileContent <- liftIO $ readFile ("examples/Delta.aql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-
+  it "processes correctly the example file Import.aql" $ do
+    fileContent <- liftIO $ readFile ("examples/Import.aql" :: String)
+    parsed <- pure $ runProg fileContent
+    isRight parsed `shouldBe` True
   -- print typesideDom
   -- print schemaOne
   -- print schemaTwo

@@ -42,7 +42,7 @@ mapping F = literal : C -> D {
 		T2 -> T
  	attributes
 		last2   -> lambda x. x.last0
-		salary -> lambda x. x.salary0
+		salary -> salary0 //dot notation
 		first2  -> lambda x. x.first0 
 } 
 

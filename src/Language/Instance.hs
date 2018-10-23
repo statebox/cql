@@ -21,11 +21,11 @@ module Language.Instance where
 
 import qualified Data.Foldable         as Foldable
 import           Data.List             hiding (intercalate)
-import qualified Data.Map.Strict       as Map
 import           Data.Map.Strict       (Map, unionWith)
+import qualified Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set              as Set
 import           Data.Set              (Set)
+import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.Common
@@ -523,6 +523,17 @@ typeOf col e = case typeOf' col Map.empty (up e) of
 --------------------------------------------------------------------------------
 
 
+instance Deps InstanceExp where
+  deps (InstanceVar v) = [(v, INSTANCE)]
+  deps (InstanceInitial  t) = deps t 
+  deps (InstanceDelta  f i _) = (deps f) ++ (deps i)
+  deps (InstanceSigma  f i _) = (deps f) ++ (deps i)
+  deps (InstancePi     f i) = (deps f) ++ (deps i)
+  deps (InstanceEval   q i) = (deps q) ++ (deps i)
+  deps (InstanceCoEval q i) = (deps q) ++ (deps i)
+  deps (InstanceRaw (InstExpRaw' s _ _ _ i)) = (deps s) ++ (concatMap deps i)
+  
+
 data InstanceExp where
   InstanceVar     :: String                                          -> InstanceExp
   InstanceInitial :: SchemaExp                                       -> InstanceExp
@@ -544,6 +555,7 @@ data InstExpRaw' =
 --, instraw_sks     :: [(String, String)] this should maybe change in aql grammar
   , instraw_oeqs    :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
+  , instraw_imports :: [InstanceExp]
 } deriving (Eq,Show)
 
 type Gen = String
@@ -565,26 +577,32 @@ split' ((w, ei):tl) =
     Left  x -> ((w,x):a, b      )
     Right x -> (      a, (w,x):b)
 
+
+split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, String)] -> Err ([(a, en)], [(a, ty)])
+split'' _     _   []           = return ([],[])
+split'' ens2 tys2 ((w, ei):tl) =
+  do (a,b) <- split'' ens2 tys2 tl
+     if elem' ei ens2
+     then return ((w, fromJust $ cast ei):a, b)
+     else if elem' ei tys2
+          then return (a, (w, fromJust $ cast ei):b)
+          else Left $ "Not an entity or type: " ++ show ei
+
 evalInstanceRaw'
   :: forall var ty sym en fk att
   .  (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en)
-  => Schema var ty sym en fk att -> InstExpRaw' -> Err (Presentation var ty sym en fk att Gen Sk)
-evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _) = do
-  (gens', sks') <- zzz
+  => Schema var ty sym en fk att -> InstExpRaw' -> [Presentation var ty sym en fk att Gen Sk] -> Err (Presentation var ty sym en fk att Gen Sk)
+evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
+  (gens', sks') <- split'' (Set.toList $ Schema.ens sch) (Set.toList $ tys $ typeside sch) gens0
   gens''        <- toMapSafely gens'
-  gens'''       <- conv' $ Map.toList gens''
+  gens'''       <- return $ Map.toList gens''
   sks''         <- toMapSafely sks'
-  sks'''        <- conv' $ Map.toList sks''
-  eqs''         <- f gens' sks' eqs'
-  typecheckPresentation sch $ Presentation (Map.fromList gens''') (Map.fromList sks''') eqs''
+  sks'''        <- return $ Map.toList sks''
+  let gensX = concatMap (Map.toList . gens) is ++ gens'''
+      sksX  = concatMap (Map.toList . sks ) is ++ sks'''
+  eqs'' <- f gensX sksX eqs'
+  return $ Presentation (Map.fromList gensX) (Map.fromList sksX) $ Set.fromList $ (concatMap (Set.toList . eqs0) is) ++ (Set.toList eqs'')
   where
-  zzz = do y <- mapM w gens0
-           return $ split' y
-  w (a, b) = case cast b of
-               Nothing -> case cast b of
-                 Nothing -> Left $ "Not a gen or sch, " ++ b
-                 Just b' -> return (a, Right b')
-               Just b' -> return (a, Left b')
   keys' = fst . unzip
 
 --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
@@ -617,16 +635,27 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _) = do
                                                                             Just x -> Right $ Sym x l'
                                                                             Nothing -> Left $ "Cannot type: " ++ v
 
---todo: check model satisfaction for algebra here
-evalInstanceRaw :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en, Typeable var)
-  => Schema var ty sym en fk att -> InstExpRaw' -> Err InstanceEx
-evalInstanceRaw ty' t =
- do r <- evalInstanceRaw' ty' t
+evalInstanceRaw :: forall var ty sym en fk att.
+ (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en, Typeable var)
+  => Schema var ty sym en fk att -> InstExpRaw' -> [InstanceEx] -> Err InstanceEx
+evalInstanceRaw ty' t is =
+ do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
+    r <- evalInstanceRaw' ty' t i
+    _ <- typecheckPresentation ty' r
     l <- toOptions $ instraw_options t
     p <- createProver (instToCol ty' r) l
     pure $ InstanceEx $ initialInstance r (f p) ty'
  where
-  f p (EQ (l,r)) = prove p (Map.fromList []) (EQ ( l,  r))
+   f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
+   --g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk)
+    -- => [InstanceEx] -> Err [Presentation var ty sym en fk att gen sk]
+   g [] = return []
+   g ((InstanceEx ts):r) = case cast (pres ts) of
+                            Nothing -> Left "Bad import"
+                            Just ts' -> do r'  <- g r
+                                           return $ (ts') : r'
+
+
 
 
 ----------------------------------------------------------------------------------
