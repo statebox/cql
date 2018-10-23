@@ -21,7 +21,7 @@ import Language.Program as P
 import Data.Void
 import Data.Typeable
 import Language.Options
-import Control.Arrow ((***), first)
+--import Control.Arrow ((***), first)
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -210,7 +210,7 @@ findOrder (KindCtx t s i m q tr o) = do
   return $ reverse ret
  where 
   g     = Graph o $ nub $ (f0 t TYPESIDE) ++ (f0 s SCHEMA) ++ (f0 i INSTANCE) ++ (f0 m MAPPING) ++ (f0 q QUERY) ++ (f0 tr TRANSFORM) 
-  f0 m k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m
+  f0 m0 k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m0
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
