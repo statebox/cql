@@ -54,4 +54,13 @@ See also [default.nix](default.nix)
 
 ## API
 
-To launch the APIs, use `stack exec alq-http`. Then you can start addressing http requests to the port 8080, with an AQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
+To launch the APIs, use `stack exec aql-http`. Then you can send http requests to port 8080, with an AQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
+
+For example, you could try using `cURL` as follows
+
+```
+curl -X POST \
+  http://localhost:8080/aql \
+  -H 'Content-Type: text/plain;charset=utf-8' \
+  --data-binary "@./examples/Employee.aql"
+```

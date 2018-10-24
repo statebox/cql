@@ -1,14 +1,10 @@
-name:                aql
+name:                aql-http
 version:             0.1.0.0
 github:              "statebox/aql"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2018 Author name here"
+author:              "Statebox"
+copyright:           "2018 Statebox"
 
-extra-source-files:
-- README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -20,14 +16,12 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/aql#readme>
 
 dependencies:
+- aql
 - base >= 4.7 && < 5
-- containers
-- megaparsec
-- QuickCheck
-- scientific
-- semigroups
-- term-rewriting
-- tabular
+- servant-server
+- wai
+- wai-extra
+- warp
 
 library:
   source-dirs: src
@@ -37,25 +31,12 @@ ghc-options:
 - -Werror
 
 executables:
-  aql-exe:
+  aql-http:
     main:                Main.hs
-    source-dirs:         cli
+    source-dirs:         .
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aql
-
-tests:
-  aql-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - aql
-    - hspec
-    - QuickCheck
+    - aql-http
