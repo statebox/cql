@@ -59,10 +59,15 @@ toBoolOption (k,v) = case matches of
         parseBool x       = Left $ "Not a bool: " ++ x
 
 boolDef :: [(BoolOption, Bool)]
-boolDef = [(Program_Allow_Nontermination_Unsafe, False), (Allow_Empty_Sorts_Unsafe, False), (Program_Allow_Nonconfluence_Unsafe, False)]
+boolDef = [(Program_Allow_Nontermination_Unsafe, False), 
+           (Allow_Empty_Sorts_Unsafe, False), 
+           (Program_Allow_Nonconfluence_Unsafe, False)]
+
+intDef :: [(IntOption, Integer)]
+intDef = [(Timeout, 30)]
 
 defaultOptions :: Options
-defaultOptions = Options Map.empty (Map.fromList boolDef) Map.empty
+defaultOptions = Options (Map.fromList intDef) (Map.fromList boolDef) Map.empty
 
 generateEnumValues :: (Enum a) => [a]
 generateEnumValues = enumFrom (toEnum 0)
