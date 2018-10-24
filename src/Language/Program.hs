@@ -26,6 +26,14 @@ data Exp
  | ExpT TransformExp
  | ExpQ QueryExp
 
+data Val
+ = ValTy TypesideEx
+ | ValS SchemaEx
+ | ValI InstanceEx
+ | ValM MappingEx
+ | ValT TransformEx
+ | ValQ QueryEx
+
 data KindCtx ts s i m q t o
   = KindCtx
   { typesides  :: Ctx String ts

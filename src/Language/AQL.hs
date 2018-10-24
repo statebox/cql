@@ -22,6 +22,16 @@ import Data.Void
 import Data.Typeable
 import Language.Options
 import Control.Arrow (left)
+import System.Timeout
+import System.IO.Unsafe 
+
+timeout' :: Int -> x -> Err x
+timeout' ms c = case c' of
+  Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
+  Just x' -> pure x'
+  where 
+    c' = unsafePerformIO $ timeout s (return c)
+    s  = ms * 1000000
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
@@ -149,29 +159,67 @@ typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
                                              then return l'
                                              else Left "Coproduct has non equal typesides"
 
+class Evalable e e' | e' -> e where
+  validate :: e' -> Err ()
+  eval :: Prog -> Env -> e -> Err e'
+
+eval' :: Prog -> Env -> Exp -> Err Val
+eval' p env e = case e of
+  ExpTy e' -> do { x <- eval p env e'; validate x; return $ ValTy x }
+  ExpS  e' -> do { x <- eval p env e'; validate x; return $ ValS  x }
+  ExpI  e' -> do { x <- eval p env e'; validate x; return $ ValI  x }
+  ExpM  e' -> do { x <- eval p env e'; validate x; return $ ValM  x }
+  ExpT  e' -> do { x <- eval p env e'; validate x; return $ ValT  x }
+  ExpQ  e' -> do { x <- eval p env e'; validate x; return $ ValQ  x }
+
+getKindCtx :: Prog -> String -> Kind -> Exp
+getKindCtx g v k = case k of
+  TYPESIDE  -> ExpTy $ fromJust $ Map.lookup v $ typesides  g
+  SCHEMA    -> ExpS  $ fromJust $ Map.lookup v $ schemas    g 
+  INSTANCE  -> ExpI  $ fromJust $ Map.lookup v $ instances  g
+  MAPPING   -> ExpM  $ fromJust $ Map.lookup v $ mappings   g
+  TRANSFORM -> ExpT  $ fromJust $ Map.lookup v $ transforms g
+  QUERY     -> ExpQ  $ fromJust $ Map.lookup v $ queries    g
+  _ -> error "todo"
+
+setEnv :: Env -> String -> Val -> Env
+setEnv env v val  = case val of
+  ValTy t -> env { typesides  = Map.insert v t $ typesides  env }
+  ValS  t -> env { schemas    = Map.insert v t $ schemas    env }
+  ValI  t -> env { instances  = Map.insert v t $ instances  env }
+  ValM  t -> env { mappings   = Map.insert v t $ mappings   env }
+  ValT  t -> env { transforms = Map.insert v t $ transforms env }
+  ValQ  t -> env { queries    = Map.insert v t $ queries    env }
+
+instance Evalable TypesideExp TypesideEx where
+  validate (TypesideEx x) = typecheckTypeside x
+  eval = evalTypeside 
+
+instance Evalable SchemaExp SchemaEx where
+  validate (SchemaEx x) = typecheckSchema x
+  eval = evalSchema
+
+instance Evalable InstanceExp InstanceEx where
+  validate (InstanceEx x) = typecheckPresentation (schema x) (pres x)
+  eval = evalInstance
+
+instance Evalable MappingExp MappingEx where
+  validate (MappingEx x) = typecheckMapping x
+  eval = evalMapping 
+
+instance Evalable TransformExp TransformEx where
+  validate (TransformEx x) = typecheckTransform x
+  eval = evalTransform 
+
+instance Evalable QueryExp QueryEx where
+  validate (QueryEx _) = undefined -- typecheckQuery x
+  eval = undefined -- evalQuery 
+
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalAqlProgram [] _ e = pure e
-evalAqlProgram ((v,TYPESIDE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTypeside prog env $ lookup2 v (typesides prog)
-                                              _ <- case t of
-                                                     TypesideEx x -> typecheckTypeside x
-                                              evalAqlProgram l prog $ env { typesides = Map.insert v t $ typesides env }
-evalAqlProgram ((v,SCHEMA):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalSchema prog env $ lookup2 v (schemas prog)
-                                            _ <- case t of
-                                                     SchemaEx x -> typecheckSchema x
-                                            evalAqlProgram l prog $ env { schemas = Map.insert v t $ schemas env }
-evalAqlProgram ((v,INSTANCE):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalInstance prog env $ lookup2 v (instances prog)
-                                              _ <- case t of
-                                                     InstanceEx i -> do {_ <- typecheckPresentation (schema i) (pres i); checkSatisfaction i}
-                                              evalAqlProgram l prog $ env { instances = Map.insert v t $ instances env }
-evalAqlProgram ((v,MAPPING):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalMapping prog env $ lookup2 v (mappings prog)
-                                             _ <- case t of
-                                                     MappingEx i -> do {_ <- typecheckMapping i; validateMapping i}
-                                             evalAqlProgram l prog $ env { mappings = Map.insert v t $ mappings env }
-evalAqlProgram ((v,TRANSFORM):l) prog env = do t <- wrapError ("Eval Error in " ++ v) $ evalTransform prog env $ lookup2 v (transforms prog)
-                                               _ <- case t of
-                                                     TransformEx i -> do {_ <- typecheckTransform i; validateTransform i}
-                                               evalAqlProgram l prog $ env { transforms = Map.insert v t $ transforms env }
-evalAqlProgram _ _ _ = undefined
+evalAqlProgram ((v,k):l) prog env = do 
+  t <- wrapError ("Eval Error in " ++ v) $ eval' prog env $ getKindCtx prog v k
+  evalAqlProgram l prog $ setEnv env v t
 
 data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
 

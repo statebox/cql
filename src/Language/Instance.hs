@@ -75,10 +75,9 @@ typecheckPresentation
   :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk)
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
-  -> Err (Presentation var ty sym en fk att gen sk)
-typecheckPresentation sch p = do
-  _ <- typeOfCol $ instToCol sch p
-  pure p
+  -> Err ()
+typecheckPresentation sch p = typeOfCol $ instToCol sch p
+  
 
 down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
 down1 (Var v)  = Var v
