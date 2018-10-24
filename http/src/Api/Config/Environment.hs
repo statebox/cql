@@ -7,9 +7,9 @@ import           Network.Wai                          (Middleware)
 import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 
 data Environment
-    = Development
-    | Production
-    deriving (Show, Read)
+  = Development
+  | Production
+  deriving (Show, Read)
 
 logger :: Environment -> Middleware
 logger Development = logStdoutDev

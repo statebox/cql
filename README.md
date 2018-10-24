@@ -52,7 +52,7 @@ Install in current profile:
 
 See also [default.nix](default.nix)
 
-## API
+## HTTP API
 
 To launch the APIs, use `stack exec aql-http`. Then you can send http requests to port 8080, with an AQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
 
@@ -64,3 +64,9 @@ curl -X POST \
   -H 'Content-Type: text/plain;charset=utf-8' \
   --data-binary "@./examples/Employee.aql"
 ```
+
+You could set the following environment variables to customize the beahaviour of the endpoint:
+
+- `AQL_ENV`: should be `Development` or `Production`. Regulates the verbosity of the console output
+
+- `PORT`: determines on which port the endpoint is exposed

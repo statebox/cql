@@ -15,5 +15,5 @@ aqlApi = aqlEndpoint
 
 aqlEndpoint :: String -> Handler String
 aqlEndpoint aqlDefinition = do
-  let aqlEnvironemnt = runProg aqlDefinition
-  pure $ either id (\(_, _, env) -> show env) aqlEnvironemnt
+  let aqlEnvironment = runProg aqlDefinition
+  pure $ either id (\(_, _, env) -> show env) aqlEnvironment

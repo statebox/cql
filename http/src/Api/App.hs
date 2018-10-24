@@ -18,4 +18,4 @@ app = do
 lookupEnvVar :: (Read a, Show a) => String -> a -> IO a
 lookupEnvVar variable default' = do
     maybeValue <- lookupEnv variable
-    return $ fromMaybe default' $ maybeValue >>= readMaybe
+    return $ fromMaybe default' $ readMaybe =<< maybeValue
