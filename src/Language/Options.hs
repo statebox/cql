@@ -146,7 +146,7 @@ data IntOption =
 type CharOption = Void
  --data CharOption = 
  --   Csv_Escape_Char
- -- | Csv_Quote_Char
+ --  Csv_Quote_Char
  --  deriving (Eq, Ord, Show, Enum)
 
- --  | CompletionPrecedence [String]
+ --   CompletionPrecedence [String]
