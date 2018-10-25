@@ -524,6 +524,16 @@ typeOf col e = case typeOf' col Map.empty (up e) of
 
 --------------------------------------------------------------------------------
 
+getOptionsInstance :: InstanceExp -> [(String, String)]
+getOptionsInstance (InstanceVar _) = []
+getOptionsInstance (InstanceInitial _ ) = []
+getOptionsInstance (InstanceDelta  _ _ o) = o
+getOptionsInstance (InstanceSigma  _ _ o) = o
+getOptionsInstance (InstancePi     _ _) = undefined
+getOptionsInstance (InstanceEval   _ _) = undefined
+getOptionsInstance (InstanceCoEval _ _) = undefined
+getOptionsInstance (InstanceRaw (InstExpRaw' _ _ _ o _)) = o
+
 
 instance Deps InstanceExp where
   deps (InstanceVar v) = [(v, INSTANCE)]
@@ -639,12 +649,12 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
 
 evalInstanceRaw :: forall var ty sym en fk att.
  (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en, Typeable var)
-  => Schema var ty sym en fk att -> InstExpRaw' -> [InstanceEx] -> Err InstanceEx
-evalInstanceRaw ty' t is =
+  => Options -> Schema var ty sym en fk att -> InstExpRaw' -> [InstanceEx] -> Err InstanceEx
+evalInstanceRaw ops ty' t is =
  do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
     r <- evalInstanceRaw' ty' t i
     _ <- typecheckPresentation ty' r
-    l <- toOptions $ instraw_options t
+    l <- toOptions ops $ instraw_options t
     p <- createProver (instToCol ty' r) l
     pure $ InstanceEx $ initialInstance r (f p) ty'
  where

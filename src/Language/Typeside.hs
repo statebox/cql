@@ -86,11 +86,11 @@ tsToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside v
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
-evalTypesideRaw :: TypesideRaw' -> [TypesideEx] -> Err TypesideEx
-evalTypesideRaw t a' =
+evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
+evalTypesideRaw ops t a' =
  do a <- g a'
     r <- evalTypesideRaw' t a
-    l <- toOptions $ tsraw_options t
+    l <- toOptions ops $ tsraw_options t
     p <- createProver (tsToCol r) l
     pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
  where
@@ -152,6 +152,10 @@ instance Deps TypesideExp where
   deps TypesideInitial = [] 
   deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
 
+getOptionsTypeside :: TypesideExp -> [(String, String)]
+getOptionsTypeside (TypesideVar _) = []
+getOptionsTypeside TypesideInitial = [] 
+getOptionsTypeside (TypesideRaw (TypesideRaw' _ _ _ o _)) = o
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp

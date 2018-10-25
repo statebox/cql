@@ -25,57 +25,74 @@ import Control.Arrow (left)
 import System.Timeout
 import System.IO.Unsafe 
 
-timeout' :: Int -> x -> Err x
+timeout' :: Integer -> Err x -> Err x
 timeout' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
-  Just x' -> pure x'
+  Just x' -> x'
   where 
-    c' = unsafePerformIO $ timeout s (return c)
-    s  = ms * 1000000
+    c' = unsafePerformIO $ timeout s $! (return $! c) --not working
+    s  = (fromIntegral ms) * 1000000
 
 -- simple three phase evaluation and reporting
 runProg :: String -> Err (Prog, Types, Env)
 runProg p = do
   p1 <- parseAqlProgram p
+  ops<- toOptions defaultOptions $ other p1
   o  <- findOrder p1
-  p2 <- typecheckAqlProgram o p1
-  p3 <- evalAqlProgram o p1 newEnv
+  p2 <- typecheckAqlProgram o p1 newTypes 
+  p3 <- evalAqlProgram o p1 (newEnv ops)
   return (p1, p2, p3)
 
---todo: store exception info in other field
-type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx ()
+type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
 
 wrapError :: String -> Either String b -> Either String b
 wrapError prefix se = (\s -> prefix ++ ": " ++ s) `left` se
 
--- type Types = KindCtx () TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
+
+class Typecheck e e' where
+  typecheck :: Types -> e -> Err e'
 
 -- some ordering - could be program order, but not necessarily
 -- todo: could be backwards, will check w/ mappings, queries
-typecheckAqlProgram :: [(String,Kind)] -> Prog -> Err Types
-typecheckAqlProgram [] _ = pure newTypes
-typecheckAqlProgram ((v,TYPESIDE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckTypesideExp prog $ lookup2 v (typesides prog)
-                                               x <- typecheckAqlProgram l prog
-                                               return $ x { typesides = Map.insert v t $ typesides x }
-typecheckAqlProgram ((v,SCHEMA):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckSchemaExp prog $ lookup2 v (schemas prog)
-                                             x <- typecheckAqlProgram l prog
-                                             return $ x { schemas = Map.insert v t $ schemas x }
-typecheckAqlProgram ((v,INSTANCE):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckInstExp prog $ lookup2 v (instances prog)
-                                               x <- typecheckAqlProgram l prog
-                                               return $ x { instances = Map.insert v t $ instances x }
-typecheckAqlProgram ((v,MAPPING):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckMapExp prog $ lookup2 v (mappings prog)
-                                              x <- typecheckAqlProgram l prog
-                                              return $ x { mappings = Map.insert v t $ mappings x }
-
-typecheckAqlProgram ((v,TRANSFORM):l) prog = do t <- wrapError ("Type Error in " ++ v) $ typecheckTransExp prog $ lookup2 v (transforms prog)
-                                                x <- typecheckAqlProgram l prog
-                                                return $ x { transforms = Map.insert v t $ transforms x }
-typecheckAqlProgram _ _ = undefined
+typecheckAqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
+typecheckAqlProgram [] _ _ = pure newTypes
+typecheckAqlProgram ((v,k):l) prog ts = do 
+  t <- wrapError ("Type Error in " ++ v) $ typecheck' v ts $ getKindCtx prog v k
+  typecheckAqlProgram l prog t
 
 
-typecheckTransExp :: Prog -> TransformExp -> Err (InstanceExp, InstanceExp)
-typecheckTransExp p (TransformVar v) = do t <- note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
-                                          typecheckTransExp p t
+typecheck' :: String -> Types -> Exp -> Err Types
+typecheck' v ts e = case e of
+  ExpTy e' -> do { t <- typecheck ts e'; return $ ts { typesides  = Map.insert v t $ typesides  ts } }
+  ExpS  e' -> do { t <- typecheck ts e'; return $ ts { schemas    = Map.insert v t $ schemas    ts } }
+  ExpI  e' -> do { t <- typecheck ts e'; return $ ts { instances  = Map.insert v t $ instances  ts } }
+  ExpM  e' -> do { t <- typecheck ts e'; return $ ts { mappings   = Map.insert v t $ mappings   ts } }
+  ExpT  e' -> do { t <- typecheck ts e'; return $ ts { transforms = Map.insert v t $ transforms ts } }
+  ExpQ  e' -> do { t <- typecheck ts e'; return $ ts { queries    = Map.insert v t $ queries    ts } }
+
+
+instance Typecheck TypesideExp TypesideExp where
+  typecheck = typecheckTypesideExp
+
+instance Typecheck SchemaExp TypesideExp where
+ typecheck = typecheckSchemaExp
+
+instance Typecheck InstanceExp SchemaExp where
+ typecheck = typecheckInstExp
+ 
+instance Typecheck MappingExp (SchemaExp, SchemaExp) where
+ typecheck = typecheckMapExp
+
+instance Typecheck TransformExp (InstanceExp, InstanceExp) where
+ typecheck = typecheckTransExp
+
+instance Typecheck QueryExp (SchemaExp, SchemaExp) where
+ typecheck = error "todo typecheck query exp"
+
+
+
+typecheckTransExp :: Types -> TransformExp -> Err (InstanceExp, InstanceExp)
+typecheckTransExp p (TransformVar v) = note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p                             
 typecheckTransExp _ (TransformId s) = pure (s, s)
 typecheckTransExp p (TransformSigma f' h o) = do (s,_) <- typecheckMapExp p f'
                                                  (i,j) <- typecheckTransExp p h
@@ -108,9 +125,8 @@ typecheckTransExp p (TransformRaw r) = do l' <- typecheckInstExp p $ transraw_sr
                                           else Left "Mapping has non equal schemas"
 typecheckTransExp _ _ = undefined
 
-typecheckMapExp :: Prog -> MappingExp -> Err (SchemaExp, SchemaExp)
-typecheckMapExp p (MappingVar v) = do t <- note ("Undefined mapping: " ++ show v) $ Map.lookup v $ mappings p
-                                      typecheckMapExp p t
+typecheckMapExp :: Types -> MappingExp -> Err (SchemaExp, SchemaExp)
+typecheckMapExp p (MappingVar v) = note ("Undefined mapping: " ++ show v) $ Map.lookup v $ mappings p
 typecheckMapExp _ (MappingId s) = pure (s, s)
 typecheckMapExp p (MappingRaw r) = do l' <- typecheckSchemaExp p $ mapraw_src r
                                       r' <- typecheckSchemaExp p $ mapraw_dst r
@@ -120,9 +136,8 @@ typecheckMapExp p (MappingRaw r) = do l' <- typecheckSchemaExp p $ mapraw_src r
 
 
 
-typecheckInstExp :: Prog -> InstanceExp -> Err SchemaExp
-typecheckInstExp p (InstanceVar v) = do t <- note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
-                                        typecheckInstExp p t
+typecheckInstExp :: Types -> InstanceExp -> Err SchemaExp
+typecheckInstExp p (InstanceVar v) = note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
 typecheckInstExp _ (InstanceInitial s) = pure s
 typecheckInstExp _ (InstanceRaw r) = pure $ instraw_schema r
 typecheckInstExp p (InstanceSigma f' i _) = do  (s,t) <- typecheckMapExp p f'
@@ -138,19 +153,15 @@ typecheckInstExp p (InstanceDelta f' i _) = do  (s,t) <- typecheckMapExp p f'
 
 typecheckInstExp _ _ = undefined
 
-typecheckTypesideExp :: Prog -> TypesideExp -> Err TypesideExp
-typecheckTypesideExp p (TypesideVar v) = do t <- note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
-                                            typecheckTypesideExp p t
+typecheckTypesideExp :: Types -> TypesideExp -> Err TypesideExp
+typecheckTypesideExp p (TypesideVar v) = note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
 typecheckTypesideExp _ TypesideInitial = pure TypesideInitial
 typecheckTypesideExp _ (TypesideRaw r) = pure $ TypesideRaw r
 
 typecheckSchemaExp
-  :: KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, Kind)]
-  -> SchemaExp
-  -> Either String TypesideExp
+  :: Types -> SchemaExp -> Either String TypesideExp
 typecheckSchemaExp _ (SchemaRaw r) = pure $ schraw_ts r
-typecheckSchemaExp p (SchemaVar v) = do t <- note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
-                                        typecheckSchemaExp p t
+typecheckSchemaExp p (SchemaVar v) = note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
 typecheckSchemaExp p (SchemaInitial t) = do _ <- typecheckTypesideExp p t
                                             return t
 typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
@@ -159,9 +170,19 @@ typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
                                              then return l'
                                              else Left "Coproduct has non equal typesides"
 
-class Evalable e e' | e' -> e where
+getOptions' :: Exp -> [(String, String)]
+getOptions' e = case e of
+  ExpTy e' -> getOptions e'
+  ExpS  e' -> getOptions e'
+  ExpI  e' -> getOptions e'
+  ExpM  e' -> getOptions e'
+  ExpT  e' -> getOptions e'
+  ExpQ  _  -> undefined 
+
+class Evalable e e' | e' -> e, e -> e' where
   validate :: e' -> Err ()
   eval :: Prog -> Env -> e -> Err e'
+  getOptions :: e -> [(String, String)]
 
 eval' :: Prog -> Env -> Exp -> Err Val
 eval' p env e = case e of
@@ -194,31 +215,40 @@ setEnv env v val  = case val of
 instance Evalable TypesideExp TypesideEx where
   validate (TypesideEx x) = typecheckTypeside x
   eval = evalTypeside 
+  getOptions = getOptionsTypeside
 
 instance Evalable SchemaExp SchemaEx where
   validate (SchemaEx x) = typecheckSchema x
   eval = evalSchema
+  getOptions = getOptionsSchema
 
 instance Evalable InstanceExp InstanceEx where
   validate (InstanceEx x) = typecheckPresentation (schema x) (pres x)
   eval = evalInstance
+  getOptions = getOptionsInstance
 
 instance Evalable MappingExp MappingEx where
   validate (MappingEx x) = typecheckMapping x
   eval = evalMapping 
+  getOptions = getOptionsMapping
 
 instance Evalable TransformExp TransformEx where
   validate (TransformEx x) = typecheckTransform x
   eval = evalTransform 
+  getOptions = getOptionsTransform
 
 instance Evalable QueryExp QueryEx where
   validate (QueryEx _) = undefined -- typecheckQuery x
   eval = undefined -- evalQuery 
+  getOptions = undefined -- getOptionsQuery
 
 evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
-evalAqlProgram [] _ e = pure e
+evalAqlProgram [] _ env = pure env
 evalAqlProgram ((v,k):l) prog env = do 
-  t <- wrapError ("Eval Error in " ++ v) $ eval' prog env $ getKindCtx prog v k
+  let e = getKindCtx prog v k
+  ops <- toOptions (other env) $ getOptions' e
+  let to = iOps ops Timeout 
+  t <- wrapError ("Eval Error in " ++ v) $ timeout' to $ eval' prog env e
   evalAqlProgram l prog $ setEnv env v t
 
 data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
@@ -249,17 +279,17 @@ tsort graph  = tsort' [] (noInbound graph) graph
         s'       = s ++ filter (null . flip inbound g') outNodes
 
 findOrder :: Prog -> Err [(String, Kind)]
-findOrder (KindCtx t s i m q tr o) = do
+findOrder (p@(KindCtx t s i m q tr _)) = do
   ret <- tsort g
   pure $ reverse ret
   where
-    g       = Graph o $ nub $ f0 t TYPESIDE ++ f0 s SCHEMA ++ f0 i INSTANCE ++ f0 m MAPPING ++ f0 q QUERY ++ f0 tr TRANSFORM
+    g       = Graph (allVars p) $ nub $ f0 t TYPESIDE ++ f0 s SCHEMA ++ f0 i INSTANCE ++ f0 m MAPPING ++ f0 q QUERY ++ f0 tr TRANSFORM
     f0 m0 k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m0
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
 evalTypeside p e (TypesideRaw r) = do x <- mapM (evalTypeside p e) $ tsraw_imports r
-                                      evalTypesideRaw r x
+                                      evalTypesideRaw (other e) r x
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
@@ -295,25 +325,25 @@ evalTransform p env (TransformRaw r) = do
 evalTransform prog env (TransformSigma f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
-  o' <- toOptions o
+  o' <- toOptions (other env) o
   r <- evalSigmaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
   pure $ TransformEx r
 evalTransform prog env (TransformDelta f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en' fk' att' en fk att)) <- evalMapping prog env f'
   (TransformEx (i' :: Transform var'' ty'' sym'' en'' fk'' att'' gen sk x y gen' sk' x' y')) <- evalTransform prog env i
-  o' <- toOptions o
+  o' <- toOptions (other env) o
   r <- evalDeltaTrans f'' (fromJust $ ((cast i') :: Maybe (Transform var ty sym en fk att gen sk x y gen' sk' x' y'))) o'
   pure $ TransformEx r
 evalTransform prog env (TransformSigmaDeltaUnit f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-  o' <- toOptions o
+  o' <- toOptions (other env) o
   r <- evalDeltaSigmaUnit f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
   pure $ TransformEx r
 evalTransform prog env (TransformSigmaDeltaCoUnit f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-  o' <- toOptions o
+  o' <- toOptions (other env) o
   r <- evalDeltaSigmaCoUnit f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
   pure $ TransformEx r
 
@@ -350,11 +380,11 @@ evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
 evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r
                                        x <- mapM (evalSchema prog env) $ schraw_imports r
                                        case t of
-                                        TypesideEx t' -> do l <- evalSchemaRaw t' r x
-                                                            pure $ l
+                                        TypesideEx t' -> evalSchemaRaw (other env) t' r x
+                                                          
 evalSchema _ _ _ = undefined
 
-evalInstance :: Prog -> KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx () -> InstanceExp -> Either [Char] InstanceEx
+evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx
 evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
 evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
                                                case ts' of
@@ -363,16 +393,16 @@ evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
 evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_schema r
                                            case t of
                                             SchemaEx t' -> do i <- mapM (evalInstance prog env) (instraw_imports r)
-                                                              l <- evalInstanceRaw t' r i
-                                                              pure $ l
+                                                              evalInstanceRaw (other env) t' r i
+                                                              
 evalInstance prog env (InstanceSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
                                                   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-                                                  o' <- toOptions o
+                                                  o' <- toOptions (other env) o
                                                   r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
                                                   return $ InstanceEx r
 evalInstance prog env (InstanceDelta f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
                                                   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-                                                  o' <- toOptions o
+                                                  o' <- toOptions (other env) o
                                                   r <- evalDeltaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
                                                   return $ InstanceEx r
 

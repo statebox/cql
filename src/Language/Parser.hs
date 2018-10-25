@@ -11,6 +11,7 @@ import           Language.Parser.Transform  as TT
 import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
+import           Data.Maybe
 
 
 parseAqlProgram' :: Parser (String, Exp)
@@ -44,22 +45,27 @@ parseAqlProgram' = do _ <- constant "typeside"
                       y <- transExpParser
                       return $ (x, ExpT y)
 
-parseAqlProgram'' :: Parser [(String, Exp)]
-parseAqlProgram'' = between spaceConsumer eof (many parseAqlProgram')
+parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
+parseAqlProgram'' = between spaceConsumer eof g
+ where f = do _ <- constant "options"
+              many optionParser
+       g = do x <- optional f
+              y <- many parseAqlProgram' 
+              return (fromMaybe [] x, y)      
 
 
-toProg' :: [(String, Exp)] -> Prog
-toProg' [] = newProg
-toProg' ((v,e):p) = case e of
-   ExpTy ty' -> KindCtx (Map.insert v ty' t) s i m q tr ((v,TYPESIDE):o)
-   ExpS s'   -> KindCtx t (Map.insert v s' s) i m q tr ((v,SCHEMA):o)
-   ExpI i'   -> KindCtx t s (Map.insert v i' i) m q tr ((v,INSTANCE):o)
-   ExpM m'   -> KindCtx t s i (Map.insert v m' m) q tr ((v,MAPPING):o)
-   ExpQ q'   -> KindCtx t s i m (Map.insert v q' q) tr ((v,QUERY):o)
-   ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr) ((v,TRANSFORM):o)
-  where KindCtx t s i m q tr o = toProg' p
+toProg' :: [(String,String)] -> [(String, Exp)] -> Prog
+toProg' _ [] = newProg
+toProg' o ((v,e):p) = case e of
+   ExpTy ty' -> KindCtx (Map.insert v ty' t) s i m q tr o
+   ExpS s'   -> KindCtx t (Map.insert v s' s) i m q tr o
+   ExpI i'   -> KindCtx t s (Map.insert v i' i) m q tr o
+   ExpM m'   -> KindCtx t s i (Map.insert v m' m) q tr o
+   ExpQ q'   -> KindCtx t s i m (Map.insert v q' q) tr o
+   ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr) o
+  where KindCtx t s i m q tr _ = toProg' o p
 
 parseAqlProgram :: String -> Err Prog
 parseAqlProgram s = case runParser parseAqlProgram'' "" s of
   Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
-  Right x  -> pure $ toProg' x
+  Right (o,x)  -> pure $ toProg' o x

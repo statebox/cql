@@ -133,6 +133,11 @@ data MappingExp where
   MappingRaw     :: MappingExpRaw' -> MappingExp
  deriving (Eq, Show)
 
+getOptionsMapping :: MappingExp -> [(String, String)]
+getOptionsMapping (MappingVar _) = []
+getOptionsMapping (MappingId _) = []
+getOptionsMapping (MappingRaw (MappingExpRaw' _ _ _ _ _ o _)) = o
+
 instance Deps MappingExp where
  deps (MappingVar v) = [(v, MAPPING)]
  deps (MappingId s) = deps s
