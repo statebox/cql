@@ -69,8 +69,8 @@ curl -X POST \
   --data-binary "@./examples/Employee.aql"
 ```
 
-You could set the following environment variables to customize the beahaviour of the endpoint:
+You can set the following environment variables to customise the behaviour of the endpoint:
 
-- `AQL_ENV`: should be `Development` or `Production`. Regulates the verbosity of the console output
+- `AQL_ENV`: Should be `Development` or `Production`. Regulates the verbosity of the console output.
 
 - `PORT`: determines on which port the endpoint is exposed
