@@ -144,9 +144,9 @@ data IntOption =
   deriving (Eq, Ord, Show, Enum)
 
 type CharOption = Void
---data CharOption = 
+ --data CharOption = 
  --   Csv_Escape_Char
  -- | Csv_Quote_Char
---  deriving (Eq, Ord, Show, Enum)
+ --  deriving (Eq, Ord, Show, Enum)
 
---  | CompletionPrecedence [String]
+ --  | CompletionPrecedence [String]
