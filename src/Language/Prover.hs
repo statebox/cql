@@ -24,11 +24,11 @@ data Prover var ty sym en fk att gen sk = Prover {
 
 proverStringToName :: Options -> Err ProverName
 proverStringToName m = case sOps m prover_name of
- ("auto") -> pure Auto
- ("kb") -> pure KB
- ("program") -> pure Orthogonal
- ("congruence") -> pure Congruence
- x -> Left $ "Not a prover: " ++ x
+  "auto" -> pure Auto
+  "kb" -> pure KB
+  "program" -> pure Orthogonal
+  "congruence" -> pure Congruence
+  x -> Left $ "Not a prover: " ++ x
 
 freeProver :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) =>
                     Collage var ty sym en fk att gen sk

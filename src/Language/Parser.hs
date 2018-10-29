@@ -15,43 +15,51 @@ import           Data.Maybe
 
 
 parseAqlProgram' :: Parser (String, Exp)
-parseAqlProgram' = do _ <- constant "typeside"
-                      x <- identifier
-                      _ <- constant "="
-                      y <- typesideExpParser
-                      return $ (x, ExpTy y)
-                   <|>
-                   do _ <- constant "schema"
-                      x <- identifier
-                      _ <- constant "="
-                      y <- schemaExpParser
-                      return $ (x, ExpS y)
-                   <|>
-                   do _ <- constant "instance"
-                      x <- identifier
-                      _ <- constant "="
-                      y <- instExpParser
-                      return $ (x, ExpI y)
-                   <|>
-                   do _ <- constant "mapping"
-                      x <- identifier
-                      _ <- constant "="
-                      y <- mapExpParser
-                      return $ (x, ExpM y)
-                   <|>
-                   do _ <- constant "transform"
-                      x <- identifier
-                      _ <- constant "="
-                      y <- transExpParser
-                      return $ (x, ExpT y)
+parseAqlProgram' = do 
+  _ <- constant "typeside"
+  x <- identifier
+  _ <- constant "="
+  y <- typesideExpParser
+  return $ (x, ExpTy y)
+  <|>
+  do 
+    _ <- constant "schema"
+    x <- identifier
+    _ <- constant "="
+    y <- schemaExpParser
+    return $ (x, ExpS y)
+  <|>
+  do 
+    _ <- constant "instance"
+    x <- identifier
+    _ <- constant "="
+    y <- instExpParser
+    return $ (x, ExpI y)
+  <|>
+  do 
+    _ <- constant "mapping"
+    x <- identifier
+    _ <- constant "="
+    y <- mapExpParser
+    return $ (x, ExpM y)
+  <|>
+  do 
+    _ <- constant "transform"
+    x <- identifier
+    _ <- constant "="
+    y <- transExpParser
+    return $ (x, ExpT y)
 
 parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
 parseAqlProgram'' = between spaceConsumer eof g
- where f = do _ <- constant "options"
-              many optionParser
-       g = do x <- optional f
-              y <- many parseAqlProgram' 
-              return (fromMaybe [] x, y)      
+ where 
+   f = do 
+     _ <- constant "options"
+     many optionParser
+   g = do 
+     x <- optional f
+     y <- many parseAqlProgram' 
+     return (fromMaybe [] x, y)      
 
 
 toProg' :: [(String,String)] -> [(String, Exp)] -> Prog

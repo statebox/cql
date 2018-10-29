@@ -20,17 +20,20 @@ instance Show Options where
 
 toOptions :: Options -> [(String, String)] -> Err Options
 toOptions o [] = return o
-toOptions def ((k,v):l)   = do Options s t u <- toOptions def l
-                               case a of
-                                Left _ -> case b of
-                                 Left _ -> do (o,i) <- c
-                                              return $ Options s t (f o i u)
-                                 Right (o,i) -> return $ Options s (f o i t) u
-                                Right (o, i)  -> return $ Options (f o i s) t u
- where a = toIntegerOption (k, v)
-       b = toBoolOption (k, v)
-       c = toStringOption (k, v)
-       f j u m x = if j == x then u else m x  
+toOptions def ((k,v):l)   = do 
+  Options s t u <- toOptions def l 
+  case a of
+    Left _ -> case b of
+      Left _ -> do
+        (o, i) <- c
+        return $ Options s t (f o i u)
+      Right (o,i) -> return $ Options s (f o i t) u
+    Right (o, i)  -> return $ Options (f o i s) t u
+  where 
+    a = toIntegerOption (k, v)
+    b = toBoolOption (k, v)
+    c = toStringOption (k, v)
+    f j u m x = if j == x then u else m x  
 
 
 toIntegerOption :: (String, String) -> Err (IntOption, Integer)

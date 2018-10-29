@@ -24,13 +24,15 @@ import Language.Options
 import Control.Arrow (left)
 import System.Timeout
 import System.IO.Unsafe 
+import Control.Exception.Base
+--import Control.DeepSeq
 
 timeout' :: Integer -> Err x -> Err x
 timeout' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
   Just x' -> x'
   where 
-    c' = unsafePerformIO $ timeout s $! (return $! c) --not working
+    c' = unsafePerformIO $ timeout s $! seq c (evaluate c) --not working
     s  = (fromIntegral ms) * 1000000
 
 -- simple three phase evaluation and reporting
@@ -162,13 +164,15 @@ typecheckSchemaExp
   :: Types -> SchemaExp -> Either String TypesideExp
 typecheckSchemaExp _ (SchemaRaw r) = pure $ schraw_ts r
 typecheckSchemaExp p (SchemaVar v) = note ("Undefined schema: " ++ show v) $ Map.lookup v $ schemas p
-typecheckSchemaExp p (SchemaInitial t) = do _ <- typecheckTypesideExp p t
-                                            return t
-typecheckSchemaExp p (SchemaCoProd l r) = do l' <- typecheckSchemaExp p l
-                                             r' <- typecheckSchemaExp p r
-                                             if l' == r'
-                                             then return l'
-                                             else Left "Coproduct has non equal typesides"
+typecheckSchemaExp p (SchemaInitial t) = do 
+  _ <- typecheckTypesideExp p t
+  return t
+typecheckSchemaExp p (SchemaCoProd l r) = do 
+  l' <- typecheckSchemaExp p l
+  r' <- typecheckSchemaExp p r
+  if l' == r'
+  then return l'
+  else Left "Coproduct has non equal typesides"
 
 getOptions' :: Exp -> [(String, String)]
 getOptions' e = case e of
@@ -288,8 +292,9 @@ findOrder (p@(KindCtx t s i m q tr _)) = do
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
-evalTypeside p e (TypesideRaw r) = do x <- mapM (evalTypeside p e) $ tsraw_imports r
-                                      evalTypesideRaw (other e) r x
+evalTypeside p e (TypesideRaw r) = do 
+  x <- mapM (evalTypeside p e) $ tsraw_imports r
+  evalTypesideRaw (other e) r x
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
@@ -373,37 +378,43 @@ f ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> 
 
 evalSchema :: Prog -> Env -> SchemaExp -> Err SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
-evalSchema prog env (SchemaInitial ts) = do ts' <- evalTypeside prog env ts
-                                            case ts' of
-                                             TypesideEx ts'' ->
-                                               pure $ SchemaEx $ f ts''
-evalSchema prog env (SchemaRaw r) = do t <- evalTypeside prog env $ schraw_ts r
-                                       x <- mapM (evalSchema prog env) $ schraw_imports r
-                                       case t of
-                                        TypesideEx t' -> evalSchemaRaw (other env) t' r x
+evalSchema prog env (SchemaInitial ts) = do 
+  ts' <- evalTypeside prog env ts
+  case ts' of
+    TypesideEx ts'' -> pure $ SchemaEx $ f ts''
+evalSchema prog env (SchemaRaw r) = do 
+  t <- evalTypeside prog env $ schraw_ts r
+  x <- mapM (evalSchema prog env) $ schraw_imports r
+  case t of
+    TypesideEx t' -> evalSchemaRaw (other env) t' r x
                                                           
 evalSchema _ _ _ = undefined
 
 evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx
 evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
-evalInstance prog env (InstanceInitial s) = do ts' <- evalSchema prog env s
-                                               case ts' of
-                                                 SchemaEx ts'' -> pure $ InstanceEx $ emptyInstance ts''
+evalInstance prog env (InstanceInitial s) = do 
+  ts' <- evalSchema prog env s
+  case ts' of
+    SchemaEx ts'' -> pure $ InstanceEx $ emptyInstance ts''
 
-evalInstance prog env (InstanceRaw r) = do t <- evalSchema prog env $ instraw_schema r
-                                           case t of
-                                            SchemaEx t' -> do i <- mapM (evalInstance prog env) (instraw_imports r)
-                                                              evalInstanceRaw (other env) t' r i
+evalInstance prog env (InstanceRaw r) = do 
+  t <- evalSchema prog env $ instraw_schema r
+  case t of
+    SchemaEx t' -> do 
+      i <- mapM (evalInstance prog env) (instraw_imports r)
+      evalInstanceRaw (other env) t' r i
                                                               
-evalInstance prog env (InstanceSigma f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
-                                                  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-                                                  o' <- toOptions (other env) o
-                                                  r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
-                                                  return $ InstanceEx r
-evalInstance prog env (InstanceDelta f' i o) = do (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
-                                                  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
-                                                  o' <- toOptions (other env) o
-                                                  r <- evalDeltaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
-                                                  return $ InstanceEx r
+evalInstance prog env (InstanceSigma f' i o) = do 
+  (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
+  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
+  o' <- toOptions (other env) o
+  r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
+  return $ InstanceEx r
+evalInstance prog env (InstanceDelta f' i o) = do 
+  (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
+  (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
+  o' <- toOptions (other env) o
+  r <- evalDeltaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
+  return $ InstanceEx r
 
 evalInstance _ _ _ = undefined

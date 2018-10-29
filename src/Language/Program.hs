@@ -18,6 +18,7 @@ import           Language.Query as Q
 import           Language.Transform as Tr
 import           Language.Typeside as T
 import           Language.Options
+--import           Control.DeepSeq 
 
 data Exp
  = ExpTy TypesideExp
@@ -34,6 +35,7 @@ data Val
  | ValM MappingEx
  | ValT TransformEx
  | ValQ QueryEx
+-- deriving NFData 
 
 data KindCtx ts s i m q t o
   = KindCtx
