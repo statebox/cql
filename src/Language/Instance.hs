@@ -72,12 +72,12 @@ evalSchTerm _ _ _            = undefined
 
 -- return input for convenience
 typecheckPresentation
-  :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Err ()
 typecheckPresentation sch p = typeOfCol $ instToCol sch p
-  
+
 
 down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
 down1 (Var v)  = Var v
@@ -86,7 +86,7 @@ down1 (Fk f a) = Fk f $ down1 a
 down1 _        = undefined
 
 checkSatisfaction
-  :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en, Ord gen, Show gen, Ord sk, Show sk, Ord x, Ord y)
+  :: (ShowOrd8 var ty sym en fk att gen sk, Ord x, Ord y)
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
 checkSatisfaction (Instance sch pres' dp' alg) = do
@@ -120,8 +120,7 @@ data Algebra var ty sym en fk att gen sk x y
   } -- omit Eq, doesn't seem to be necessary for now
 
 simplifyA
-  :: ( Ord var, Ord ty, Ord sym, Ord x, Ord y, Ord en, Ord sk, Ord fk, Ord att, Ord gen, Ord x, Ord sk
-     , Show var, Show ty, Show sym, Show x, Show y, Show gen, Show sk, Show en, Show sk, Show fk, Show att, Show gen)
+  :: (ShowOrd10 var ty sym en fk att gen sk x y)
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
 simplifyA
@@ -293,8 +292,7 @@ data InstanceEx :: * where
 deriving instance Show (InstanceEx)
 
 instToCol
-  :: ( Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en
-     , Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Collage (()+var) ty sym en fk att gen sk
@@ -338,8 +336,7 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
 
 
 -- adds one equation per fact in the algebra.
-algebraToPresentation :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk, Ord y, Ord x)
+algebraToPresentation :: (ShowOrd8 var ty sym en fk att gen sk, Ord y, Ord x)
   => Algebra var ty sym en fk att gen sk x y
   -> Presentation var ty sym en fk att x y
 algebraToPresentation (alg@(Algebra sch en' _ _ ty' _ _ _)) = Presentation gens' sks' eqs'
@@ -368,8 +365,7 @@ reify :: (Ord x, Ord en) => (en -> Set x) -> Set en -> [(x, en)]
 reify f s = concat $ Set.toList $ Set.map (\en'-> Set.toList $ Set.map (\x->(x,en')) $ f en') $ s
 
 
-initialInstance :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
+initialInstance :: (ShowOrd8 var ty sym en fk att gen sk)
  => Presentation var ty sym en fk att gen sk -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
  Instance var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
@@ -379,8 +375,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
 up15 :: Term Void Void Void en fk Void gen Void -> Term Void ty sym en fk att gen sk
 up15 = up
 
-initialAlgebra :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk)
+initialAlgebra :: (ShowOrd8 var ty sym en fk att gen sk)
  => Presentation var ty sym en fk att gen sk
  -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
@@ -445,7 +440,7 @@ fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
     r  = fromListAccum kvs
 
 assembleSks
-  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Show en, Ord en)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Collage var ty sym en fk att gen sk
   -> Map en (Set (Carrier en fk gen))
   -> Map ty (Set (TalgGen en fk att gen sk))
@@ -472,7 +467,7 @@ deriving instance (Ord en, Ord fk, Ord att, Ord gen, Ord sk) => Ord (TalgGen en 
 
 deriving instance (Eq en, Eq fk, Eq att, Eq gen, Eq sk) => Eq (TalgGen en fk att gen sk)
 
-assembleGens :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
+assembleGens :: (ShowOrd8 var ty sym en fk att gen sk, Eq en)
  => Collage var ty sym en fk att gen sk -> [Carrier en fk gen] -> Map en (Set (Carrier en fk gen))
 assembleGens col [] = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toList $ cens col
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
@@ -481,7 +476,7 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
        s = fromJust $ Map.lookup t m
 
 close
-  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
+  :: (ShowOrd8 var ty sym en fk att gen sk, Eq en)
   => Collage var  ty   sym  en fk att  gen sk
   -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
   -> [Term   Void Void Void en fk Void gen Void]
@@ -490,13 +485,12 @@ close col dp' =
   where
     y f x = let z = f x in if x == z then x else y f z
 
-close1m :: (Foldable t, Show var, Show gen, Show sk, Show fk,
-                  Show en, Show ty, Show att, Show sym, Ord var, Ord gen, Ord sk,
-                  Ord fk, Ord en, Ord ty, Ord att, Ord sym) =>
-                 (EQ var ty sym en fk att gen sk -> Bool)
-                 -> Collage var ty sym en fk att gen sk
-                 -> t (Term Void Void Void en fk Void gen Void)
-                 -> [Term Void Void Void en fk Void gen Void]
+close1m
+  :: (Foldable t, ShowOrd8 var ty sym en fk att gen sk)
+  => (EQ var ty sym en fk att gen sk -> Bool)
+  -> Collage var ty sym en fk att gen sk
+  -> t (Term Void Void Void en fk Void gen Void)
+  -> [Term Void Void Void en fk Void gen Void]
 close1m dp' col = dedup dp' . concatMap (close1 col dp')
 
 dedup :: (EQ var ty sym en fk att gen sk -> Bool)
@@ -504,7 +498,7 @@ dedup :: (EQ var ty sym en fk att gen sk -> Bool)
                -> [Term Void Void Void en fk Void gen Void]
 dedup dp' = nubBy (\x y -> dp' (EQ (up x, up y)))
 
-close1 :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
+close1 :: (ShowOrd8 var ty sym en fk att gen sk, Eq en)
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> Term Void Void Void en fk Void gen Void -> [ (Term Void Void Void en fk Void gen Void) ]
 close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
  where t = typeOf col e
@@ -512,7 +506,7 @@ close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
 
 
 
-typeOf :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym, Eq en)
+typeOf :: (ShowOrd8 var ty sym en fk att gen sk, Eq en)
   => Collage var ty sym en fk att gen sk -> Term Void Void Void en fk Void gen Void -> en
 typeOf col e = case typeOf' col Map.empty (up e) of
   Left _ -> undefined
@@ -526,15 +520,15 @@ typeOf col e = case typeOf' col Map.empty (up e) of
 
 
 instance Deps InstanceExp where
-  deps (InstanceVar v) = [(v, INSTANCE)]
-  deps (InstanceInitial  t) = deps t 
-  deps (InstanceDelta  f i _) = (deps f) ++ (deps i)
-  deps (InstanceSigma  f i _) = (deps f) ++ (deps i)
-  deps (InstancePi     f i) = (deps f) ++ (deps i)
-  deps (InstanceEval   q i) = (deps q) ++ (deps i)
-  deps (InstanceCoEval q i) = (deps q) ++ (deps i)
+  deps (InstanceVar v)                       = [(v, INSTANCE)]
+  deps (InstanceInitial  t)                  = deps t
+  deps (InstanceDelta  f i _)                = (deps f) ++ (deps i)
+  deps (InstanceSigma  f i _)                = (deps f) ++ (deps i)
+  deps (InstancePi     f i)                  = (deps f) ++ (deps i)
+  deps (InstanceEval   q i)                  = (deps q) ++ (deps i)
+  deps (InstanceCoEval q i)                  = (deps q) ++ (deps i)
   deps (InstanceRaw (InstExpRaw' s _ _ _ i)) = (deps s) ++ (concatMap deps i)
-  
+
 
 data InstanceExp where
   InstanceVar     :: String                                          -> InstanceExp
@@ -591,9 +585,11 @@ split'' ens2 tys2 ((w, ei):tl) =
           else Left $ "Not an entity or type: " ++ show ei
 
 evalInstanceRaw'
-  :: forall var ty sym en fk att
-  .  (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en)
-  => Schema var ty sym en fk att -> InstExpRaw' -> [Presentation var ty sym en fk att Gen Sk] -> Err (Presentation var ty sym en fk att Gen Sk)
+  :: forall var ty sym en fk att . (ShowOrd6 var ty sym en fk att, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+  => Schema var ty sym en fk att
+  -> InstExpRaw'
+  -> [Presentation var ty sym en fk att Gen Sk]
+  -> Err (Presentation var ty sym en fk att Gen Sk)
 evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
   (gens', sks') <- split'' (Set.toList $ Schema.ens sch) (Set.toList $ tys $ typeside sch) gens0
   gens''        <- toMapSafely gens'
@@ -637,9 +633,12 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
                                                                             Just x -> Right $ Sym x l'
                                                                             Nothing -> Left $ "Cannot type: " ++ v
 
-evalInstanceRaw :: forall var ty sym en fk att.
- (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk, Ord att, Show att, Show fk, Show en, Typeable var)
-  => Schema var ty sym en fk att -> InstExpRaw' -> [InstanceEx] -> Err InstanceEx
+evalInstanceRaw
+  :: (ShowOrdTypeable6 var ty sym en fk att)
+  => Schema var ty sym en fk att
+  -> InstExpRaw'
+  -> [InstanceEx]
+  -> Err InstanceEx
 evalInstanceRaw ty' t is =
  do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
     r <- evalInstanceRaw' ty' t i
@@ -663,10 +662,7 @@ evalInstanceRaw ty' t is =
 ----------------------------------------------------------------------------------
 
 subs
-  :: forall var ty sym en fk att en' fk' att' gen sk
-  .  ( Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq en'
-     , Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en'
-     , Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att', Show gen, Show sk)
+  :: (ShowOrd11 var ty sym en fk att en' fk' att' gen sk, Eq en')
   => Mapping var ty sym en fk att en' fk' att'
   -> Presentation var ty sym en  fk  att  gen sk
   -> Presentation var ty sym en' fk' att' gen sk
@@ -704,10 +700,7 @@ changeEn' fks' atts' t = case t of
   Att h _ -> absurd h
 
 evalSigmaInst
-  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Eq x, Eq y, Eq en',
-      Ord fk', Ord att', Show var, Show att', Show fk', Show sym, Ord en',
-      Show en, Show en', Show ty, Show sym, Show var, Show fk, Show fk', Show att, Show att',
-      Show gen, Show sk )
+  :: (ShowOrd11 var ty sym en fk att en' fk' att' gen sk, Eq x, Eq y, Eq en')
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
@@ -753,9 +746,7 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att'
-   . ( Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show en', Show fk', Show att'
-     , Ord var, Ord  ty, Ord  sym, Ord  en, Ord  fk, Ord  att, Ord  gen, Ord  sk, Ord  x, Ord  y, Ord  en', Ord  fk', Ord  att')
+  :: forall var ty sym en fk att gen sk x y en' fk' att' . (ShowOrd13 var ty sym en fk att gen sk x y en' fk' att')
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
