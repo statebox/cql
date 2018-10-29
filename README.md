@@ -2,7 +2,13 @@
 
 # AQL
 
-Algebraic Query Language implementation in Haskell
+Algebraic Query Language implementation in Haskell.
+
+## Documentation
+
+Paper describing how AQL is implemented: https://arxiv.org/abs/1503.03571
+AQL user manual: https://categoricaldata.net/aqlmanual.pdf
+Java version: https://github.com/CategoricalData/fql
 
 ## Building
 
