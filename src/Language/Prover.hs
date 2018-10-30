@@ -40,9 +40,10 @@ freeProver col = if (Set.size (ceqs col) == 0)
                  else Left "Cannot use free prover when there are equations"
  where p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
-createProver ::  (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord en, Show en, Show ty,
-  Show var, Show sym, Show fk, Show att, Show gen, Show sk)
- => Collage var ty sym en fk att gen sk -> Options
+createProver
+  :: (ShowOrd8 var ty sym en fk att gen sk)
+  => Collage var ty sym en fk att gen sk
+  -> Options
   -> Err (Prover var ty sym en fk att gen sk)
 createProver col ops =  do p <- proverStringToName ops
                            case p of
@@ -59,19 +60,20 @@ createProver col ops =  do p <- proverStringToName ops
 
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
-orthProver :: (Ord var, Ord sym, Ord fk, Ord att, Ord gen, Ord sk, Ord ty, Ord en, Show en, Show ty
-  ,Show var,Show sym,Show fk, Show att, Show en, Show gen, Show sk) =>
-                    Collage var ty sym en fk att gen sk -> Options
-                    -> Err (Prover var ty sym en fk att gen sk)
-orthProver col ops = if isDecreasing eqs1 || allow_nonTerm 
+orthProver
+  :: (ShowOrd8 var ty sym en fk att gen sk)
+  => Collage var ty sym en fk att gen sk
+  -> Options
+  -> Err (Prover var ty sym en fk att gen sk)
+orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
                      then if nonConOk || noOverlaps  eqs2
                           then if allSortsInhabited col  || allow_empty
-                            then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r) 
+                            then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r)
                                  in pure $ Prover col p'
                             else Left "Rewriting Error: contains uninhabited sorts"
                           else Left $ "Rewriting Error: not orthogonal.  Pairs are " ++ show (xxx eqs2)
                      else Left "Rewriting Error: not size decreasing"
- where (col', f) = simplifyCol col 
+ where (col', f) = simplifyCol col
        p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col'
        eqs2 = Prelude.map convert' eqs1

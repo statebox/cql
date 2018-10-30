@@ -33,21 +33,17 @@ getFks = fks
 getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sym  en' fk' att' Void Void)
 getAtts = atts
 
-mapToMor :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att,
-                   Ord en', Ord fk', Ord att', Show var, Show ty, Show sym, Show en,
-                   Show fk, Show att, Show en', Show fk', Show att') =>
-                  Mapping var ty sym en fk att en' fk' att'
-                  -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
+mapToMor
+  :: ShowOrd9 var ty sym en fk att en' fk' att'
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 data MappingEx :: * where
-  MappingEx :: forall var ty sym en fk att en' fk' att'.
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att',
-    Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable en', Typeable fk', Typeable att',
-    Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord en', Ord fk', Ord att'
-
-    ) =>
-    Mapping var ty sym en fk att en' fk' att' -> MappingEx
+  MappingEx
+    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeable9 var ty sym en fk att en' fk' att')
+    => Mapping var ty sym en fk att en' fk' att'
+    -> MappingEx
 
 deriving instance Show MappingEx
 
@@ -72,16 +68,17 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   (Mapping s1' s2' ens' fks' atts') == (Mapping s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
 
-typecheckMapping ::   (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
-    Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
- Mapping var ty sym en fk att en' fk' att' -> Err ()
+typecheckMapping
+  :: (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
-                      
 
-validateMapping :: forall var ty sym en fk att en' fk' att' .
-  (Show att, Show att', Ord var, Show var, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
-    Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk, Ord ty, Show ty, Show sym, Ord sym) =>
- Mapping var ty sym en fk att en' fk' att' -> Err ()
+
+validateMapping
+  :: forall var ty sym en fk att en' fk' att' . (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do _ <- mapM g (Set.toList $ path_eqs src')
                                                       _ <- mapM f (Set.toList $ obs_eqs src')
                                                       pure ()
@@ -173,11 +170,12 @@ mergeMaps :: Ord k => [Map k v] -> Map k v
 mergeMaps [] = Map.empty
 mergeMaps (x:y) = Map.union x $ mergeMaps y
 
-evalMappingRaw' :: forall var ty sym en fk att en' fk' att' .
-  (Ord var, Ord ty, Ord sym, Show att, Show att', Show sym, Show var, Show ty, Typeable en, Typeable en', Ord en, Show en, Show en', Typeable sym, Typeable att, Typeable fk, Show fk,
-    Typeable fk', Ord att, Typeable att', Ord en, Ord att', Ord en', Ord fk', Show fk', Ord fk) =>
-  Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> [Mapping var ty sym en fk att en' fk' att'] -> 
-   Err (Mapping var ty sym en fk att en' fk' att')
+evalMappingRaw'
+  :: forall var ty sym en fk att en' fk' att' . (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
+  -> MappingExpRaw'
+  -> [Mapping var ty sym en fk att en' fk' att']
+  -> Err (Mapping var ty sym en fk att en' fk' att')
 evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   do ens1 <- conv'' ens0
      ens2 <- toMapSafely ens1
@@ -193,17 +191,17 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   transE ens2 en = case (Map.lookup en ens2) of
                     Just x -> return x
                     Nothing -> Left $ "No entity mapping for " ++ (show en)
-       
+
   f _ [] = pure $ Map.empty
-  f x ((att, Right l):ts) = do 
+  f x ((att, Right l):ts) = do
     att' <- note ("Not a src attribute " ++ att) (cast att)
     att2 <- note ("Not a dst attribute " ++ att) (cast $ head $ reverse l)
     t'x  <- h ens' $ tail $ reverse l
     let t'  = Att att2 $ up13 t'x
     rest <- f x ts
     pure $ Map.insert att' t' rest
-        
-  f x ((att, Left (v, t2, t)):ts) = do 
+
+  f x ((att, Left (v, t2, t)):ts) = do
     att' <- note ("Not an attribute " ++ att) (cast att)
     t'   <- return $ g v (keys' fks') (keys' atts') t
     rest <- f x ts
@@ -212,11 +210,11 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
     s' <- transE x s
     case t2 of
       Nothing -> ret
-      Just t3 -> case cast t3 of 
+      Just t3 -> case cast t3 of
         Nothing -> Left $ "Not an entity: " ++ t3
         Just t4 -> if t4 == s'
                    then ret
-                   else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3 
+                   else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
@@ -236,7 +234,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   h _ [] = return $ Var ()
  -- k :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
   k  [] = pure $ Map.empty
-  k  ((fk,p):eqs') = do 
+  k  ((fk,p):eqs') = do
     p' <- h ens' $ reverse p
 --    _ <- findEn ens' fks' p
     rest <- k  eqs'
@@ -247,18 +245,20 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   --findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
   --findEn _ _ x = Left $ "Path cannot be typed: " ++ (show x)
 
-evalMappingRaw :: (Show att', Show en, Ord sym, Show sym, Ord var, Ord ty, Ord en', Show var, Show ty, Show fk',
-   Typeable en', Typeable ty, Ord en, Typeable fk, Typeable att, Ord fk, Typeable en, Show fk,
-   Ord att, Show att, Show fk, Show en', Typeable sym, Ord fk, Show var, Typeable fk', Typeable att', Ord att',
-   Ord fk' , Typeable var)
-  => Schema var ty sym en fk att -> Schema var ty sym en' fk' att' -> MappingExpRaw' -> [MappingEx] -> Err MappingEx
+evalMappingRaw
+  :: (ShowOrdTypeable9 var ty sym en fk att en' fk' att')
+  => Schema var ty sym en  fk  att
+  -> Schema var ty sym en' fk' att'
+  -> MappingExpRaw'
+  -> [MappingEx]
+  -> Err MappingEx
 evalMappingRaw src' dst' t is =
  do (a :: [Mapping var ty sym en fk att en' fk' att']) <- g is
     r <- evalMappingRaw' src' dst' t a
     --l <- toOptions $ mapraw_options t
     pure $ MappingEx r
  where
-   g :: forall var ty sym en fk att en' fk' att'. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att') 
+   g :: forall var ty sym en fk att en' fk' att'. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att')
     => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
    g [] = return []
    g ((MappingEx ts):r) = case cast ts of

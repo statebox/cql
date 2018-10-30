@@ -70,6 +70,14 @@ type ShowOrd12 a b c d e f g h i j k l = (ShowOrd11 a b c d e f g h i j k, ShowO
 
 type ShowOrd13 a b c d e f g h i j k l m = (ShowOrd12 a b c d e f g h i j k l, ShowOrd m)
 
+type ShowOrd14 a b c d e f g h i j k l m n = (ShowOrd13 a b c d e f g h i j k l m, ShowOrd n)
+
+type ShowOrd15 a b c d e f g h i j k l m n o = (ShowOrd14 a b c d e f g h i j k l m n, ShowOrd o)
+
+type ShowOrd16 a b c d e f g h i j k l m n o p = (ShowOrd15 a b c d e f g h i j k l m n o, ShowOrd p)
+
+type ShowOrd17 a b c d e f g h i j k l m n o p q = (ShowOrd16 a b c d e f g h i j k l m n o p, ShowOrd q)
+
 type ShowOrdTypeable a = (Show a, Ord a, Typeable a)
 
 type ShowOrdTypeable2 a b = (ShowOrdTypeable a, ShowOrdTypeable b)
@@ -81,3 +89,19 @@ type ShowOrdTypeable4 a b c d = (ShowOrdTypeable3 a b c, ShowOrdTypeable d)
 type ShowOrdTypeable5 a b c d e = (ShowOrdTypeable4 a b c d, ShowOrdTypeable e)
 
 type ShowOrdTypeable6 a b c d e f = (ShowOrdTypeable5 a b c d e, ShowOrdTypeable f)
+
+type ShowOrdTypeable7 a b c d e f g = (ShowOrdTypeable6 a b c d e f, ShowOrdTypeable g)
+
+type ShowOrdTypeable8 a b c d e f g h = (ShowOrdTypeable7 a b c d e f g, ShowOrdTypeable h)
+
+type ShowOrdTypeable9 a b c d e f g h i = (ShowOrdTypeable8 a b c d e f g h, ShowOrdTypeable i)
+
+type ShowOrdTypeable10 a b c d e f g h i j = (ShowOrdTypeable9 a b c d e f g h i, ShowOrdTypeable j)
+
+type ShowOrdTypeable11 a b c d e f g h i j k = (ShowOrdTypeable10 a b c d e f g h i j, ShowOrdTypeable k)
+
+type ShowOrdTypeable12 a b c d e f g h i j k l = (ShowOrdTypeable11 a b c d e f g h i j k, ShowOrdTypeable l)
+
+type ShowOrdTypeable13 a b c d e f g h i j k l m = (ShowOrdTypeable12 a b c d e f g h i j k l, ShowOrdTypeable m)
+
+type ShowOrdTypeable14 a b c d e f g h i j k l m n = (ShowOrdTypeable13 a b c d e f g h i j k l m, ShowOrdTypeable n)

@@ -62,35 +62,32 @@ replaceRepeatedly [] t = t
 replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 
 
-simplifyCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
- Collage var ty sym en fk att gen sk
-  -> (Collage var ty sym en fk att gen sk,
-    [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplifyCol
+  :: (ShowOrd8 var ty sym en fk att gen sk)
+  => Collage var ty sym en fk att gen sk
+  -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplifyCol (Collage ceqs' ctys' cens' csyms' cfks' catts' cgens' csks')
   = (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
  where (ceqs'', f) = simplify'' ceqs' []
        cgens'' = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HGen x) $ fst $ unzip f) $ Map.toList cgens'
-       csks''  = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HSk x) $ fst $ unzip f) $ Map.toList csks'
+       csks''  = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HSk  x) $ fst $ unzip f) $ Map.toList csks'
 
 
 
-simplify'' :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
- Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk) ->
- [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
- -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk),
-    [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplify''
+  :: (ShowOrd8 var ty sym en fk att gen sk)
+  => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
+  -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
+  -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplify'' eqs subst' = case simplify eqs of
   Nothing -> (eqs, subst')
   Just (eqs1, subst1) -> simplify'' eqs1 $ subst' ++ [subst1]
 
 
-simplify :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en,
-  Show en, Ord fk, Show fk, Ord att, Show att, Ord gen, Show gen, Ord sk, Show sk) =>
- Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk) ->
- Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk),
-    (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
+simplify
+  :: (ShowOrd8 var ty sym en fk att gen sk)
+  => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+  -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplify eqs = case find eqs of
  Nothing -> Nothing
  Just (toRemove, replacer) -> let eqs2 = Set.map (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
@@ -292,11 +289,10 @@ subst (Gen g   ) _ = Gen g
 subst (Sk  g   ) _ = Sk  g
 
 
-checkDoms' :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .
-   (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym,
-    Ord gen', Show gen', Ord sk', Show sk', Ord fk', Show fk', Ord en', Show en', Show att', Ord att')
-   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
-   -> Err ()
+checkDoms'
+  :: (ShowOrd13 var ty sym en fk att gen sk en' fk' att' gen' sk')
+  => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
+  -> Err ()
 checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor
                     _ <- mapM f $ Map.keys $ cfks $ m_src mor
                     _ <- mapM a $ Map.keys $ catts $ m_src mor
@@ -310,11 +306,9 @@ checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor
         s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No sk mapping for " ++ show sk
 
 typeOfMor
-  :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' .
-   (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym,
-    Ord gen', Show gen', Ord sk', Show sk', Ord fk', Show fk', Ord en', Show en', Show att', Ord att')
-   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
-   -> Err ()
+  :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' . (ShowOrd13 var ty sym en fk att gen sk en' fk' att' gen' sk')
+  => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
+  -> Err ()
 typeOfMor mor  = do checkDoms' mor
                     _ <- mapM typeOfMorEns $ Map.toList $ m_ens mor
                     _ <- mapM typeOfMorFks $ Map.toList $ m_fks mor
@@ -371,14 +365,14 @@ closeGround col (me, mt) = (me', mt'')
        mt' = Prelude.foldr (\(_, (en, ty)) m -> if lookup2 en me' then Map.insert ty True m else m)                   mt  $ Map.toList $ catts col
        me' = Prelude.foldr (\(_, (en, _))  m -> if lookup2 en me  then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
 
-iterGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
+iterGround :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
-computeGround :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
+computeGround :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 computeGround col = iterGround col $ initGround col
 
-allSortsInhabited :: (Ord ty, Ord en, Show en, Show ty) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> Bool
 allSortsInhabited col = t && f
  where (me, mt) = computeGround col
        t = and $ Map.elems me
@@ -387,7 +381,7 @@ allSortsInhabited col = t && f
 
 -- I've given up on non string based error handling for now
 typeOf'
-  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty + en)
   -> Term    var ty sym en fk att gen sk
@@ -421,7 +415,7 @@ typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
                      show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
 
 typeOfEq'
-  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Collage var ty sym en fk att gen sk
   -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> Err (ty + en)
@@ -432,7 +426,7 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
   then Right $ lhs'
   else Left  $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
 
-checkDoms :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+checkDoms :: (ShowOrd8 var ty sym en fk att gen sk)
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
@@ -457,7 +451,7 @@ checkDoms col = do
 
 
 typeOfCol
-  :: (Ord var, Show var, Ord gen, Show gen, Ord sk, Show sk, Ord fk, Show fk, Ord en, Show en, Show ty, Ord ty, Show att, Ord att, Show sym, Ord sym)
+  :: (ShowOrd8 var ty sym en fk att gen sk)
   => Collage var ty sym en fk att gen sk
   -> Err ()
 typeOfCol col = do
