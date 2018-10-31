@@ -14,14 +14,14 @@ data Options = Options {
 }
 
 instance Show Options where
- show y = intercalate "\n" (map (\x -> show x ++ " = " ++ show (iOps y x)) opsI) ++ "\n" ++
-          intercalate "\n" (map (\x -> show x ++ " = " ++ show (bOps y x)) opsB) ++ "\n" ++
-          intercalate "\n" (map (\x -> show x ++ " = " ++      (sOps y x)) opsS)
+  show y = intercalate "\n" (map (\x -> show x ++ " = " ++ show (iOps y x)) opsI) ++ "\n" ++
+           intercalate "\n" (map (\x -> show x ++ " = " ++ show (bOps y x)) opsB) ++ "\n" ++
+           intercalate "\n" (map (\x -> show x ++ " = " ++      (sOps y x)) opsS)
 
 toOptions :: Options -> [(String, String)] -> Err Options
 toOptions o [] = return o
-toOptions def ((k,v):l)   = do 
-  Options s t u <- toOptions def l 
+toOptions def ((k,v):l)   = do
+  Options s t u <- toOptions def l
   case a of
     Left _ -> case b of
       Left _ -> do
@@ -29,11 +29,11 @@ toOptions def ((k,v):l)   = do
         return $ Options s t (f o i u)
       Right (o,i) -> return $ Options s (f o i t) u
     Right (o, i)  -> return $ Options (f o i s) t u
-  where 
+  where
     a = toIntegerOption (k, v)
     b = toBoolOption (k, v)
     c = toStringOption (k, v)
-    f j u m x = if j == x then u else m x  
+    f j u m x = if j == x then u else m x
 
 
 toIntegerOption :: (String, String) -> Err (IntOption, Integer)
@@ -68,17 +68,17 @@ toBoolOption (k,v) = case matches of
         parseBool x       = Left $ "Not a bool: " ++ x
 
 boolDef :: BoolOption -> Bool
-boolDef o = case o of 
+boolDef o = case o of
   Program_Allow_Nontermination_Unsafe -> False
   Allow_Empty_Sorts_Unsafe -> False
   Program_Allow_Nonconfluence_Unsafe -> False
 
 intDef :: IntOption -> Integer
-intDef o = case o of 
+intDef o = case o of
   Timeout -> 30
 
 stringDef :: StringOption -> String
-stringDef o = case o of 
+stringDef o = case o of
   Prover -> "auto"
 
 defaultOptions :: Options
@@ -147,7 +147,7 @@ data IntOption =
   deriving (Eq, Ord, Show, Enum)
 
 type CharOption = Void
- --data CharOption = 
+ --data CharOption =
  --   Csv_Escape_Char
  --  Csv_Quote_Char
  --  deriving (Eq, Ord, Show, Enum)

@@ -15,35 +15,35 @@ import           Data.Maybe
 
 
 parseAqlProgram' :: Parser (String, Exp)
-parseAqlProgram' = do 
+parseAqlProgram' = do
   _ <- constant "typeside"
   x <- identifier
   _ <- constant "="
   y <- typesideExpParser
   return $ (x, ExpTy y)
   <|>
-  do 
+  do
     _ <- constant "schema"
     x <- identifier
     _ <- constant "="
     y <- schemaExpParser
     return $ (x, ExpS y)
   <|>
-  do 
+  do
     _ <- constant "instance"
     x <- identifier
     _ <- constant "="
     y <- instExpParser
     return $ (x, ExpI y)
   <|>
-  do 
+  do
     _ <- constant "mapping"
     x <- identifier
     _ <- constant "="
     y <- mapExpParser
     return $ (x, ExpM y)
   <|>
-  do 
+  do
     _ <- constant "transform"
     x <- identifier
     _ <- constant "="
@@ -52,14 +52,14 @@ parseAqlProgram' = do
 
 parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
 parseAqlProgram'' = between spaceConsumer eof g
- where 
-   f = do 
-     _ <- constant "options"
-     many optionParser
-   g = do 
-     x <- optional f
-     y <- many parseAqlProgram' 
-     return (fromMaybe [] x, y)      
+  where
+    f = do
+      _ <- constant "options"
+      many optionParser
+    g = do
+      x <- optional f
+      y <- many parseAqlProgram'
+      return (fromMaybe [] x, y)
 
 
 toProg' :: [(String,String)] -> [(String, Exp)] -> Prog
