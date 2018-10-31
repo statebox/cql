@@ -645,11 +645,12 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
 
 evalInstanceRaw
   :: (ShowOrdTypeable6 var ty sym en fk att)
-  => Schema var ty sym en fk att
+  => Options
+  -> Schema var ty sym en fk att
   -> InstExpRaw'
   -> [InstanceEx]
   -> Err InstanceEx
-evalInstanceRaw ty' t is =
+evalInstanceRaw ops ty' t is =
  do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
     r <- evalInstanceRaw' ty' t i
     _ <- typecheckPresentation ty' r
