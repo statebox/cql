@@ -3,6 +3,9 @@ module Language.Parser.Parser where
 import           Language.Parser.LexerRules
 import           Language.Parser.ReservedWords
 
+-- base
+import           Data.Char
+
 -- megaparsec
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
@@ -34,10 +37,11 @@ optionParser =
      return (i,j)
 
 identifier :: Parser String
-identifier = (lexeme . try) (p' >>= check)
+identifier = (lexeme . try) (p >>= check)
   where
-    p = lowerId <|> upperId <|> specialId
-    p' = p <|> between (char '"') (char '"') (unwords <$> some (lexeme p))
+    unquotedIdentifier = lowerId <|> upperId <|> specialId
+    quotedIdentifier   = between (char '"') (char '"') $ some $ satisfy (\c -> isPrint c && (c /= '"'))
+    p = unquotedIdentifier <|> quotedIdentifier
     check x =
       if x `elem` reservedWords
         then fail $ "keyword" ++ show x ++ "cannot be used as an identifier"

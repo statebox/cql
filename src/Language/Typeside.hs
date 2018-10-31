@@ -20,14 +20,14 @@ type Ty = String
 type Sym = String
 type Var = String
 
-fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
+fromList'' :: (ShowOrd k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l
                       if Set.member k l'
                       then Left $ "Duplicate binding: " ++ (show k)
                       else pure $ Set.insert k l'
 fromList'' [] = return Set.empty
 
-fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
+fromList' :: (ShowOrd k) => [(k,v)] -> Err (Map k v)
 fromList' ((k,v):l) = do l' <- fromList' l
                          if Map.member k l'
                          then Left $ "Duplicate binding: " ++ (show k)
@@ -47,8 +47,10 @@ initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd
 
 data TypesideEx :: * where
- TypesideEx :: forall var ty sym. (Show var, Show ty, Show sym, Ord var, Ord ty, Ord sym, Typeable ty, Typeable sym, Typeable var) =>
-  Typeside var ty sym -> TypesideEx
+  TypesideEx
+    :: forall var ty sym. (ShowOrdTypeable3 var ty sym) =>
+    Typeside var ty sym
+    -> TypesideEx
 
 deriving instance Show (TypesideEx)
 
@@ -69,8 +71,10 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
 showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
-typecheckTypeside :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym)
- => Typeside var ty sym -> Err ()
+typecheckTypeside
+  :: (ShowOrd3 var ty sym)
+  => Typeside var ty sym
+  -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
 data TypesideRaw' = TypesideRaw' {
@@ -82,7 +86,7 @@ data TypesideRaw' = TypesideRaw' {
 } deriving (Eq, Show)
 
 
-tsToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol :: (ShowOrd3 var ty sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
@@ -133,7 +137,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
                                        (t : [], []) -> return t
                                        ([], []) -> Left $ "Ambiguous variable: " ++ show v
        typesOf _ _ (RawApp _ []) = []
-       typesOf v syms' (RawApp f' as) = 
+       typesOf v syms' (RawApp f' as) =
         let fn (a',t) = case a' of
                           RawApp v' [] -> if v == v' then [t] else []
                           RawApp _ _ -> typesOf v syms' a'
@@ -149,7 +153,7 @@ data TypesideExp where
 
 instance Deps TypesideExp where
   deps (TypesideVar v) = [(v, TYPESIDE)]
-  deps TypesideInitial = [] 
+  deps TypesideInitial = []
   deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]

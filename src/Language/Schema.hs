@@ -32,17 +32,21 @@ getOptionsSchema (SchemaRaw (SchemaExpRaw' _ _ _ _ _ _ o _)) = o
 
 instance Deps SchemaExp where
   deps (SchemaVar v) = [(v, SCHEMA)]
-  deps (SchemaInitial t) = deps t 
-  deps (SchemaCoProd a b) = (deps a) ++ (deps b) 
+  deps (SchemaInitial t) = deps t
+  deps (SchemaCoProd a b) = (deps a) ++ (deps b)
   deps (SchemaRaw (SchemaExpRaw' t _ _ _ _ _ _ i)) = (deps t) ++ (concatMap deps i)
 
-typecheckSchema :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord fk, Ord att, Show fk, Show att, Show en, Ord en)
- => Schema var ty sym en fk att -> Err ()
+typecheckSchema
+  :: (ShowOrd6 var ty sym en fk att)
+  => Schema var ty sym en fk att
+  -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
 
 
-schToCol :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Ord en, Show en, Ord fk, Show fk, Ord att, Show att)
-  => Schema var ty sym en fk att -> Collage (()+var) ty sym en fk att Void Void
+schToCol
+  :: (ShowOrd6 var ty sym en fk att)
+  => Schema var ty sym en fk att
+  -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
  Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
   ens' (csyms tscol) fks' atts' Map.empty Map.empty
@@ -135,8 +139,11 @@ hasTypeType'' t = case t of
   Fk  _ _ -> False
 
 
-evalSchemaRaw' :: (Ord var, Ord ty, Ord sym, Show var, Show ty, Show sym, Typeable sym, Typeable ty)
- => Typeside var ty sym -> SchemaExpRaw' -> [Schema var ty sym En Fk Att] -> Err (Schema var ty sym En Fk Att)
+evalSchemaRaw'
+  :: (ShowOrd var, ShowOrdTypeable2 ty sym)
+  => Typeside var ty sym -> SchemaExpRaw'
+  -> [Schema var ty sym En Fk Att]
+  -> Err (Schema var ty sym En Fk Att)
 evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is =
   do ens'' <- return $ Set.fromList $ ie ++ ens'x
      fks'' <- toMapSafely $ fks'x ++ (concatMap (Map.toList . fks) is)
@@ -194,7 +201,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   h _ [] = Var ()
   --k :: [([String], [String])] -> Err (Set (En, EQ () Void Void en fk Void Void Void))
   k _ _ [] = pure $ Set.empty
-  k ens' fks' ((l,r):eqs') = do 
+  k ens' fks' ((l,r):eqs') = do
     lhs' <- return $ h ens' $ reverse l
     rhs' <- return $ h ens' $ reverse r
     en   <- findEn ens' fks' l
@@ -212,9 +219,13 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
 
 
 
-evalSchemaRaw :: forall var ty sym . (Ord var, Ord ty, Ord sym, Typeable sym, Typeable ty, Show var, Show ty, Show sym, Typeable var)
- => Options -> Typeside var ty sym -> SchemaExpRaw' -> [SchemaEx] -> Err SchemaEx
-evalSchemaRaw ops ty t a' = do 
+evalSchemaRaw
+  :: (ShowOrdTypeable3 var ty sym)
+  => Typeside var ty sym
+  -> SchemaExpRaw'
+  -> [SchemaEx]
+  -> Err SchemaEx
+evalSchemaRaw ty t a' = do
   (a :: [Schema var ty sym En Fk Att]) <- g a'
   r <- evalSchemaRaw' ty t a
   l <- toOptions ops $ schraw_options t
@@ -242,11 +253,10 @@ up8 (Gen g) = absurd g
 up8 (Sk s) = absurd s
 
 data SchemaEx :: * where
-  SchemaEx :: forall var ty sym en fk att.
-    (Show var, Show ty, Show sym, Show en, Show fk, Show att,
-      Typeable sym, Typeable ty,Typeable var, Typeable fk, Typeable att, Typeable en,
-      Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att) =>
-    Schema var ty sym en fk att -> SchemaEx
+  SchemaEx
+    :: forall var ty sym en fk att . (ShowOrdTypeable6 var ty sym en fk att)
+    => Schema var ty sym en fk att
+    -> SchemaEx
 
 deriving instance Show (SchemaEx)
 
