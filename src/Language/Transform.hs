@@ -189,6 +189,15 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
   (==) (Transform s1 s2 gens' sks') (Transform s1' s2' gens'' sks'')
     = (s1 == s1') && (s2 == s2') && (gens' == gens'') && (sks' == sks'')
 
+getOptionsTransform :: TransformExp -> [(String, String)]
+getOptionsTransform (TransformVar _) = [] 
+getOptionsTransform (TransformId _) = []                                                 
+getOptionsTransform (TransformSigmaDeltaUnit _ _ o) = o
+getOptionsTransform (TransformSigmaDeltaCoUnit _ _ o) = o
+getOptionsTransform (TransformDelta _ _ o) = o          
+getOptionsTransform (TransformSigma _ _ o) = o          
+getOptionsTransform (TransformRaw (TransExpRaw' _ _ _ o _)) = o
+getOptionsTransform _ = error "other transforms" 
 
 instance Deps TransformExp where
   deps (TransformVar v) = [(v,TRANSFORM)]

@@ -5,7 +5,6 @@ module Language.Prover where
 import Language.Common
 import Language.Term as S
 import Data.Set as Set
-import Data.Map.Strict as Map
 import Prelude hiding (EQ)
 import Data.Rewriting.Term as T
 import Data.Rewriting.CriticalPair as CP
@@ -24,13 +23,12 @@ data Prover var ty sym en fk att gen sk = Prover {
 }
 
 proverStringToName :: Options -> Err ProverName
-proverStringToName m = case Map.lookup prover_name (sOps m) of
- (Just "auto") -> pure Auto
- (Just "kb") -> pure KB
- (Just "program") -> pure Orthogonal
- (Just "congruence") -> pure Congruence
- (Just x) -> Left $ "Not a prover: " ++ x
- Nothing -> pure Auto
+proverStringToName m = case sOps m prover_name of
+  "auto" -> pure Auto
+  "kb" -> pure KB
+  "program" -> pure Orthogonal
+  "congruence" -> pure Congruence
+  x -> Left $ "Not a prover: " ++ x
 
 freeProver :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) =>
                     Collage var ty sym en fk att gen sk
@@ -80,9 +78,9 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
        nf x = case outerRewrite eqs2 x of
               [] -> x
               y:_ -> nf $ result y
-       allow_nonTerm = lookup2 Program_Allow_Nontermination_Unsafe (bOps ops)
-       allow_empty = lookup2 Allow_Empty_Sorts_Unsafe (bOps ops)
-       nonConOk = lookup2 Program_Allow_Nonconfluence_Unsafe (bOps ops)
+       allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
+       allow_empty =  bOps ops Allow_Empty_Sorts_Unsafe
+       nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe 
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')

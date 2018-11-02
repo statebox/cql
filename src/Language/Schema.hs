@@ -24,6 +24,12 @@ data SchemaExp where
  deriving (Eq,Show)
 
 
+getOptionsSchema :: SchemaExp -> [(String, String)]
+getOptionsSchema (SchemaVar _) = []
+getOptionsSchema (SchemaInitial _) = []
+getOptionsSchema (SchemaCoProd _ _) = []
+getOptionsSchema (SchemaRaw (SchemaExpRaw' _ _ _ _ _ _ o _)) = o
+
 instance Deps SchemaExp where
   deps (SchemaVar v) = [(v, SCHEMA)]
   deps (SchemaInitial t) = deps t
@@ -215,14 +221,15 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
 
 evalSchemaRaw
   :: (ShowOrdTypeable3 var ty sym)
-  => Typeside var ty sym
+  => Options
+  -> Typeside var ty sym
   -> SchemaExpRaw'
   -> [SchemaEx]
   -> Err SchemaEx
-evalSchemaRaw ty t a' = do
+evalSchemaRaw ops ty t a' = do
   (a :: [Schema var ty sym En Fk Att]) <- g a'
   r <- evalSchemaRaw' ty t a
-  l <- toOptions $ schraw_options t
+  l <- toOptions ops $ schraw_options t
   p <- createProver (schToCol r) l
   pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
  where
