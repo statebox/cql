@@ -1,19 +1,35 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Schema where
-import Prelude hiding (EQ)
-import Data.Set as Set
-import Data.Map.Strict as Map
-import Language.Common
-import Language.Term
-import Data.Void
-import Language.Typeside
-import Language.Options
-import Language.Prover
-import Data.Typeable
-import Data.Maybe
-import Data.List (nub)
+import           Data.List         (nub)
+import           Data.Map.Strict   as Map
+import           Data.Maybe
+import           Data.Set          as Set
+import           Data.Typeable
+import           Data.Void
+import           Language.Common
+import           Language.Options
+import           Language.Prover
+import           Language.Term
+import           Language.Typeside
+import           Prelude           hiding (EQ)
 
 
 data SchemaExp where
@@ -25,9 +41,9 @@ data SchemaExp where
 
 
 getOptionsSchema :: SchemaExp -> [(String, String)]
-getOptionsSchema (SchemaVar _) = []
-getOptionsSchema (SchemaInitial _) = []
-getOptionsSchema (SchemaCoProd _ _) = []
+getOptionsSchema (SchemaVar _)                               = []
+getOptionsSchema (SchemaInitial _)                           = []
+getOptionsSchema (SchemaCoProd _ _)                          = []
 getOptionsSchema (SchemaRaw (SchemaExpRaw' _ _ _ _ _ _ o _)) = o
 
 instance Deps SchemaExp where
@@ -37,14 +53,14 @@ instance Deps SchemaExp where
   deps (SchemaRaw (SchemaExpRaw' t _ _ _ _ _ _ i)) = (deps t) ++ (concatMap deps i)
 
 typecheckSchema
-  :: (ShowOrd6 var ty sym en fk att)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
 
 
 schToCol
-  :: (ShowOrd6 var ty sym en fk att)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
@@ -58,29 +74,29 @@ schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
 
 
 up4' :: z -> Term () ty sym en fk att x y -> Term z ty sym en fk att x y
-up4' z (Var _) = Var $ z
+up4' z (Var _)    = Var $ z
 up4' z (Sym f as) = Sym f $ Prelude.map (up4' z) as
-up4' z (Fk f a) = Fk f $ up4' z a
-up4' z (Att f a) = Att f $ up4' z a
-up4' _ (Gen f) = Gen f
-up4' _ (Sk f) = Sk f
+up4' z (Fk f a)   = Fk f $ up4' z a
+up4' z (Att f a)  = Att f $ up4' z a
+up4' _ (Gen f)    = Gen f
+up4' _ (Sk f)     = Sk f
 
 up1 :: Term var ty sym Void Void Void Void Void -> Term (()+var) ty sym en fk att x y
-up1 (Var v) = Var $ Right v
+up1 (Var v)   = Var $ Right v
 up1 (Sym f x) = Sym f $ Prelude.map up1 x
-up1 (Fk f _) = absurd f
+up1 (Fk f _)  = absurd f
 up1 (Att f _) = absurd f
-up1 (Gen f) = absurd f
-up1 (Sk f) = absurd f
+up1 (Gen f)   = absurd f
+up1 (Sk f)    = absurd f
 
 
 up0 :: Term var ty sym Void Void Void Void Void -> Term var ty sym en fk att x y
-up0 (Var v) = Var v
+up0 (Var v)   = Var v
 up0 (Sym f x) = Sym f $ Prelude.map up0 x
-up0 (Fk f _) = absurd f
+up0 (Fk f _)  = absurd f
 up0 (Att f _) = absurd f
-up0 (Gen f) = absurd f
-up0 (Sk f) = absurd f
+up0 (Gen f)   = absurd f
+up0 (Sk f)    = absurd f
 
 up1Ctx :: (Ord var) => Ctx var (ty+Void) -> Ctx (()+var) (ty+x)
 up1Ctx g = Map.map (\x -> case x of
@@ -90,12 +106,12 @@ up1Ctx g = Map.map (\x -> case x of
 
 
 data SchemaExpRaw' = SchemaExpRaw' {
-    schraw_ts :: TypesideExp
-  , schraw_ens  :: [String]
-  , schraw_fks :: [(String, (String, String))]
-  , schraw_atts:: [(String, (String, String))]
-  , schraw_peqs  :: [([String], [String])]
-  , schraw_oeqs  :: [(String, Maybe String, RawTerm, RawTerm)]
+    schraw_ts      :: TypesideExp
+  , schraw_ens     :: [String]
+  , schraw_fks     :: [(String, (String, String))]
+  , schraw_atts    :: [(String, (String, String))]
+  , schraw_peqs    :: [([String], [String])]
+  , schraw_oeqs    :: [(String, Maybe String, RawTerm, RawTerm)]
   , schraw_options :: [(String, String)]
   , schraw_imports :: [SchemaExp]
 } deriving (Eq, Show)
@@ -140,7 +156,7 @@ hasTypeType'' t = case t of
 
 
 evalSchemaRaw'
-  :: (ShowOrd var, ShowOrdTypeable2 ty sym)
+  :: (Show var, Ord var, ShowOrdTypeableN '[ty, sym])
   => Typeside var ty sym -> SchemaExpRaw'
   -> [Schema var ty sym En Fk Att]
   -> Err (Schema var ty sym En Fk Att)
@@ -198,7 +214,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   h :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
   h ens'' (s:ex) | elem s ens'' = h ens'' ex
   h ens'' (s:ex) | otherwise = Fk s $ h ens'' ex
-  h _ [] = Var ()
+  h _ []         = Var ()
   --k :: [([String], [String])] -> Err (Set (En, EQ () Void Void en fk Void Void Void))
   k _ _ [] = pure $ Set.empty
   k ens' fks' ((l,r):eqs') = do
@@ -220,7 +236,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
 
 
 evalSchemaRaw
-  :: (ShowOrdTypeable3 var ty sym)
+  :: (ShowOrdTypeableN '[var, ty, sym])
   => Options
   -> Typeside var ty sym
   -> SchemaExpRaw'
@@ -246,16 +262,16 @@ evalSchemaRaw ops ty t a' = do
 
 
 up8 :: Term () ty sym En Fk Att Void Void -> Term (() + var) ty sym En Fk Att Void Void
-up8 (Var v) = Var $ Left v
+up8 (Var v)    = Var $ Left v
 up8 (Sym f as) = Sym f $ Prelude.map up8 as
-up8 (Fk f a) = Fk f $ up8 a
-up8 (Att f a) = Att f $ up8 a
-up8 (Gen g) = absurd g
-up8 (Sk s) = absurd s
+up8 (Fk f a)   = Fk f $ up8 a
+up8 (Att f a)  = Att f $ up8 a
+up8 (Gen g)    = absurd g
+up8 (Sk s)     = absurd s
 
 data SchemaEx :: * where
   SchemaEx
-    :: forall var ty sym en fk att . (ShowOrdTypeable6 var ty sym en fk att)
+    :: forall var ty sym en fk att . (ShowOrdTypeableN '[var, ty, sym, en, fk, att])
     => Schema var ty sym en fk att
     -> SchemaEx
 

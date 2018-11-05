@@ -1,33 +1,49 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Typeside where
-import Prelude hiding (EQ)
-import qualified Data.Set as Set
-import Data.Set (Set)
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict hiding (foldr)
-import Language.Common
-import Language.Term
-import Data.Void
-import Language.Prover
-import Language.Options
-import Data.Typeable
-import Data.List (nub)
+import           Data.List        (nub)
+import           Data.Map.Strict  hiding (foldr)
+import qualified Data.Map.Strict  as Map
+import           Data.Set         (Set)
+import qualified Data.Set         as Set
+import           Data.Typeable
+import           Data.Void
+import           Language.Common
+import           Language.Options
+import           Language.Prover
+import           Language.Term
+import           Prelude          hiding (EQ)
 
 
 type Ty = String
 type Sym = String
 type Var = String
 
-fromList'' :: (ShowOrd k) => [k] -> Err (Set k)
+fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' (k:l) = do l' <- fromList'' l
                       if Set.member k l'
                       then Left $ "Duplicate binding: " ++ (show k)
                       else pure $ Set.insert k l'
 fromList'' [] = return Set.empty
 
-fromList' :: (ShowOrd k) => [(k,v)] -> Err (Map k v)
+fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
 fromList' ((k,v):l) = do l' <- fromList' l
                          if Map.member k l'
                          then Left $ "Duplicate binding: " ++ (show k)
@@ -48,7 +64,7 @@ initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --t
 
 data TypesideEx :: * where
   TypesideEx
-    :: forall var ty sym. (ShowOrdTypeable3 var ty sym) =>
+    :: forall var ty sym. (ShowOrdTypeableN '[var, ty, sym]) =>
     Typeside var ty sym
     -> TypesideEx
 
@@ -72,21 +88,21 @@ showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
 typecheckTypeside
-  :: (ShowOrd3 var ty sym)
+  :: (ShowOrdN '[var, ty, sym])
   => Typeside var ty sym
   -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
 data TypesideRaw' = TypesideRaw' {
-    tsraw_tys  :: [String]
-  , tsraw_syms :: [(String, ([String], String))]
-  , tsraw_eqs  :: [([(String, Maybe String)], RawTerm, RawTerm)]
+    tsraw_tys     :: [String]
+  , tsraw_syms    :: [(String, ([String], String))]
+  , tsraw_eqs     :: [([(String, Maybe String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
   , tsraw_imports :: [TypesideExp]
 } deriving (Eq, Show)
 
 
-tsToCol :: (ShowOrd3 var ty sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
@@ -140,7 +156,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
        typesOf v syms' (RawApp f' as) =
         let fn (a',t) = case a' of
                           RawApp v' [] -> if v == v' then [t] else []
-                          RawApp _ _ -> typesOf v syms' a'
+                          RawApp _ _   -> typesOf v syms' a'
         in concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
 
 
@@ -152,8 +168,8 @@ data TypesideExp where
   TypesideRaw :: TypesideRaw' -> TypesideExp
 
 instance Deps TypesideExp where
-  deps (TypesideVar v) = [(v, TYPESIDE)]
-  deps TypesideInitial = []
+  deps (TypesideVar v)                        = [(v, TYPESIDE)]
+  deps TypesideInitial                        = []
   deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
