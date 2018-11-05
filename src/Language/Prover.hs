@@ -1,16 +1,31 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Prover where
-import Language.Common
-import Language.Term as S
-import Data.Set as Set
-import Prelude hiding (EQ)
-import Data.Rewriting.Term as T
-import Data.Rewriting.CriticalPair as CP
-import Data.Rewriting.Rule as R
-import Data.Rewriting.Rules as Rs
-import Language.Options as O hiding (Prover)
+
+import           Data.Rewriting.CriticalPair as CP
+import           Data.Rewriting.Rule         as R
+import           Data.Rewriting.Rules        as Rs
+import           Data.Rewriting.Term         as T
+import           Data.Set                    as Set
+import           Language.Common
+import           Language.Options            as O hiding (Prover)
+import           Language.Term               as S
+import           Prelude                     hiding (EQ)
 
 -- Theorem proving ------------------------------------------------
 
@@ -24,11 +39,11 @@ data Prover var ty sym en fk att gen sk = Prover {
 
 proverStringToName :: Options -> Err ProverName
 proverStringToName m = case sOps m prover_name of
-  "auto" -> pure Auto
-  "kb" -> pure KB
-  "program" -> pure Orthogonal
+  "auto"       -> pure Auto
+  "kb"         -> pure KB
+  "program"    -> pure Orthogonal
   "congruence" -> pure Congruence
-  x -> Left $ "Not a prover: " ++ x
+  x            -> Left $ "Not a prover: " ++ x
 
 freeProver :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) =>
                     Collage var ty sym en fk att gen sk
@@ -39,7 +54,7 @@ freeProver col = if (Set.size (ceqs col) == 0)
  where p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
 createProver
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -59,7 +74,7 @@ createProver col ops =  do p <- proverStringToName ops
 -- for weakly orthogonal theories: http://hackage.haskell.org/package/term-rewriting
 
 orthProver
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -76,11 +91,11 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
        eqs1 = Prelude.map snd $ Set.toList $ ceqs col'
        eqs2 = Prelude.map convert' eqs1
        nf x = case outerRewrite eqs2 x of
-              [] -> x
+              []  -> x
               y:_ -> nf $ result y
        allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
        allow_empty =  bOps ops Allow_Empty_Sorts_Unsafe
-       nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe 
+       nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
 convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
@@ -101,11 +116,11 @@ isDecreasing [] = True
 isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl
 
 convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
-convert (S.Var v) = T.Var v
-convert (S.Gen g) = T.Fun (HGen  g) []
-convert (S.Sk  g) = T.Fun (HSk g) []
-convert (S.Att g a) = T.Fun (HAtt g) [convert a]
-convert (S.Fk  g a) = T.Fun (HFk g) [convert a]
+convert (S.Var v)    = T.Var v
+convert (S.Gen g)    = T.Fun (HGen  g) []
+convert (S.Sk  g)    = T.Fun (HSk g) []
+convert (S.Att g a)  = T.Fun (HAtt g) [convert a]
+convert (S.Fk  g a)  = T.Fun (HFk g) [convert a]
 convert (S.Sym g as) = T.Fun (HSym g) $ Prelude.map convert as
 
 
