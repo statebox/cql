@@ -26,10 +26,19 @@ attParser = do x <- identifier
                            _ <- constant "."
                            e <- rawTermParser
                            return $ (x, Left (y, z, e))
-                   c2 = do y <- sepBy1 identifier $ constant "."  
+                   c2 = do y <- sepBy1 identifier $ constant "."
                            return $ (x, Right y)
-               z <- c1 <|> c2     
+               z <- c1 <|> c2
                return z
+
+mapCompParser :: Parser MappingExp
+mapCompParser = do
+  _ <- constant "["
+  f <- mapExpParser
+  _ <- constant ";"
+  g <- mapExpParser
+  _ <- constant "]"
+  return $ MappingComp f g
 
 mappingRawParser :: Parser MappingExpRaw'
 mappingRawParser = do
@@ -55,12 +64,12 @@ mappingRawParser = do
                  pure $ (x,fromMaybe [] f, fromMaybe [] a)
        q' s t = do i <- optional $ do
                       _ <- constant "imports"
-                      many mapExpParser  
+                      many mapExpParser
                    m <- many p
                    o <- optional $ do
                           _ <- constant "options"
                           many optionParser
-                   pure $ q s t (fromMaybe [] o) (fromMaybe [] i) m 
+                   pure $ q s t (fromMaybe [] o) (fromMaybe [] i) m
 
        q s t o i = Prelude.foldr (\(x,fm,am) (MappingExpRaw' s' t' ens' fks' atts' o' i') -> MappingExpRaw' s' t' (x:ens') (fm++fks') (am++atts') o' i') (MappingExpRaw' s t [] [] [] o i)
 
@@ -70,7 +79,9 @@ mappingRawParser = do
 
 mapExpParser :: Parser MappingExp
 mapExpParser =
-    MappingRaw <$> mappingRawParser
+      mapCompParser
+    <|>
+      MappingRaw <$> mappingRawParser
     <|>
       MappingVar <$> identifier
     <|>

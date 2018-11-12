@@ -261,6 +261,18 @@ up14 (Att f a) = Att f $ up14 a
 up14 (Sym f as) = Sym f $ Prelude.map up14 as
 
 
+trans' :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' .
+ (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var') =>
+ Morphism var ty sym en fk att gen sk en' fk' att' gen' sk' ->
+ Term var' Void Void en fk Void gen Void -> Term var' Void Void en' fk' Void gen' Void
+trans' _ (Var x) = Var x
+trans' mor (Fk f a) = let x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
+                          y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
+                     in subst (up13 y) x
+trans' _ (Sym _ _) = undefined
+trans' _ (Att _ _) = undefined
+trans' mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
+trans' _ (Sk _) = undefined
 
 trans :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' .
  (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var') =>

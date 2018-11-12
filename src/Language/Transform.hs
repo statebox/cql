@@ -157,6 +157,21 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   , sks  :: Map sk  (Term Void ty   sym  en fk att  gen' sk')
   }
 
+
+composeTransform ::
+  (ShowOrdTypeable14 var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'',
+   ShowOrdTypeable8 gen sk x y gen' sk' x' y') =>
+  Transform var ty sym en fk att gen sk x y gen' sk' x' y' ->
+  Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'' ->
+  Err (Transform var ty sym en fk att gen sk x y gen'' sk'' x'' y'')
+composeTransform (Transform s t f a) (m2@(Transform s' t' _ _)) =
+ if t == s'
+ then let f'' = Map.fromList $ [ (k, trans'  (transToMor m2) v) | (k, v) <- Map.toList f ]
+          a'' = Map.fromList $ [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
+      in pure $ Transform s t' f'' a''
+ else Left $ "Source and target instances do not match: " ++ show t ++ " and " ++ show s'
+
+
 tGens :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map gen (Term Void Void Void en fk Void gen' Void)
 tGens = gens
 
@@ -190,14 +205,16 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y
     = (s1 == s1') && (s2 == s2') && (gens' == gens'') && (sks' == sks'')
 
 getOptionsTransform :: TransformExp -> [(String, String)]
-getOptionsTransform (TransformVar _) = [] 
-getOptionsTransform (TransformId _) = []                                                 
+getOptionsTransform (TransformVar _) = []
+getOptionsTransform (TransformId _) = []
 getOptionsTransform (TransformSigmaDeltaUnit _ _ o) = o
 getOptionsTransform (TransformSigmaDeltaCoUnit _ _ o) = o
-getOptionsTransform (TransformDelta _ _ o) = o          
-getOptionsTransform (TransformSigma _ _ o) = o          
+getOptionsTransform (TransformDelta _ _ o) = o
+getOptionsTransform (TransformSigma _ _ o) = o
 getOptionsTransform (TransformRaw (TransExpRaw' _ _ _ o _)) = o
-getOptionsTransform _ = error "other transforms" 
+getOptionsTransform (TransformComp _ _) = []
+
+getOptionsTransform _ = error "other transforms"
 
 instance Deps TransformExp where
   deps (TransformVar v) = [(v,TRANSFORM)]
@@ -207,9 +224,11 @@ instance Deps TransformExp where
   deps (TransformDelta f i _) = (deps f) ++ (deps i)
   deps (TransformSigma f i _) = (deps f) ++ (deps i)
   deps (TransformRaw (TransExpRaw' s t _ _ i)) = (deps s) ++ (deps t) ++ (concatMap deps i)
+  deps (TransformComp f g) = deps f ++ deps g
   deps _ = error "other transforms"
 
 data TransformExp  where
+  TransformComp             :: TransformExp              -> TransformExp       -> TransformExp
   TransformVar              :: String                                          -> TransformExp
   TransformId               :: InstanceExp                                     -> TransformExp
   TransformSigmaDeltaUnit   :: MappingExp -> InstanceExp -> [(String,String)]  -> TransformExp

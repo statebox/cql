@@ -24,6 +24,19 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
+composeMapping :: (ShowOrdTypeable9 var ty sym en fk att en' fk' att',
+  ShowOrdTypeable6 en' fk' att' en'' fk'' att'') =>
+  Mapping var ty sym en fk att en' fk' att' ->
+  Mapping var ty sym en' fk' att' en'' fk'' att'' -> Err (Mapping var ty sym en fk att en'' fk'' att'')
+composeMapping (Mapping s t e f a) (m2@(Mapping s' t' e' _ _)) =
+ if t == s'
+ then let e'' = Map.fromList $ [ (k, fromJust $ Map.lookup v e') | (k, v) <- Map.toList e ]
+          f'' = Map.fromList $ [ (k, trans' (mapToMor m2) v) | (k, v) <- Map.toList f ]
+          a'' = Map.fromList $ [ (k, trans  (mapToMor m2) v) | (k, v) <- Map.toList a ]
+      in pure $ Mapping s t' e'' f'' a''
+ else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
+
+-- accessors due to name conflicts
 getEns :: Mapping var ty sym en fk att en' fk' att' -> Map en  en'
 getEns = ens
 
@@ -97,18 +110,6 @@ validateMapping (m@(Mapping src' dst' ens' _ _)) = do _ <- mapM g (Set.toList $ 
                              then pure ()
                              else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
-trans' :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' .
- (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var') =>
- Morphism var ty sym en fk att gen sk en' fk' att' gen' sk' ->
- Term var' Void Void en fk Void gen Void -> Term var' Void Void en' fk' Void gen' Void
-trans' _ (Var x) = Var x
-trans' mor (Fk f a) = let x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
-                          y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
-                     in subst (up13 y) x
-trans' _ (Sym _ _) = undefined
-trans' _ (Att _ _) = undefined
-trans' mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
-trans' _ (Sk _) = undefined
 
 
 trans'' :: forall var var' ty sym en fk att gen en' fk' att' x .
@@ -116,9 +117,10 @@ trans'' :: forall var var' ty sym en fk att gen en' fk' att' x .
  Morphism var ty sym en fk att Void Void en' fk' att' Void Void ->
  Term var' Void Void en fk Void (x,gen) Void -> Term var' Void Void en' fk' Void gen Void
 trans'' _ (Var x) = Var x
-trans'' mor (Fk f a) = let x = trans'' mor a :: Term var' Void Void en' fk' Void gen Void
-                           y = fromJust $ Map.lookup f $ m_fks mor  :: Term () Void Void en' fk' Void Void Void
-                     in subst (up13 y) x
+trans'' mor (Fk f a) =
+  let x = trans'' mor a :: Term var' Void Void en' fk' Void gen Void
+      y = fromJust $ Map.lookup f $ m_fks mor  :: Term () Void Void en' fk' Void Void Void
+  in subst (up13 y) x
 trans'' _ (Sym _ _) = undefined
 trans'' _ (Att _ _) = undefined
 trans'' _ (Gen (_,g)) = Gen g
@@ -128,16 +130,19 @@ data MappingExp where
   MappingVar     :: String -> MappingExp
   MappingId      :: SchemaExp -> MappingExp
   MappingRaw     :: MappingExpRaw' -> MappingExp
+  MappingComp    :: MappingExp -> MappingExp -> MappingExp
  deriving (Eq, Show)
 
 getOptionsMapping :: MappingExp -> [(String, String)]
 getOptionsMapping (MappingVar _) = []
 getOptionsMapping (MappingId _) = []
+getOptionsMapping (MappingComp _ _) = []
 getOptionsMapping (MappingRaw (MappingExpRaw' _ _ _ _ _ o _)) = o
 
 instance Deps MappingExp where
  deps (MappingVar v) = [(v, MAPPING)]
  deps (MappingId s) = deps s
+ deps (MappingComp f g) = deps f ++ deps g
  deps (MappingRaw (MappingExpRaw' s t _ _ _ _ i)) = (deps s) ++ (deps t) ++ concatMap deps i
 
 data MappingExpRaw' =
@@ -223,7 +228,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
   g' v _ _ (RawApp x []) | v == x = Var ()
   g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
-  g' _ _ _ _ = undefined
+  g' _ _ _ _ = error "impossible"
   g :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
   g v _ _ (RawApp x []) | v == x = Var ()
   g v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a

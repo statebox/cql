@@ -28,7 +28,7 @@ transformRawParser = do
         pure m
  where p s t  = do  i <- optional $ do
                       _ <- constant "imports"
-                      many transExpParser 
+                      many transExpParser
                     e <- optional $ do
                       _ <- constant "generators"
                       y <- many gParser
@@ -72,15 +72,26 @@ deltaParser' = do _ <- constant "delta"
                   o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
                   return $ TransformDelta f i $ fromMaybe [] o
 
-transExpParser :: Parser TransformExp
-transExpParser =
-    TransformRaw <$> transformRawParser
-    <|>
-      TransformVar <$> identifier
+transCompParser :: Parser TransformExp
+transCompParser = do
+  _ <- constant "["
+  f <- transExpParser
+  _ <- constant ";"
+  g <- transExpParser
+  _ <- constant "]"
+  return $ TransformComp f g
 
-    <|> sigmaParser' <|> deltaParser' <|> sigmaDeltaUnitParser' <|> sigmaDeltaCoUnitParser' <|>
-       do
+
+transExpParser :: Parser TransformExp
+transExpParser = transCompParser
+  <|> TransformRaw <$> transformRawParser
+  <|> TransformVar <$> identifier
+  <|> sigmaParser'
+  <|> deltaParser'
+  <|> sigmaDeltaUnitParser'
+  <|> sigmaDeltaCoUnitParser'
+  <|> do
         _ <- constant "identity"
         x <- instExpParser
         return $ TransformId x
-    <|> parens transExpParser
+  <|> parens transExpParser
