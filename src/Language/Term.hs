@@ -1,14 +1,31 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE ExplicitForAll         #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE ImpredicativeTypes     #-}
+{-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE LiberalTypeSynonyms    #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Language.Term where
 
-import Prelude hiding (EQ)
-import Data.Set as Set hiding (size, foldr)
-import Data.Map.Strict as Map hiding (size, foldr)
-import Data.Void
-import Language.Common
-import Data.Maybe
+import           Data.Map.Strict as Map hiding (foldr, size)
+import           Data.Maybe
+import           Data.Set        as Set hiding (foldr, size)
+import           Data.Void
+import           Language.Common
+import           Prelude         hiding (EQ)
 
 
 
@@ -17,11 +34,11 @@ class Deps a where
 
 occurs :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
  => Head ty sym en fk att gen sk -> Term var ty sym en fk att gen sk -> Bool
-occurs _ (Var _) = False
-occurs h (Sk h') = h == HSk h'
-occurs h (Gen h') = h == HGen h'
-occurs h (Fk h' a) = h == HFk h' || occurs h a
-occurs h (Att h' a) = h == HAtt h' || occurs h a
+occurs _ (Var _)     = False
+occurs h (Sk h')     = h == HSk h'
+occurs h (Gen h')    = h == HGen h'
+occurs h (Fk h' a)   = h == HFk h' || occurs h a
+occurs h (Att h' a)  = h == HAtt h' || occurs h a
 occurs h (Sym h' as) = h == HSym h' || or (Prelude.map (occurs h) as)
 
 
@@ -40,7 +57,7 @@ find = f . Set.toList
        f ((m, _):_) | not (Map.null m) = Nothing
        f ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
           Nothing -> case g rhs lhs of
-            Nothing -> f tl
+            Nothing     -> f tl
             Just (y, r) -> Just (y, r)
           Just (y, r) -> Just (y, r)
 
@@ -58,12 +75,12 @@ replace' _ _ (Var v) = Var v
 replaceRepeatedly :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk) =>
  [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)] ->
  Term var ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
-replaceRepeatedly [] t = t
+replaceRepeatedly [] t        = t
 replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 
 
 simplifyCol
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplifyCol (Collage ceqs' ctys' cens' csyms' cfks' catts' cgens' csks')
@@ -75,17 +92,17 @@ simplifyCol (Collage ceqs' ctys' cens' csyms' cfks' catts' cgens' csks')
 
 
 simplify''
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplify'' eqs subst' = case simplify eqs of
-  Nothing -> (eqs, subst')
+  Nothing             -> (eqs, subst')
   Just (eqs1, subst1) -> simplify'' eqs1 $ subst' ++ [subst1]
 
 
 simplify
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplify eqs = case find eqs of
@@ -123,57 +140,57 @@ data Head ty sym en fk att gen sk =
   deriving (Eq, Show, Ord)
 
 size :: Term var ty sym en fk att gen sk -> Integer
-size (Var _) = 1
-size (Gen _) = 1
-size (Sk _) = 1
-size (Att _ a) = 1 + size a
-size (Fk _ a) = 1 + size a
+size (Var _)    = 1
+size (Gen _)    = 1
+size (Sk _)     = 1
+size (Att _ a)  = 1 + size a
+size (Fk _ a)   = 1 + size a
 size (Sym _ as) = 1 + (foldr (\x y -> (size x) + y) 0 as)
 
 
 vars :: Term var ty sym en fk att gen sk -> [var]
-vars (Var v) = [v]
-vars (Gen _) = []
-vars (Sk _) = []
-vars (Att _ a) = vars a
-vars (Fk _ a) = vars a
+vars (Var v)    = [v]
+vars (Gen _)    = []
+vars (Sk _)     = []
+vars (Att _ a)  = vars a
+vars (Fk _ a)   = vars a
 vars (Sym _ as) = concatMap vars as
 
 
 up :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up (Var f) = absurd f
+up (Var f)   = absurd f
 up (Sym f _) = absurd f
-up (Fk f a) = Fk f $ up a
+up (Fk f a)  = Fk f $ up a
 up (Att f _) = absurd f
-up (Gen f) = Gen f
-up (Sk f) = absurd f
+up (Gen f)   = Gen f
+up (Sk f)    = absurd f
 
 up2 :: Term () ty sym en fk att Void Void -> Term (()+var) ty sym en fk att x y
-up2 (Var _) = Var $ Left ()
+up2 (Var _)   = Var $ Left ()
 up2 (Sym f x) = Sym f $ Prelude.map up2 x
-up2 (Fk f a) = Fk f $ up2 a
+up2 (Fk f a)  = Fk f $ up2 a
 up2 (Att f a) = Att f $ up2 a
-up2 (Gen f) = absurd f
-up2 (Sk f) = absurd f
+up2 (Gen f)   = absurd f
+up2 (Sk f)    = absurd f
 
 
 up3 :: Term () Void Void en fk Void Void Void -> Term (()+var) ty sym en fk att x y
-up3 (Var _) = Var $ Left ()
+up3 (Var _)   = Var $ Left ()
 up3 (Sym f _) = absurd f
-up3 (Fk f a) = Fk f $ up3 a
+up3 (Fk f a)  = Fk f $ up3 a
 up3 (Att f _) = absurd f
-up3 (Gen f) = absurd f
-up3 (Sk f) = absurd f
+up3 (Gen f)   = absurd f
+up3 (Sk f)    = absurd f
 
 
 
 up4 :: Term Void ty sym en fk att gen sk -> Term x ty sym en fk att gen sk
-up4 (Var v) = absurd v
+up4 (Var v)   = absurd v
 up4 (Sym f x) = Sym f $ Prelude.map up4 x
-up4 (Fk f a) = Fk f $ up4 a
+up4 (Fk f a)  = Fk f $ up4 a
 up4 (Att f a) = Att f $ up4 a
-up4 (Gen f) = Gen f
-up4 (Sk f) = Sk f
+up4 (Gen f)   = Gen f
+up4 (Sk f)    = Sk f
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
   Show (Term var ty sym en fk att gen sk)
@@ -227,37 +244,37 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
 }
 
 up12 :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up12 (Gen g) = Gen g
-up12 (Sk sk) = absurd sk
-up12 (Var v) = absurd v
-up12 (Fk f a) = Fk f $ up12 a
+up12 (Gen g)   = Gen g
+up12 (Sk sk)   = absurd sk
+up12 (Var v)   = absurd v
+up12 (Fk f a)  = Fk f $ up12 a
 up12 (Att f _) = absurd f
 up12 (Sym f _) = absurd f
 
 
 up16 :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up16 (Gen g) = Gen g
-up16 (Sk sk) = absurd sk
-up16 (Var v) = Var v
-up16 (Fk f a) = Fk f $ up16 a
+up16 (Gen g)   = Gen g
+up16 (Sk sk)   = absurd sk
+up16 (Var v)   = Var v
+up16 (Fk f a)  = Fk f $ up16 a
 up16 (Att f _) = absurd f
 up16 (Sym f _) = absurd f
 
 up13 :: Term x Void Void en' fk' Void Void Void -> Term x ty sym en' fk' att' gen' sk'
-up13 (Gen g) = absurd g
-up13 (Sk sk) = absurd sk
-up13 (Var v) = Var v
-up13 (Fk f a) = Fk f $ up13 a
+up13 (Gen g)   = absurd g
+up13 (Sk sk)   = absurd sk
+up13 (Var v)   = Var v
+up13 (Fk f a)  = Fk f $ up13 a
 up13 (Att f _) = absurd f
 up13 (Sym f _) = absurd f
 
 
 up14 :: Term () ty   sym  en' fk' att' Void Void -> Term () ty sym en' fk' att' gen' sk'
-up14 (Gen g) = absurd g
-up14 (Sk sk) = absurd sk
-up14 (Var v) = Var v
-up14 (Fk f a) = Fk f $ up14 a
-up14 (Att f a) = Att f $ up14 a
+up14 (Gen g)    = absurd g
+up14 (Sk sk)    = absurd sk
+up14 (Var v)    = Var v
+up14 (Fk f a)   = Fk f $ up14 a
+up14 (Att f a)  = Att f $ up14 a
 up14 (Sym f as) = Sym f $ Prelude.map up14 as
 
 
@@ -302,7 +319,7 @@ subst (Sk  g   ) _ = Sk  g
 
 
 checkDoms'
-  :: (ShowOrd13 var ty sym en fk att gen sk en' fk' att' gen' sk')
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor
@@ -318,7 +335,7 @@ checkDoms' mor = do _ <- mapM e $ Set.toList $ cens $ m_src mor
         s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No sk mapping for " ++ show sk
 
 typeOfMor
-  :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' . (ShowOrd13 var ty sym en fk att gen sk en' fk' att' gen' sk')
+  :: forall var ty sym en fk att gen sk en' fk' att' gen' sk' . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 typeOfMor mor  = do checkDoms' mor
@@ -329,7 +346,7 @@ typeOfMor mor  = do checkDoms' mor
                     _ <- mapM typeOfMorSks $ Map.toList $ m_sks mor
                     pure ()
  where transE en = case (Map.lookup en (m_ens mor)) of
-                    Just x -> x
+                    Just x  -> x
                     Nothing -> undefined
        typeOfMorEns (e,e') | elem e (cens $ m_src mor) && elem e' (cens $ m_dst mor) = pure ()
        typeOfMorEns (e,e') = Left $ "Bad entity mapping " ++ show e ++ " -> " ++ show e'
@@ -377,14 +394,14 @@ closeGround col (me, mt) = (me', mt'')
        mt' = Prelude.foldr (\(_, (en, ty)) m -> if lookup2 en me' then Map.insert ty True m else m)                   mt  $ Map.toList $ catts col
        me' = Prelude.foldr (\(_, (en, _))  m -> if lookup2 en me  then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
 
-iterGround :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
+iterGround :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
-computeGround :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
+computeGround :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 computeGround col = iterGround col $ initGround col
 
-allSortsInhabited :: (ShowOrd2 ty en) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> Bool
 allSortsInhabited col = t && f
  where (me, mt) = computeGround col
        t = and $ Map.elems me
@@ -393,7 +410,7 @@ allSortsInhabited col = t && f
 
 -- I've given up on non string based error handling for now
 typeOf'
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty + en)
   -> Term    var ty sym en fk att gen sk
@@ -427,7 +444,7 @@ typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
                      show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
 
 typeOfEq'
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> Err (ty + en)
@@ -438,7 +455,7 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
   then Right $ lhs'
   else Left  $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
 
-checkDoms :: (ShowOrd8 var ty sym en fk att gen sk)
+checkDoms :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
@@ -463,7 +480,7 @@ checkDoms col = do
 
 
 typeOfCol
-  :: (ShowOrd8 var ty sym en fk att gen sk)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 typeOfCol col = do

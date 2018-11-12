@@ -1,9 +1,10 @@
 {-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, ConstraintKinds #-}
+,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, ConstraintKinds, TypeFamilies, DataKinds #-}
 
 module Language.Common where
 import Data.Map.Strict as Map hiding (foldl, toList)
 import Data.Foldable (foldl, toList)
+import Data.Kind
 import Data.Typeable
 
 type a + b = Either a b
@@ -44,64 +45,10 @@ intercalate sep xs = snd (foldl go (True, mempty) xs)
 mapl :: Foldable f => (a -> b) -> f a -> [b]
 mapl fn = fmap fn . toList
 
-type ShowOrd a = (Show a, Ord a)
+type family ShowOrdN (xs :: [*]) :: Constraint
+type instance ShowOrdN '[] = ()
+type instance ShowOrdN (t ': ts) = (Show t, Ord t, ShowOrdN ts)
 
-type ShowOrd2 a b = (ShowOrd a, ShowOrd b)
-
-type ShowOrd3 a b c = (ShowOrd2 a b, ShowOrd c)
-
-type ShowOrd4 a b c d = (ShowOrd3 a b c, ShowOrd d)
-
-type ShowOrd5 a b c d e = (ShowOrd4 a b c d, ShowOrd e)
-
-type ShowOrd6 a b c d e f = (ShowOrd5 a b c d e, ShowOrd f)
-
-type ShowOrd7 a b c d e f g = (ShowOrd6 a b c d e f, ShowOrd g)
-
-type ShowOrd8 a b c d e f g h = (ShowOrd7 a b c d e f g, ShowOrd h)
-
-type ShowOrd9 a b c d e f g h i = (ShowOrd8 a b c d e f g h, ShowOrd i)
-
-type ShowOrd10 a b c d e f g h i j = (ShowOrd9 a b c d e f g h i, ShowOrd j)
-
-type ShowOrd11 a b c d e f g h i j k = (ShowOrd10 a b c d e f g h i j, ShowOrd k)
-
-type ShowOrd12 a b c d e f g h i j k l = (ShowOrd11 a b c d e f g h i j k, ShowOrd l)
-
-type ShowOrd13 a b c d e f g h i j k l m = (ShowOrd12 a b c d e f g h i j k l, ShowOrd m)
-
-type ShowOrd14 a b c d e f g h i j k l m n = (ShowOrd13 a b c d e f g h i j k l m, ShowOrd n)
-
-type ShowOrd15 a b c d e f g h i j k l m n o = (ShowOrd14 a b c d e f g h i j k l m n, ShowOrd o)
-
-type ShowOrd16 a b c d e f g h i j k l m n o p = (ShowOrd15 a b c d e f g h i j k l m n o, ShowOrd p)
-
-type ShowOrd17 a b c d e f g h i j k l m n o p q = (ShowOrd16 a b c d e f g h i j k l m n o p, ShowOrd q)
-
-type ShowOrdTypeable a = (Show a, Ord a, Typeable a)
-
-type ShowOrdTypeable2 a b = (ShowOrdTypeable a, ShowOrdTypeable b)
-
-type ShowOrdTypeable3 a b c = (ShowOrdTypeable2 a b, ShowOrdTypeable c)
-
-type ShowOrdTypeable4 a b c d = (ShowOrdTypeable3 a b c, ShowOrdTypeable d)
-
-type ShowOrdTypeable5 a b c d e = (ShowOrdTypeable4 a b c d, ShowOrdTypeable e)
-
-type ShowOrdTypeable6 a b c d e f = (ShowOrdTypeable5 a b c d e, ShowOrdTypeable f)
-
-type ShowOrdTypeable7 a b c d e f g = (ShowOrdTypeable6 a b c d e f, ShowOrdTypeable g)
-
-type ShowOrdTypeable8 a b c d e f g h = (ShowOrdTypeable7 a b c d e f g, ShowOrdTypeable h)
-
-type ShowOrdTypeable9 a b c d e f g h i = (ShowOrdTypeable8 a b c d e f g h, ShowOrdTypeable i)
-
-type ShowOrdTypeable10 a b c d e f g h i j = (ShowOrdTypeable9 a b c d e f g h i, ShowOrdTypeable j)
-
-type ShowOrdTypeable11 a b c d e f g h i j k = (ShowOrdTypeable10 a b c d e f g h i j, ShowOrdTypeable k)
-
-type ShowOrdTypeable12 a b c d e f g h i j k l = (ShowOrdTypeable11 a b c d e f g h i j k, ShowOrdTypeable l)
-
-type ShowOrdTypeable13 a b c d e f g h i j k l m = (ShowOrdTypeable12 a b c d e f g h i j k l, ShowOrdTypeable m)
-
-type ShowOrdTypeable14 a b c d e f g h i j k l m n = (ShowOrdTypeable13 a b c d e f g h i j k l m, ShowOrdTypeable n)
+type family ShowOrdTypeableN (xs :: [*]) :: Constraint
+type instance ShowOrdTypeableN '[] = ()
+type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, ShowOrdTypeableN ts)

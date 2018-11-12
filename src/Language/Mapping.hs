@@ -1,17 +1,33 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Mapping where
-import Prelude hiding (EQ)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map)
-import Language.Term
-import Language.Schema as Schema
-import Data.Void
-import Language.Common
-import Data.Typeable
-import qualified Data.Set as Set
-import Data.Maybe
+import           Data.Maybe
+import qualified Data.Set        as Set
+import           Data.Typeable
+import           Data.Void
+import           Language.Common
+import           Language.Schema as Schema
+import           Language.Term
+import           Prelude         hiding (EQ)
 
 
 data Mapping var ty sym en fk att en' fk' att'
@@ -47,14 +63,14 @@ getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sy
 getAtts = atts
 
 mapToMor
-  :: ShowOrd9 var ty sym en fk att en' fk' att'
+  :: ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att']
   => Mapping var ty sym en fk att en' fk' att'
   -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 data MappingEx :: * where
   MappingEx
-    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeable9 var ty sym en fk att en' fk' att')
+    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 
@@ -82,14 +98,14 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
 
 typecheckMapping
-  :: (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  :: (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
 
 
 validateMapping
-  :: forall var ty sym en fk att en' fk' att' . (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  :: forall var ty sym en fk att en' fk' att' . (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do _ <- mapM g (Set.toList $ path_eqs src')
@@ -177,11 +193,11 @@ member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
 
 mergeMaps :: Ord k => [Map k v] -> Map k v
-mergeMaps [] = Map.empty
+mergeMaps []    = Map.empty
 mergeMaps (x:y) = Map.union x $ mergeMaps y
 
 evalMappingRaw'
-  :: forall var ty sym en fk att en' fk' att' . (ShowOrd2 var ty, ShowOrdTypeable7 sym en fk att en' fk' att')
+  :: forall var ty sym en fk att en' fk' att' . (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'
   -> [Mapping var ty sym en fk att en' fk' att']
@@ -199,7 +215,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   ens' = Set.toList $ Schema.ens dst'
   atts' = Map.toList $ Schema.atts dst'
   transE ens2 en = case (Map.lookup en ens2) of
-                    Just x -> return x
+                    Just x  -> return x
                     Nothing -> Left $ "No entity mapping for " ++ (show en)
 
   f _ [] = pure $ Map.empty
@@ -256,7 +272,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
   --findEn _ _ x = Left $ "Path cannot be typed: " ++ (show x)
 
 evalMappingRaw
-  :: (ShowOrdTypeable9 var ty sym en fk att en' fk' att')
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en  fk  att
   -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'

@@ -166,6 +166,7 @@ typecheckMapExp p (MappingRaw r) = do
 
 
 
+
 typecheckInstExp :: Types -> InstanceExp -> Err SchemaExp
 typecheckInstExp p (InstanceVar v) = note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
 typecheckInstExp _ (InstanceInitial s) = pure s
@@ -439,6 +440,8 @@ evalSchema prog env (SchemaRaw r) = do
   case t of
     TypesideEx t' -> evalSchemaRaw (other env) t' r x
 
+
+                                                          
 evalSchema _ _ _ = undefined
 
 evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx
@@ -461,6 +464,7 @@ evalInstance prog env (InstanceSigma f' i o) = do
   o' <- toOptions (other env) o
   r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
   return $ InstanceEx r
+
 evalInstance prog env (InstanceDelta f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
