@@ -236,7 +236,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
 
 
 evalSchemaRaw
-  :: (ShowOrdTypeable3 var ty sym)
+  :: (ShowOrdTypeableN '[var, ty, sym])
   => Options
   -> Typeside var ty sym
   -> SchemaExpRaw'

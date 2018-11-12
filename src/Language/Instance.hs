@@ -644,7 +644,7 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
                                                                             Nothing -> Left $ "Cannot type: " ++ v
 
 evalInstanceRaw
-  :: (ShowOrdTypeable6 var ty sym en fk att)
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att])
   => Options
   -> Schema var ty sym en fk att
   -> InstExpRaw'

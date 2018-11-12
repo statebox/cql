@@ -160,8 +160,7 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
 
 
 composeTransform ::
-  (ShowOrdTypeable14 var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'',
-   ShowOrdTypeable8 gen sk x y gen' sk' x' y') =>
+  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen', sk', x', y', gen'', sk'', x'', y'', gen, sk, x, y, gen', sk', x', y']) =>
   Transform var ty sym en fk att gen sk x y gen' sk' x' y' ->
   Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'' ->
   Err (Transform var ty sym en fk att gen sk x y gen'' sk'' x'' y'')

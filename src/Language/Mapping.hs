@@ -40,8 +40,7 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
-composeMapping :: (ShowOrdTypeable9 var ty sym en fk att en' fk' att',
-  ShowOrdTypeable6 en' fk' att' en'' fk'' att'') =>
+composeMapping :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att'']) =>
   Mapping var ty sym en fk att en' fk' att' ->
   Mapping var ty sym en' fk' att' en'' fk'' att'' -> Err (Mapping var ty sym en fk att en'' fk'' att'')
 composeMapping (Mapping s t e f a) (m2@(Mapping s' t' e' _ _)) =

@@ -94,7 +94,6 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
               y:_ -> nf $ result y
        allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
        allow_empty =  bOps ops Allow_Empty_Sorts_Unsafe
-       nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe 
        nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe
 
 convert' :: EQ var ty sym en fk att gen sk -> Rule (Head ty sym en fk att gen sk) var
