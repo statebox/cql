@@ -164,10 +164,10 @@ composeTransform ::
   Transform var ty sym en fk att gen sk x y gen' sk' x' y' ->
   Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'' ->
   Err (Transform var ty sym en fk att gen sk x y gen'' sk'' x'' y'')
-composeTransform (Transform s t f a) (m2@(Transform s' t' _ _)) =
+composeTransform (Transform s t f a) m2@(Transform s' t' _ _) =
  if t == s'
- then let f'' = Map.fromList $ [ (k, trans'  (transToMor m2) v) | (k, v) <- Map.toList f ]
-          a'' = Map.fromList $ [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
+ then let f'' = Map.fromList [ (k, trans' (transToMor m2) v) | (k, v) <- Map.toList f ]
+          a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
       in pure $ Transform s t' f'' a''
  else Left $ "Source and target instances do not match: " ++ show t ++ " and " ++ show s'
 
@@ -213,7 +213,6 @@ getOptionsTransform (TransformDelta _ _ o) = o
 getOptionsTransform (TransformSigma _ _ o) = o
 getOptionsTransform (TransformRaw (TransExpRaw' _ _ _ o _)) = o
 getOptionsTransform (TransformComp _ _) = []
-
 getOptionsTransform _ = error "other transforms"
 
 instance Deps TransformExp where

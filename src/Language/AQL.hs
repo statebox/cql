@@ -230,12 +230,12 @@ eval' p env e = case e of
 
 getKindCtx :: Prog -> String -> Kind -> Err Exp
 getKindCtx g v k = case k of
-  TYPESIDE  -> fmap ExpTy $ n $ Map.lookup v $ typesides  g
-  SCHEMA    -> fmap ExpS  $ n $ Map.lookup v $ schemas    g
-  INSTANCE  -> fmap ExpI  $ n $ Map.lookup v $ instances  g
-  MAPPING   -> fmap ExpM  $ n $ Map.lookup v $ mappings   g
-  TRANSFORM -> fmap ExpT  $ n $ Map.lookup v $ transforms g
-  QUERY     -> fmap ExpQ  $ n $ Map.lookup v $ queries    g
+  TYPESIDE  -> ExpTy <$> n $ Map.lookup v $ typesides  g
+  SCHEMA    -> ExpS  <$> n $ Map.lookup v $ schemas    g
+  INSTANCE  -> ExpI  <$> n $ Map.lookup v $ instances  g
+  MAPPING   -> ExpM  <$> n $ Map.lookup v $ mappings   g
+  TRANSFORM -> ExpT  <$> n $ Map.lookup v $ transforms g
+  QUERY     -> ExpQ  <$> n $ Map.lookup v $ queries    g
   _ -> error "todo"
   where
     n :: forall x. Maybe x -> Err x
@@ -425,15 +425,12 @@ evalMapping p env (MappingRaw r) = do
        SchemaEx (t::Schema var ty sym en fk att) ->
          evalMappingRaw ((convSchema s) :: Schema var ty sym en fk att) t r ix
 
-tsToS :: Typeside var ty sym -> Schema var ty sym Void Void Void
-tsToS ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> absurd x)
-
 evalSchema :: Prog -> Env -> SchemaExp -> Err SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
 evalSchema prog env (SchemaInitial ts) = do
   ts' <- evalTypeside prog env ts
   case ts' of
-    TypesideEx ts'' -> pure $ SchemaEx $ tsToS ts''
+    TypesideEx ts'' -> pure $ SchemaEx $ Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> absurd x)
 evalSchema prog env (SchemaRaw r) = do
   t <- evalTypeside prog env $ schraw_ts r
   x <- mapM (evalSchema prog env) $ schraw_imports r
@@ -441,7 +438,7 @@ evalSchema prog env (SchemaRaw r) = do
     TypesideEx t' -> evalSchemaRaw (other env) t' r x
 
 
-                                                          
+
 evalSchema _ _ _ = undefined
 
 evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx

@@ -40,14 +40,16 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
-composeMapping :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att'']) =>
-  Mapping var ty sym en fk att en' fk' att' ->
-  Mapping var ty sym en' fk' att' en'' fk'' att'' -> Err (Mapping var ty sym en fk att en'' fk'' att'')
+composeMapping
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
+  =>      Mapping var ty sym en  fk  att  en'  fk'  att'
+  ->      Mapping var ty sym en' fk' att' en'' fk'' att''
+  -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
 composeMapping (Mapping s t e f a) (m2@(Mapping s' t' e' _ _)) =
  if t == s'
- then let e'' = Map.fromList $ [ (k, fromJust $ Map.lookup v e') | (k, v) <- Map.toList e ]
-          f'' = Map.fromList $ [ (k, trans' (mapToMor m2) v) | (k, v) <- Map.toList f ]
-          a'' = Map.fromList $ [ (k, trans  (mapToMor m2) v) | (k, v) <- Map.toList a ]
+ then let e'' = Map.fromList [ (k, fromJust $ Map.lookup v e') | (k, v) <- Map.toList e ]
+          f'' = Map.fromList [ (k, trans' (mapToMor m2) v) | (k, v) <- Map.toList f ]
+          a'' = Map.fromList [ (k, trans  (mapToMor m2) v) | (k, v) <- Map.toList a ]
       in pure $ Mapping s t' e'' f'' a''
  else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
 
