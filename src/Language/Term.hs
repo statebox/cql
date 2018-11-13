@@ -282,7 +282,7 @@ trans'
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
   .  (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var')
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
-  -> Term var' Void Void en  fk  Void gen V oid
+  -> Term var' Void Void en  fk  Void gen  Void
   -> Term var' Void Void en' fk' Void gen' Void
 trans' _ (Var x) = Var x
 trans' mor (Fk f a) = let x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
