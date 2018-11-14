@@ -30,6 +30,7 @@ import           Language.Options
 import           Language.Prover
 import           Language.Term
 import           Prelude          hiding (EQ)
+import           Control.DeepSeq
 
 
 type Ty = String
@@ -58,6 +59,12 @@ data Typeside var ty sym
   , eqs  :: Set (Ctx var ty, EQ var ty sym Void Void Void Void Void)
   , eq   :: Ctx var ty -> EQ var ty sym Void Void Void Void Void -> Bool
   }
+
+instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
+  rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
+
+instance NFData TypesideEx where
+ rnf (TypesideEx x) = rnf x
 
 initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd
@@ -174,7 +181,7 @@ instance Deps TypesideExp where
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
 getOptionsTypeside (TypesideVar _) = []
-getOptionsTypeside TypesideInitial = [] 
+getOptionsTypeside TypesideInitial = []
 getOptionsTypeside (TypesideRaw (TypesideRaw' _ _ _ o _)) = o
 
 deriving instance Eq TypesideExp

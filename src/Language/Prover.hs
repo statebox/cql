@@ -61,7 +61,7 @@ createProver col ops =  do p <- proverStringToName ops
                            case p of
                              Free -> freeProver col
                              Orthogonal -> orthProver col ops
-                             Auto -> orthProver col ops
+                             Auto -> if Set.null (ceqs col) then freeProver col else orthProver col ops
                              z -> Left $ show z ++ " prover not available"
 
 

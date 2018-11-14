@@ -6,6 +6,7 @@ import Data.Map.Strict as Map hiding (foldl, toList)
 import Data.Foldable (foldl, toList)
 import Data.Kind
 import Data.Typeable
+import Control.DeepSeq
 
 type a + b = Either a b
 
@@ -51,4 +52,4 @@ type instance ShowOrdN (t ': ts) = (Show t, Ord t, ShowOrdN ts)
 
 type family ShowOrdTypeableN (xs :: [*]) :: Constraint
 type instance ShowOrdTypeableN '[] = ()
-type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, ShowOrdTypeableN ts)
+type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableN ts)

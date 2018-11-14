@@ -33,6 +33,7 @@ import           Language.Query
 import           Language.Schema   as S
 import           Language.Term
 import           Prelude           hiding (EQ)
+import           Control.DeepSeq
 
 
 evalSigmaTrans
@@ -158,6 +159,12 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   , sks  :: Map sk  (Term Void ty   sym  en fk att  gen' sk')
   }
 
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y, NFData gen', NFData sk', NFData x', NFData y')
+  => NFData (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
+  rnf (Transform s t g a) = deepseq s $ deepseq t $ deepseq g $ rnf a
+
+instance NFData TransformEx where
+ rnf (TransformEx x) = rnf x
 
 composeTransform ::
   (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen', sk', x', y', gen'', sk'', x'', y'', gen, sk, x, y, gen', sk', x', y']) =>
@@ -171,7 +178,6 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _) =
       in pure $ Transform s t' f'' a''
  else Left $ "Source and target instances do not match: " ++ show t ++ " and " ++ show s'
 
-
 tGens :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map gen (Term Void Void Void en fk Void gen' Void)
 tGens = gens
 
@@ -180,12 +186,12 @@ tSks = sks
 
 data TransformEx :: * where
   TransformEx
-    :: forall var ty sym en fk att gen sk x y gen' sk' x' y' . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
+    :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
+    . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
     => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
     -> TransformEx
 
 deriving instance Show TransformEx
-
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk,
           Show x, Show y, Show gen', Show sk', Show x', Show y')
@@ -197,7 +203,6 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
     "}"
    where ens'' = Prelude.map (\(s,t) -> show s ++ " -> " ++ show t) $ Map.toList gens'
          fks'' = Prelude.map (\(k,s) -> show k ++ " -> " ++ show s) $ Map.toList sks'
-
 
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y, Eq gen', Eq sk', Eq x', Eq y')
   => Eq (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where

@@ -39,6 +39,7 @@ import           Language.Typeside     as Typeside
 import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
 import qualified Text.Tabular.AsciiArt as Ascii
+import           Control.DeepSeq
 
 emptyInstance :: Schema var ty sym en fk att -> Instance var ty sym en fk att Void Void Void Void
 emptyInstance ts'' =
@@ -67,9 +68,6 @@ evalSchTerm _ _ (Sk g)       = absurd g
 evalSchTerm alg x (Sym f as) = Sym f $ fmap (evalSchTerm alg x) as
 evalSchTerm _ _ _            = undefined
 
-
-
-
 -- return input for convenience
 typecheckPresentation
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
@@ -83,7 +81,7 @@ down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
 down1 (Var v)  = Var v
 down1 (Gen g)  = Gen g
 down1 (Fk f a) = Fk f $ down1 a
-down1 _        = undefined
+down1 _        = error "anomaly: please report"
 
 checkSatisfaction
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Ord x, Ord y)
@@ -119,6 +117,15 @@ data Algebra var ty sym en fk att gen sk x y
 
   } -- omit Eq, doesn't seem to be necessary for now
 
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
+  => NFData (Algebra var ty sym en fk att gen sk x y) where
+  rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
+    $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
+    where
+    f g h = let _ = rnf $ Set.map (rnf . g) $ Schema.ens s0 in h
+    w g h = let _ = rnf $ Set.map (rnf . g) $ tys (typeside s0) in h
+
+-- inlines equations of the form gen = term
 simplifyA
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Algebra var ty sym en fk att gen sk x y
@@ -131,8 +138,6 @@ simplifyA
          teqs''''     = Set.map snd teqs'''
          ty'' t       = Set.filter (\x -> not $ elem (HSk x) $ fst $ unzip f) $ ty' t
          nf''''' e    = replaceRepeatedly f $ nf'''' e
-
-
 
 castX :: Term Void ty sym en fk att gen sk -> Maybe (Term Void Void Void en fk Void gen Void)
 castX t = case t of
@@ -282,12 +287,20 @@ data Instance var ty sym en fk att gen sk x y
   , algebra :: Algebra      var  ty sym en fk att gen sk x y
   }
 
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
+  => NFData (Instance var ty sym en fk att gen sk x y) where
+  rnf (Instance s0 p0 dp0 a0) = deepseq s0 $ deepseq p0 $ deepseq dp0 $ rnf a0
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk)
+  => NFData (Presentation var ty sym en fk att gen sk) where
+  rnf (Presentation g s e) = deepseq g $ deepseq s $ rnf e
+
 data InstanceEx :: * where
-  InstanceEx :: forall var ty sym en fk att gen sk x y.
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y,
-    Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y,
-    Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk, Typeable x, Typeable y) =>
-   Instance var ty sym en fk att gen sk x y -> InstanceEx
+  InstanceEx
+    :: forall var ty sym en fk att gen sk x y
+    .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+    => Instance var ty sym en fk att gen sk x y
+    -> InstanceEx
 
 deriving instance Show (InstanceEx)
 
@@ -453,11 +466,16 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
 
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 
+instance NFData InstanceEx where
+ rnf (InstanceEx x) = rnf x
 
 -- | These are the generating labelled nulls for the type 'Algebra' of the associated 'Instance'.
 --   It can be either a labeled null ('Sk') or a proper value.
 --   This newtype allows us to define e.g. a custom 'Show' instance.
 newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
+
+instance (NFData en, NFData fk, NFData att, NFData gen, NFData sk) => NFData (TalgGen en fk att gen sk) where
+ rnf (MkTalgGen x) = rnf x
 
 instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TalgGen en fk att gen sk) where
   show (MkTalgGen (Left  x)) = show x

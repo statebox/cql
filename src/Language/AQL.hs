@@ -24,15 +24,15 @@ import Language.Options
 import Control.Arrow (left)
 import System.Timeout
 import System.IO.Unsafe
-import Control.Exception.Base
---import Control.DeepSeq
+--import Control.Exception.Base
+import Control.DeepSeq
 
-timeout' :: Integer -> Err x -> Err x
+timeout' :: NFData x => Integer -> Err x -> Err x
 timeout' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
   Just x' -> x'
   where
-    c' = unsafePerformIO $ timeout s $! seq c (evaluate c) --not working
+    c' = unsafePerformIO $ timeout s $! deepseq c (return c) --not working
     s  = (fromIntegral ms) * 1000000
 
 -- simple three phase evaluation and reporting

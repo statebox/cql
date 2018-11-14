@@ -28,6 +28,7 @@ import           Language.Common
 import           Language.Schema as Schema
 import           Language.Term
 import           Prelude         hiding (EQ)
+import           Control.DeepSeq
 
 
 data Mapping var ty sym en fk att en' fk' att'
@@ -39,6 +40,13 @@ data Mapping var ty sym en fk att en' fk' att'
   , fks  :: Map fk  (Term () Void Void en' fk' Void Void Void)
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
+
+instance NFData MappingEx where
+ rnf (MappingEx x) = rnf x
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData en', NFData fk', NFData att')
+  => NFData (Mapping var ty sym en fk att en' fk' att') where
+  rnf (Mapping s t e f a) = deepseq s $ deepseq t $ deepseq e $ deepseq f $ rnf a
 
 composeMapping
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])

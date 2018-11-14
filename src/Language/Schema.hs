@@ -30,6 +30,7 @@ import           Language.Prover
 import           Language.Term
 import           Language.Typeside
 import           Prelude           hiding (EQ)
+import           Control.DeepSeq
 
 
 data SchemaExp where
@@ -122,6 +123,9 @@ sch_fks = fks
 sch_atts :: Schema var ty sym en fk att -> Map att (en, ty)
 sch_atts = atts
 
+instance NFData SchemaEx where
+ rnf (SchemaEx x) = rnf x
+
 data Schema var ty sym en fk att
   = Schema
   { typeside :: Typeside var ty sym
@@ -132,6 +136,9 @@ data Schema var ty sym en fk att
   , obs_eqs  :: Set (en, EQ () ty   sym  en fk att  Void Void)
   , eq       :: en -> EQ () ty sym en fk att Void Void -> Bool
   }
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att) => NFData (Schema var ty sym en fk att) where
+  rnf (Schema tys0 ens0 fks0 atts0 p0 o0 e0) = deepseq tys0 $ deepseq ens0 $ deepseq fks0 $ deepseq atts0 $ deepseq p0 $ deepseq o0 $ rnf e0
 
 type En = String
 type Fk = String
@@ -232,9 +239,6 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
   findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
   findEn _ _ [] = Left "Path equation cannot be typed"
 
-
-
-
 evalSchemaRaw
   :: (ShowOrdTypeableN '[var, ty, sym])
   => Options
@@ -257,9 +261,6 @@ evalSchemaRaw ops ty t a' = do
                             Nothing -> Left "Bad import"
                             Just ts' -> do r'  <- g r
                                            return $ ts' : r'
-
-
-
 
 up8 :: Term () ty sym En Fk Att Void Void -> Term (() + var) ty sym En Fk Att Void Void
 up8 (Var v)    = Var $ Left v

@@ -9,7 +9,7 @@ import Language.Term
 import Data.Void
 import Language.Schema
 import Language.Common
-
+import Control.DeepSeq
 
 data Query var ty sym en fk att en' fk' att'
   = Query
@@ -21,6 +21,8 @@ data Query var ty sym en fk att en' fk' att'
   , atts :: Map att' (Term var ty   sym  en fk att  Void Void)
   }
 
+instance NFData QueryEx where
+ rnf (QueryEx _) = undefined
 
 data QueryEx :: * where
   QueryEx :: forall var ty sym en fk att en' fk' att'.

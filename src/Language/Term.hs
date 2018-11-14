@@ -26,6 +26,7 @@ import           Data.Set        as Set hiding (foldr, size)
 import           Data.Void
 import           Language.Common
 import           Prelude         hiding (EQ)
+import           Control.DeepSeq
 
 
 
@@ -130,6 +131,20 @@ data Term var ty sym en fk att gen sk
 
   -- | Skolem term or labelled null; like a generator for a type rather than an entity.
   | Sk  sk
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk) =>
+  NFData (Term var ty sym en fk att gen sk) where
+    rnf x = case x of
+      Var v   -> rnf v
+      Sym f a -> let _ = rnf f in rnf a
+      Fk  f a -> let _ = rnf f in rnf a
+      Att f a -> let _ = rnf f in rnf a
+      Gen   a -> rnf a
+      Sk    a -> rnf a
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk) =>
+  NFData (EQ var ty sym en fk att gen sk) where
+    rnf (EQ (x, y)) = deepseq x $ rnf y
 
 data Head ty sym en fk att gen sk =
    HSym sym
