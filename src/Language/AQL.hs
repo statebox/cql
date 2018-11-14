@@ -32,7 +32,7 @@ timeout' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
   Just x' -> x'
   where
-    c' = unsafePerformIO $ timeout s $! deepseq c (return c) --not working
+    c' = unsafePerformIO $ timeout s $! return c --deepseq c (return c) --not working
     s  = (fromIntegral ms) * 1000000
 
 -- simple three phase evaluation and reporting

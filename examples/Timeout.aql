@@ -4,7 +4,7 @@ schema S = literal : empty {
        foreign_keys f : E -> E
 }
 
-instance I = literal : S {
-	 generators e : E
-	 options timeout = "1"
-}
+//instance I = literal : S {
+//	 generators e : E
+//	 options timeout = "1"
+//}
