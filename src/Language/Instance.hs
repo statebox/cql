@@ -122,8 +122,8 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
   rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
     $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
     where
-    f g h = let _ = rnf $ Set.map (rnf . g) $ Schema.ens s0 in h
-    w g h = let _ = rnf $ Set.map (rnf . g) $ tys (typeside s0) in h
+    f g  = deepseq (Set.map (rnf . g) $ Schema.ens s0)
+    w g  = deepseq (Set.map (rnf . g) $ tys (typeside s0))
 
 -- inlines equations of the form gen = term
 simplifyA

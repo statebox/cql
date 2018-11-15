@@ -48,7 +48,7 @@ mapl fn = fmap fn . toList
 
 type family ShowOrdN (xs :: [*]) :: Constraint
 type instance ShowOrdN '[] = ()
-type instance ShowOrdN (t ': ts) = (Show t, Ord t, ShowOrdN ts)
+type instance ShowOrdN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdN ts)
 
 type family ShowOrdTypeableN (xs :: [*]) :: Constraint
 type instance ShowOrdTypeableN '[] = ()

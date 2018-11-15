@@ -35,6 +35,7 @@ data Val
  | ValM MappingEx
  | ValT TransformEx
  | ValQ QueryEx
+  deriving Show
 
 instance NFData Val where
   rnf v = case v of

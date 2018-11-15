@@ -26,13 +26,38 @@ import System.Timeout
 import System.IO.Unsafe
 --import Control.Exception.Base
 import Control.DeepSeq
+import Control.Concurrent
+import Control.Exception
 
-timeout' :: NFData x => Integer -> Err x -> Err x
-timeout' ms c = case c' of
+-- works
+timeout' :: (Show x, NFData x) => Integer -> Err x -> Err x
+timeout' i p = unsafePerformIO $ do
+  m <- newEmptyMVar
+  computer <- forkIO $ f m p
+  _        <- forkIO $ s m computer
+  ret <- takeMVar m
+  return ret
+  where
+    secs   = (fromIntegral i) * 1000000
+    f m p0 = do
+      x <- evaluate $ force p0
+      putMVar m x
+    s m c  = do
+      threadDelay secs
+      x <- tryTakeMVar m
+      case x of
+        Just y -> putMVar m y
+        Nothing -> do
+          putMVar m $ Left $ "Timeout after " ++ show i ++ " seconds."
+          killThread c
+
+
+timeout'' :: NFData x => Integer -> Err x -> Err x
+timeout'' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
   Just x' -> x'
   where
-    c' = unsafePerformIO $ timeout s $! return c --deepseq c (return c) --not working
+    c' = unsafePerformIO $ timeout s $! deepseq c (return c) --not working
     s  = (fromIntegral ms) * 1000000
 
 -- simple three phase evaluation and reporting
