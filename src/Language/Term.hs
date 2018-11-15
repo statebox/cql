@@ -17,6 +17,7 @@
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE IncoherentInstances    #-}
 
 module Language.Term where
 
@@ -112,6 +113,29 @@ simplify eqs = case find eqs of
                                   eqs3 = Set.filter (\(_,EQ (x,y)) -> not (x == y)) eqs2
                  in Just $ (eqs3,(toRemove, replacer))
 
+class Up x y where
+  upgr :: x -> y
+
+upp :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
+  => Term var ty sym en fk att gen sk -> Term var' ty' sym' en' fk' att' gen' sk'
+upp (Var v  ) = Var $ upgr v
+upp (Sym f a) = Sym (upgr f) $ fmap upp a
+upp (Fk  f a) = Fk  (upgr f) $      upp a
+upp (Att f a) = Att (upgr f) $      upp a
+upp (Gen g  ) = Gen $ upgr g
+upp (Sk  s  ) = Sk  $ upgr s
+
+instance Up x x where
+  upgr x = x
+
+instance Up Void x where
+  upgr = absurd
+
+instance Up x (x + y) where
+  upgr = Left
+
+instance Up y (x + y) where
+  upgr = Right
 
 data Term var ty sym en fk att gen sk
   -- | Variable.
@@ -154,6 +178,30 @@ data Head ty sym en fk att gen sk =
  | HSk sk
   deriving (Eq, Show, Ord)
 
+mapTerm
+  :: (var -> var')
+  -> (ty  -> ty' )
+  -> (sym -> sym')
+  -> (en  -> en' )
+  -> (fk  -> fk' )
+  -> (att -> att')
+  -> (gen -> gen')
+  -> (sk  -> sk' )
+  -> Term var ty sym en fk att gen sk
+  -> Term var' ty' sym' en' fk' att' gen' sk'
+mapTerm v t r e f a g s x = case x of
+  Var w   -> Var $ v w
+  Gen w   -> Gen $ g w
+  Sk  w   -> Sk  $ s w
+  Fk  w u -> Fk  (f w) $ mt u
+  Att w u -> Att (a w) $ mt u
+  Sym w u -> Sym (r w) $ fmap mt u
+  where mt = mapTerm v t r e f a g s
+
+mapVar :: var -> Term () ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
+mapVar v t = mapTerm (\_ -> v) id id id id id id id t
+
+
 size :: Term var ty sym en fk att gen sk -> Integer
 size (Var _)    = 1
 size (Gen _)    = 1
@@ -171,41 +219,6 @@ vars (Att _ a)  = vars a
 vars (Fk _ a)   = vars a
 vars (Sym _ as) = concatMap vars as
 
-
-up :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up (Var f)   = absurd f
-up (Sym f _) = absurd f
-up (Fk f a)  = Fk f $ up a
-up (Att f _) = absurd f
-up (Gen f)   = Gen f
-up (Sk f)    = absurd f
-
-up2 :: Term () ty sym en fk att Void Void -> Term (()+var) ty sym en fk att x y
-up2 (Var _)   = Var $ Left ()
-up2 (Sym f x) = Sym f $ Prelude.map up2 x
-up2 (Fk f a)  = Fk f $ up2 a
-up2 (Att f a) = Att f $ up2 a
-up2 (Gen f)   = absurd f
-up2 (Sk f)    = absurd f
-
-
-up3 :: Term () Void Void en fk Void Void Void -> Term (()+var) ty sym en fk att x y
-up3 (Var _)   = Var $ Left ()
-up3 (Sym f _) = absurd f
-up3 (Fk f a)  = Fk f $ up3 a
-up3 (Att f _) = absurd f
-up3 (Gen f)   = absurd f
-up3 (Sk f)    = absurd f
-
-
-
-up4 :: Term Void ty sym en fk att gen sk -> Term x ty sym en fk att gen sk
-up4 (Var v)   = absurd v
-up4 (Sym f x) = Sym f $ Prelude.map up4 x
-up4 (Fk f a)  = Fk f $ up4 a
-up4 (Att f a) = Att f $ up4 a
-up4 (Gen f)   = Gen f
-up4 (Sk f)    = Sk f
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
   Show (Term var ty sym en fk att gen sk)
@@ -245,8 +258,6 @@ data Collage var ty sym en fk att gen sk
   , csks  :: Map sk ty
   } deriving (Eq, Show)
 
-
-
 data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   = Morphism {
     m_src  :: Collage (()+var) ty sym en fk att gen sk
@@ -258,40 +269,6 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   , m_sks  :: Map sk  (Term Void  ty   sym  en' fk' att'  gen' sk')
 }
 
-up12 :: Term Void Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up12 (Gen g)   = Gen g
-up12 (Sk sk)   = absurd sk
-up12 (Var v)   = absurd v
-up12 (Fk f a)  = Fk f $ up12 a
-up12 (Att f _) = absurd f
-up12 (Sym f _) = absurd f
-
-
-up16 :: Term var Void Void en fk Void gen Void -> Term var ty sym en fk att gen sk
-up16 (Gen g)   = Gen g
-up16 (Sk sk)   = absurd sk
-up16 (Var v)   = Var v
-up16 (Fk f a)  = Fk f $ up16 a
-up16 (Att f _) = absurd f
-up16 (Sym f _) = absurd f
-
-up13 :: Term x Void Void en' fk' Void Void Void -> Term x ty sym en' fk' att' gen' sk'
-up13 (Gen g)   = absurd g
-up13 (Sk sk)   = absurd sk
-up13 (Var v)   = Var v
-up13 (Fk f a)  = Fk f $ up13 a
-up13 (Att f _) = absurd f
-up13 (Sym f _) = absurd f
-
-
-up14 :: Term () ty   sym  en' fk' att' Void Void -> Term () ty sym en' fk' att' gen' sk'
-up14 (Gen g)    = absurd g
-up14 (Sk sk)    = absurd sk
-up14 (Var v)    = Var v
-up14 (Fk f a)   = Fk f $ up14 a
-up14 (Att f a)  = Att f $ up14 a
-up14 (Sym f as) = Sym f $ Prelude.map up14 as
-
 
 trans'
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
@@ -302,10 +279,10 @@ trans'
 trans' _ (Var x) = Var x
 trans' mor (Fk f a) = let x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
                           y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
-                     in subst (up13 y) x
+                     in subst (upp y) x
 trans' _ (Sym _ _) = undefined
 trans' _ (Att _ _) = undefined
-trans' mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
+trans' mor (Gen g) = upp $ fromJust $ Map.lookup g (m_gens mor)
 trans' _ (Sk _) = undefined
 
 trans :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' .
@@ -314,12 +291,12 @@ trans :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk' .
  Term var' ty sym en fk att gen sk -> Term var' ty sym en' fk' att' gen' sk'
 trans _ (Var x) = Var x
 trans mor (Sym f xs) = Sym f $ Prelude.map (trans mor) xs
-trans mor (Gen g) = up12 $ fromJust $ Map.lookup g (m_gens mor)
-trans mor (Sk s) = up4 $ fromJust $ Map.lookup s (m_sks mor)
+trans mor (Gen g) = upp $ fromJust $ Map.lookup g (m_gens mor)
+trans mor (Sk s) = upp $ fromJust $ Map.lookup s (m_sks mor)
 trans mor (Fk f a) = let x = trans mor a :: Term var' ty sym en' fk' att' gen' sk'
                          y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
-                     in subst (up13 y) x
-trans mor (Att f a) = subst (up14 $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
+                     in subst (upp y) x
+trans mor (Att f a) = subst (upp $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
 
 
 subst
@@ -371,25 +348,25 @@ typeOfMor mor  = do checkDoms' mor
        typeOfMorFks (fk,e) | Map.member fk (cfks $ m_src mor)
          = let (s,t) = fromJust $ Map.lookup fk $ cfks $ m_src mor
                (s',t') = (transE s, transE t)
-           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (), Right s')]) $ up3 e
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (), Right s')]) $ upp e
                  if t0 == Right t' then pure () else Left $ "1Ill typed in " ++ show fk ++ ": " ++ show e
        typeOfMorFks (e,e') = Left $ "Bad fk mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorAtts (att,e) | Map.member att (catts $ m_src mor)
          = let (s,t) = fromJust $ Map.lookup att $ catts $ m_src mor
                s' = transE s
-           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (),Right s')]) $ up2 e
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList [(Left (),Right s')]) $ upp e
                  if t0 == Left t then pure () else Left $ "2Ill typed attribute, " ++ show att ++ " expression " ++ show e
                   ++ ", computed type " ++ show t0 ++ " and required type " ++ show t
        typeOfMorAtts (e,e') = Left $ "Bad att mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorGens (gen,e) | Map.member gen (cgens $ m_src mor)
          = let t = fromJust $ Map.lookup gen $ cgens $ m_src mor
                t' = transE t
-           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up e
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ upp e
                  if t0 == Right t' then pure () else Left $ "3Ill typed in " ++ show gen ++ ": " ++ show e
        typeOfMorGens (e,e') = Left $ "Bad gen mapping " ++ show e ++ " -> " ++ show e'
        typeOfMorSks (sk,e) | Map.member sk (csks $ m_src mor)
          = let t = fromJust $ Map.lookup sk $ csks $ m_src mor
-           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ up4 e
+           in do t0 <- typeOf' (m_dst mor) (Map.fromList []) $ upp e
                  if t0 == Left t then pure () else Left $ "4Ill typed in " ++ show sk ++ ": " ++ show e
        typeOfMorSks (e,e') = Left $ "Bad null mapping " ++ show e ++ " -> " ++ show e'
 
@@ -511,15 +488,5 @@ data RawTerm = RawApp String [RawTerm]
 instance Show RawTerm where
  show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
 
-upTerm
-  :: Term var Void Void en fk Void gen Void
-  -> Term var ty   sym  en fk att  gen sk
-upTerm t = case t of
-  Var v   -> Var v
-  Fk  f a -> Fk  f $ upTerm a
-  Gen g   -> Gen g
-  Sym f _ -> absurd f
-  Sk  f   -> absurd f
-  Att f _ -> absurd f
 
 --Set is not Traversable! Lame

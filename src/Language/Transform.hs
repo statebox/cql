@@ -62,7 +62,7 @@ transTrans _ (Var v)    = Var v
 transTrans t (Sym f as) = Sym f $ fmap (transTrans t) as
 transTrans t (Fk f a)   = Fk f $ transTrans t a
 transTrans t (Att f a)  = Att f $ transTrans t a
-transTrans t (Gen g)    = up12 $ fromJust $ Map.lookup g $ gensAlt t
+transTrans t (Gen g)    = upp $ fromJust $ Map.lookup g $ gensAlt t
 transTrans t (Sk g)     = fromJust $ Map.lookup g $ sksAlt t
 
 
@@ -73,7 +73,7 @@ transTrans'' _ (Var v)    = Var v
 transTrans'' t (Sym f as) = Sym f $ fmap (transTrans'' t) as
 transTrans'' t (Fk f a)   = Fk f $ transTrans'' t a
 transTrans'' t (Att f a)  = Att f $ transTrans'' t a
-transTrans'' t (Gen g)    = up12 $ fromJust $ Map.lookup g $ gensAlt t
+transTrans'' t (Gen g)    = upp $ fromJust $ Map.lookup g $ gensAlt t
 transTrans'' t (Sk g)     = fromJust $ Map.lookup g $ sksAlt t
 
 transTrans' :: (Ord gen) => Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y' ->
@@ -87,7 +87,7 @@ transTrans' _ (Sk g)    = absurd g
 
 up20 :: Term Void ty sym Void Void Void Void y' -> Term Void ty sym en fk att gen y'
 up20 (Var v)    = Var v
-up20 (Sym f as) = Sym f $ fmap up20 as
+up20 (Sym f as) = Sym f $ fmap upp as
 up20 (Fk f _)   = absurd f
 up20 (Att f _)  = absurd f
 up20 (Gen g)    = absurd g
@@ -106,7 +106,7 @@ evalDeltaSigmaUnit m i o = do
                        (mapWithKey (g j) $ I.sks  $ pres i)
  where
    f j gen en' = Gen (en', nf   (algebra j) (Gen gen))
-   g j sk  _   = up20 $    nf'' (algebra j) (Sk sk)
+   g j sk  _   = upp $    nf'' (algebra j) (Sk sk)
 
 evalDeltaSigmaCoUnit
   :: forall var ty sym en fk att gen sk x y en' fk' att'. (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'], Eq x, Eq y, Eq en')

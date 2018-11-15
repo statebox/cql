@@ -189,9 +189,6 @@ typecheckMapExp p (MappingRaw r) = do
   then pure $ (mapraw_src r, mapraw_dst r)
   else Left "Mapping has non equal typesides"
 
-
-
-
 typecheckInstExp :: Types -> InstanceExp -> Err SchemaExp
 typecheckInstExp p (InstanceVar v) = note ("Undefined instance: " ++ show v) $ Map.lookup v $ instances p
 typecheckInstExp _ (InstanceInitial s) = pure s

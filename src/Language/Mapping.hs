@@ -16,6 +16,7 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+--{-# LANGUAGE DisambiguateRecordFields #-}
 
 module Language.Mapping where
 import           Data.Map.Strict (Map)
@@ -42,7 +43,7 @@ data Mapping var ty sym en fk att en' fk' att'
   }
 
 instance NFData MappingEx where
- rnf (MappingEx x) = rnf x
+  rnf (MappingEx x) = rnf x
 
 instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData en', NFData fk', NFData att')
   => NFData (Mapping var ty sym en fk att en' fk' att') where
@@ -71,6 +72,7 @@ getFks = fks
 getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sym  en' fk' att' Void Void)
 getAtts = atts
 
+
 mapToMor
   :: ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att']
   => Mapping var ty sym en fk att en' fk' att'
@@ -84,7 +86,6 @@ data MappingEx :: * where
     -> MappingEx
 
 deriving instance Show MappingEx
-
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Mapping var ty sym en fk att en' fk' att') where
@@ -112,7 +113,6 @@ typecheckMapping
   -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
 
-
 validateMapping
   :: forall var ty sym en fk att en' fk' att' . (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
@@ -131,11 +131,9 @@ validateMapping (m@(Mapping src' dst' ens' _ _)) = do _ <- mapM g (Set.toList $ 
        g (enx, EQ (l,r)) = let l' = trans' (mapToMor m) l
                                r' = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
                                en'= fromJust $ Map.lookup enx ens'
-                          in if eq dst' en' (EQ (up13 l', up13 r'))
+                          in if eq dst' en' (EQ (upp l', upp r'))
                              then pure ()
                              else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
-
-
 
 trans'' :: forall var var' ty sym en fk att gen en' fk' att' x .
  (Ord gen, Ord fk, Eq var, Ord att, Ord var') =>
@@ -145,7 +143,7 @@ trans'' _ (Var x) = Var x
 trans'' mor (Fk f a) =
   let x = trans'' mor a :: Term var' Void Void en' fk' Void gen Void
       y = fromJust $ Map.lookup f $ m_fks mor  :: Term () Void Void en' fk' Void Void Void
-  in subst (up13 y) x
+  in subst (upp y) x
 trans'' _ (Sym _ _) = undefined
 trans'' _ (Att _ _) = undefined
 trans'' _ (Gen (_,g)) = Gen g
@@ -232,7 +230,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is =
     att' <- note ("Not a src attribute " ++ att) (cast att)
     att2 <- note ("Not a dst attribute " ++ att) (cast $ head $ reverse l)
     t'x  <- h ens' $ tail $ reverse l
-    let t'  = Att att2 $ up13 t'x
+    let t'  = Att att2 $ upp t'x
     rest <- f x ts
     pure $ Map.insert att' t' rest
 

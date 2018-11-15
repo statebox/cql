@@ -94,7 +94,6 @@ newTypes :: KindCtx ts s i m q t ()
 newTypes = KindCtx m m m m m m ()
   where m = Map.empty
 
-
 newEnv :: Options -> KindCtx ts s i m q t Options
 newEnv o = KindCtx m m m m m m o
   where m = Map.empty

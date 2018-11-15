@@ -68,36 +68,11 @@ schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
  Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
   ens' (csyms tscol) fks' atts' Map.empty Map.empty
    where tscol = tsToCol ts
-         e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (up3 l, up3 r))) path_eqs'
-         e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (up2 l, up2 r))) obs_eqs'
-         e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (up1 l, up1 r))) $ ceqs tscol
+         e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) path_eqs'
+         e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) obs_eqs'
+         e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (upp l, upp r))) $ ceqs tscol
 
 
-
-up4' :: z -> Term () ty sym en fk att x y -> Term z ty sym en fk att x y
-up4' z (Var _)    = Var $ z
-up4' z (Sym f as) = Sym f $ Prelude.map (up4' z) as
-up4' z (Fk f a)   = Fk f $ up4' z a
-up4' z (Att f a)  = Att f $ up4' z a
-up4' _ (Gen f)    = Gen f
-up4' _ (Sk f)     = Sk f
-
-up1 :: Term var ty sym Void Void Void Void Void -> Term (()+var) ty sym en fk att x y
-up1 (Var v)   = Var $ Right v
-up1 (Sym f x) = Sym f $ Prelude.map up1 x
-up1 (Fk f _)  = absurd f
-up1 (Att f _) = absurd f
-up1 (Gen f)   = absurd f
-up1 (Sk f)    = absurd f
-
-
-up0 :: Term var ty sym Void Void Void Void Void -> Term var ty sym en fk att x y
-up0 (Var v)   = Var v
-up0 (Sym f x) = Sym f $ Prelude.map up0 x
-up0 (Fk f _)  = absurd f
-up0 (Att f _) = absurd f
-up0 (Gen f)   = absurd f
-up0 (Sk f)    = absurd f
 
 up1Ctx :: (Ord var) => Ctx var (ty+Void) -> Ctx (()+var) (ty+x)
 up1Ctx g = Map.map (\x -> case x of
@@ -253,7 +228,7 @@ evalSchemaRaw ops ty t a' = do
   p <- createProver (schToCol r) l
   pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
  where
-   f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (up2 l, up2 r))
+   f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
   -- g :: forall var ty sym en fk att. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
    -- => [SchemaEx] -> Err [Schema var ty sym en fk att]
    g [] = return []
@@ -262,13 +237,6 @@ evalSchemaRaw ops ty t a' = do
                             Just ts' -> do r'  <- g r
                                            return $ ts' : r'
 
-up8 :: Term () ty sym En Fk Att Void Void -> Term (() + var) ty sym En Fk Att Void Void
-up8 (Var v)    = Var $ Left v
-up8 (Sym f as) = Sym f $ Prelude.map up8 as
-up8 (Fk f a)   = Fk f $ up8 a
-up8 (Att f a)  = Att f $ up8 a
-up8 (Gen g)    = absurd g
-up8 (Sk s)     = absurd s
 
 data SchemaEx :: * where
   SchemaEx
@@ -296,7 +264,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
     "\nobservation_equations\n\t " ++ intercalate "\n\t" (eqs'' obs_eqs') ++ " }"
    where fks'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList fks'
          atts'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList atts'
-         eqs'' x  = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (up4' "x" l) ++ " = " ++ show (up4' "x" r)) $ Set.toList x
+         eqs'' x  = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) $ Set.toList x
 
 
 

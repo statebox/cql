@@ -166,7 +166,7 @@ aFk :: Algebra var ty sym en fk att gen sk x y -> fk -> x -> x
 aFk alg f x = nf alg $ Fk f $ repr alg x
 
 aAtt :: Algebra var ty sym en fk att gen sk x y -> att -> x -> Term Void ty sym Void Void Void Void y
-aAtt alg f x = nf'' alg $ Att f $ up15 $ repr alg x
+aAtt alg f x = nf'' alg $ Att f $ upp $ repr alg x
 
 aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Void Void Void y
 aSk alg g = nf'' alg $ Sk g
@@ -313,18 +313,8 @@ instToCol sch (Presentation gens' sks' eqs') =
  Collage (Set.union e1 e2) (ctys schcol)
          (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
    where schcol = schToCol sch
-         e1 = Set.map (\(EQ (l,r)) -> (Map.empty, EQ (up4 l, up4 r))) eqs'
-         e2 = Set.map (\(g, EQ (l,r)) -> (g, EQ (up5 l, up5 r))) $ ceqs schcol
-
-
-up5 :: Term var ty sym en fk att Void Void -> Term var ty sym en fk att gen sk
-up5 t = case t of
-  Var v   -> Var v
-  Sym f x -> Sym f $ up5 <$> x
-  Fk  f a -> Fk  f $ up5 a
-  Att f a -> Att f $ up5 a
-  Gen f   -> absurd f
-  Sk  f   -> absurd f
+         e1 = Set.map (\(EQ (l,r)) -> (Map.empty, EQ (upp l, upp r))) eqs'
+         e2 = Set.map (\(g, EQ (l,r)) -> (g, EQ (upp l, upp r))) $ ceqs schcol
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Instance var ty sym en fk att gen sk x y) where
@@ -383,10 +373,8 @@ initialInstance :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
  -> Schema var ty sym en fk att ->
  Instance var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
 initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
- where dp'' (EQ (lhs, rhs)) = dp' $ EQ (up4 lhs, up4 rhs)
+ where dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
 
-up15 :: Term Void Void Void en fk Void gen Void -> Term Void ty sym en fk att gen sk
-up15 = up
 
 initialAlgebra :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
  => Presentation var ty sym en fk att gen sk
@@ -400,7 +388,7 @@ initialAlgebra p dp' sch = simplifyA this
        en' k = lookup2 k ens'
        nf''' e = let t = typeOf col e
                      f []    = undefined -- impossible
-                     f (a:b) = if dp' (EQ (up a, up e)) then a else f b
+                     f (a:b) = if dp' (EQ (upp a, upp e)) then a else f b
               in f $ Set.toList $ lookup2 t ens'
        repr''' x = x
 
@@ -412,7 +400,7 @@ initialAlgebra p dp' sch = simplifyA this
 
        repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
        repr'''' (MkTalgGen (Left g))         = Sk g
-       repr'''' (MkTalgGen (Right (x, att))) = Att att $ up15 $ repr''' x
+       repr'''' (MkTalgGen (Right (x, att))) = Att att $ upp $ repr''' x
 
        teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' x lhs, nf'' this $ subst' x rhs)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
        teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
@@ -425,7 +413,7 @@ eqs0 (Presentation _ _ x) = x
 
 subst' :: Carrier en fk gen -> Term () ty sym en fk att Void Void -> Term Void ty sym en fk att gen sk
 subst' t s = case s of
-  Var ()   -> up t
+  Var ()   -> upp t
   Sym fs a -> Sym fs $ subst' t <$> a
   Fk  f  a -> Fk  f  $ subst' t     a
   Att f  a -> Att f  $ subst' t     a
@@ -514,7 +502,7 @@ close1m dp' col = dedup dp' . concatMap (close1 col dp')
 dedup :: (EQ var ty sym en fk att gen sk -> Bool)
                -> [Term Void Void Void en fk Void gen Void]
                -> [Term Void Void Void en fk Void gen Void]
-dedup dp' = nubBy (\x y -> dp' (EQ (up x, up y)))
+dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
 close1 :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> Term Void Void Void en fk Void gen Void -> [ (Term Void Void Void en fk Void gen Void) ]
@@ -526,7 +514,7 @@ close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
 
 typeOf :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
   => Collage var ty sym en fk att gen sk -> Term Void Void Void en fk Void gen Void -> en
-typeOf col e = case typeOf' col Map.empty (up e) of
+typeOf col e = case typeOf' col Map.empty (upp e) of
   Left _ -> undefined
   Right x -> case x of
                Left _  -> undefined
@@ -683,7 +671,7 @@ evalInstanceRaw ops ty' t is =
    g ((InstanceEx ts):r) = case cast (pres ts) of
                             Nothing -> Left "Bad import"
                             Just ts' -> do r'  <- g r
-                                           return $ (ts') : r'
+                                           return $ ts' : r'
 
 
 
@@ -711,8 +699,8 @@ changeEn fks' atts' t = case t of
   Sym h as -> Sym h $ changeEn fks' atts' <$> as
   Sk k     -> Sk k
   Gen g    -> Gen g
-  Fk h a   -> subst (up13 $ fromJust $ Map.lookup h fks')  $ changeEn fks' atts' a
-  Att h a  -> subst (up5  $ fromJust $ Map.lookup h atts') $ changeEn fks' atts' a
+  Fk  h a  -> subst (upp $ fromJust $ Map.lookup h fks' ) $ changeEn fks' atts' a
+  Att h a  -> subst (upp $ fromJust $ Map.lookup h atts') $ changeEn fks' atts' a
 
 changeEn'
   :: (Ord k, Eq var)
@@ -725,7 +713,7 @@ changeEn' fks' atts' t = case t of
   Sym h _ -> absurd h
   Sk k    -> absurd k
   Gen g   -> Gen g
-  Fk h a  -> subst (up13 $ fromJust $ Map.lookup h fks') $ changeEn' fks' atts' a
+  Fk h a  -> subst (upp $ fromJust $ Map.lookup h fks') $ changeEn' fks' atts' a
   Att h _ -> absurd h
 
 evalSigmaInst
@@ -757,8 +745,8 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
        nf''x :: Term Void Void Void en fk Void (en,x) Void -> (en, x)
        nf''x (Gen g) = g
        nf''x (Fk f a) = let (_,x) = nf''x a
-                       in (snd $ fromJust $ Map.lookup f $ Schema.fks src',
-                           nf''' $ subst (up13 $ fromJust $ Map.lookup f fks0) (repr''' x) )
+                        in (snd $ fromJust $ Map.lookup f $ Schema.fks src',
+                            nf''' $ subst (upp $ fromJust $ Map.lookup f fks0) (repr''' x) )
        nf''x _ = undefined
        repr'''' :: (en, x) -> Term Void Void Void en fk Void (en, x) Void
        repr'''' (en''', x) = Gen (en''', x)
@@ -767,11 +755,8 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
        nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
        nf'''' (Left y) = Sk y
        nf'''' (Right ((_,x), att)) =
-         nf'' alg $ subst (q $ fromJust $ Map.lookup att atts0) (p $ repr''' x)
-       p :: Term Void Void Void en' fk' Void gen Void -> Term Void ty sym  en' fk' att' gen sk
-       p = up
-       q :: Term () ty sym en' fk' att' Void Void -> Term () ty sym en' fk' att' gen sk
-       q = up5
+         nf'' alg $ subst (upp $ fromJust $ Map.lookup att atts0) (upp $ repr''' x)
+
 
 
 evalDeltaInst
@@ -791,7 +776,7 @@ evalDeltaInst m i _ =
     f t = case t of
       Var v      -> absurd v
       Sym s'  as -> Sym s' $ f <$> as
-      Fk  fk  a  -> subst (up13 $ fromJust $ Map.lookup fk  (Mapping.fks  m)) $ f a
-      Att att a  -> subst (up5  $ fromJust $ Map.lookup att (Mapping.atts m)) $ f a
-      Gen (_, x) -> up12 $ repr  (algebra i) x
+      Fk  fk  a  -> subst (upp $ fromJust $ Map.lookup fk  (Mapping.fks  m)) $ f a
+      Att att a  -> subst (upp $ fromJust $ Map.lookup att (Mapping.atts m)) $ f a
+      Gen (_, x) -> upp  $ repr  (algebra i) x
       Sk  y      ->        repr' (algebra i) y
