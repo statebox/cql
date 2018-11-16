@@ -32,9 +32,9 @@ spec = do
       forAll upperIdGen $ \s -> parse identifier "" s == Right s
     specify "parses correctly a string starting with a special character" $
       forAll specialIdGen $ \s -> parse identifier "" s == Right s
-    specify "does not parse a string starting with a digit" $
-      forAll ((:) <$> digitCharGen <*> listOf (oneof [idCharGen, digitCharGen])) $ \s ->
-        isLeft $ parse identifier "" s
+    -- specify "does not parse a string starting with a digit" $
+    --   forAll ((:) <$> digitCharGen <*> listOf (oneof [idCharGen, digitCharGen])) $ \s ->
+    --     isLeft $ parse identifier "" s
     specify
       "does not parse a string starting with a not-allowed special character" $
       forAll

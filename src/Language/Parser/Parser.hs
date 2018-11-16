@@ -39,7 +39,7 @@ optionParser =
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
   where
-    unquotedIdentifier = lowerId <|> upperId <|> specialId
+    unquotedIdentifier = some (idChar <|> digitChar)
     quotedIdentifier   = between (char '"') (char '"') $ some $ satisfy (\c -> isPrint c && (c /= '"'))
     p = unquotedIdentifier <|> quotedIdentifier
     check x =
