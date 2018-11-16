@@ -22,7 +22,7 @@ data Query var ty sym en fk att en' fk' att'
   }
 
 instance NFData QueryEx where
- rnf (QueryEx _) = undefined
+  rnf (QueryEx _) = undefined
 
 data QueryEx :: * where
   QueryEx :: forall var ty sym en fk att en' fk' att'.

@@ -164,13 +164,13 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
   rnf (Transform s t g a) = deepseq s $ deepseq t $ deepseq g $ rnf a
 
 instance NFData TransformEx where
- rnf (TransformEx x) = rnf x
+  rnf (TransformEx x) = rnf x
 
-composeTransform ::
-  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen', sk', x', y', gen'', sk'', x'', y'', gen, sk, x, y, gen', sk', x', y']) =>
-  Transform var ty sym en fk att gen sk x y gen' sk' x' y' ->
-  Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y'' ->
-  Err (Transform var ty sym en fk att gen sk x y gen'' sk'' x'' y'')
+composeTransform
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen', sk', x', y', gen'', sk'', x'', y'', gen, sk, x, y, gen', sk', x', y'])
+  =>      Transform var ty sym en fk att gen  sk  x  y  gen'  sk'  x'  y'
+  ->      Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y''
+  -> Err (Transform var ty sym en fk att gen  sk  x  y  gen'' sk'' x'' y'')
 composeTransform (Transform s t f a) m2@(Transform s' t' _ _) =
  if t == s'
  then let f'' = Map.fromList [ (k, trans' (transToMor m2) v) | (k, v) <- Map.toList f ]

@@ -76,12 +76,15 @@ typecheckPresentation
   -> Err ()
 typecheckPresentation sch p = typeOfCol $ instToCol sch p
 
-
+-- | Helper function used by checkSatisfaction to convert terms in the Collage of entity sort
+-- into terms with Voids in the attribute etc slots.  Morally Collage should store two or more
+-- classes of equation, but having to convert like this is relatively rare.  Indeed, checkSatisfaction
+-- itself is redundant - a properly functioning AQL would not generate unsatisfying instances.
 down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
 down1 (Var v)  = Var v
 down1 (Gen g)  = Gen g
 down1 (Fk f a) = Fk f $ down1 a
-down1 _        = error "anomaly: please report"
+down1 _        = error "Anomaly: please report.  Function name: down1."
 
 checkSatisfaction
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Ord x, Ord y)
@@ -118,19 +121,20 @@ data Algebra var ty sym en fk att gen sk x y
   } -- omit Eq, doesn't seem to be necessary for now
 
 instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
-  => NFData (Algebra var ty sym en fk att gen sk x y) where
-  rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-    $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
-    where
-    f g  = deepseq (Set.map (rnf . g) $ Schema.ens s0)
-    w g  = deepseq (Set.map (rnf . g) $ tys (typeside s0))
+  => NFData (Algebra var ty sym en fk att gen sk x y)
+  where
+    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
+      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
+      where
+        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
+        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
 
--- inlines equations of the form gen = term
-simplifyA
+-- | Inlines equations of the form @gen = term@.
+simplifyAlg
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
-simplifyA
+simplifyAlg
   (Algebra sch en' nf''' repr''' ty'  nf''''  repr'''' teqs'   ) =
    Algebra sch en' nf''' repr''' ty'' nf''''' repr'''' teqs''''
    where teqs''       = Set.map (\x -> (Map.empty, x)) teqs'
@@ -312,9 +316,10 @@ instToCol
 instToCol sch (Presentation gens' sks' eqs') =
  Collage (Set.union e1 e2) (ctys schcol)
          (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
-   where schcol = schToCol sch
-         e1 = Set.map (\(EQ (l,r)) -> (Map.empty, EQ (upp l, upp r))) eqs'
-         e2 = Set.map (\(g, EQ (l,r)) -> (g, EQ (upp l, upp r))) $ ceqs schcol
+  where
+    schcol = schToCol sch
+    e1 = Set.map (\(EQ (l,r)) -> (Map.empty, EQ (upp l, upp r))) eqs'
+    e2 = Set.map (\(g, EQ (l,r)) -> (g, EQ (upp l, upp r))) $ ceqs schcol
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Instance var ty sym en fk att gen sk x y) where
@@ -381,7 +386,7 @@ initialAlgebra :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
  -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
  -> Schema var ty sym en fk att ->
  Algebra var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
-initialAlgebra p dp' sch = simplifyA this
+initialAlgebra p dp' sch = simplifyAlg this
  where this = Algebra sch en' nf''' repr''' ty' nf'''' repr'''' teqs'
        col = instToCol sch p
        ens'  = assembleGens col (close col dp')
@@ -455,7 +460,7 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 
 instance NFData InstanceEx where
- rnf (InstanceEx x) = rnf x
+  rnf (InstanceEx x) = rnf x
 
 -- | These are the generating labelled nulls for the type 'Algebra' of the associated 'Instance'.
 --   It can be either a labeled null ('Sk') or a proper value.
@@ -463,7 +468,7 @@ instance NFData InstanceEx where
 newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
 
 instance (NFData en, NFData fk, NFData att, NFData gen, NFData sk) => NFData (TalgGen en fk att gen sk) where
- rnf (MkTalgGen x) = rnf x
+  rnf (MkTalgGen x) = rnf x
 
 instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TalgGen en fk att gen sk) where
   show (MkTalgGen (Left  x)) = show x

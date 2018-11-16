@@ -39,12 +39,12 @@ data Val
 
 instance NFData Val where
   rnf v = case v of
-      ValTy x -> rnf x
-      ValS  x -> rnf x
-      ValI  x -> rnf x
-      ValM  x -> rnf x
-      ValT  x -> rnf x
-      ValQ  x -> rnf x
+    ValTy x -> rnf x
+    ValS  x -> rnf x
+    ValI  x -> rnf x
+    ValM  x -> rnf x
+    ValT  x -> rnf x
+    ValQ  x -> rnf x
 
 data KindCtx ts s i m q t o
   = KindCtx

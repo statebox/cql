@@ -99,7 +99,7 @@ sch_atts :: Schema var ty sym en fk att -> Map att (en, ty)
 sch_atts = atts
 
 instance NFData SchemaEx where
- rnf (SchemaEx x) = rnf x
+  rnf (SchemaEx x) = rnf x
 
 data Schema var ty sym en fk att
   = Schema
@@ -122,9 +122,10 @@ type Att = String
 conv :: (Typeable ty,Show ty) => [(String, (String, String))] -> Err [(String, (String, ty))]
 conv [] = pure []
 conv ((att,(en,ty)):tl) = case cast ty of
-   Just ty' -> do x <- conv tl
-                  return $ (att,(en,ty')):x
-   Nothing -> Left $ "Not a type "
+  Just ty' -> do
+    x <- conv tl
+    return $ (att,(en,ty')):x
+  Nothing -> Left $ "Not a type "
 
 
 hasTypeType'' :: Term var ty sym en fk att gen sk -> Bool

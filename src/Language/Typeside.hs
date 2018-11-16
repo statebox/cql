@@ -64,7 +64,7 @@ instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) whe
   rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
 
 instance NFData TypesideEx where
- rnf (TypesideEx x) = rnf x
+  rnf (TypesideEx x) = rnf x
 
 initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd
