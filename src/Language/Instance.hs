@@ -188,7 +188,7 @@ data Instance var ty sym en fk att gen sk x y
   , algebra :: Algebra      var  ty sym en fk att gen sk x y
   }
 
-  -- | Just syntactic equality of the theory for now.
+-- | Just syntactic equality of the theory for now.
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y)
   => Eq (Instance var ty sym en fk att gen sk x y) where
   (==) (Instance schema' (Presentation gens' sks' eqs') _ _) (Instance schema'' (Presentation gens'' sks'' eqs'') _ _)
