@@ -32,26 +32,7 @@ import           Language.Term
 import           Prelude          hiding (EQ)
 import           Control.DeepSeq
 
-
-type Ty = String
-type Sym = String
-type Var = String
-
-fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
-fromList'' (k:l) = do l' <- fromList'' l
-                      if Set.member k l'
-                      then Left $ "Duplicate binding: " ++ (show k)
-                      else pure $ Set.insert k l'
-fromList'' [] = return Set.empty
-
-fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
-fromList' ((k,v):l) = do l' <- fromList' l
-                         if Map.member k l'
-                         then Left $ "Duplicate binding: " ++ (show k)
-                         else pure $ Map.insert k v l'
-fromList' [] = return Map.empty
-
--- | A user-defined kind for customisation of data types.
+-- | A user-defined kind for customization of data types.
 data Typeside var ty sym
   = Typeside
   { tys  :: Set ty
@@ -59,24 +40,6 @@ data Typeside var ty sym
   , eqs  :: Set (Ctx var ty, EQ var ty sym Void Void Void Void Void)
   , eq   :: Ctx var ty -> EQ var ty sym Void Void Void Void Void -> Bool
   }
-
-instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
-  rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
-
-instance NFData TypesideEx where
-  rnf (TypesideEx x) = rnf x
-
-initialTypeside :: Typeside Void Void Void
-initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> undefined) --todo: use absurd
-
-data TypesideEx :: * where
-  TypesideEx
-    :: forall var ty sym. (ShowOrdTypeableN '[var, ty, sym]) =>
-    Typeside var ty sym
-    -> TypesideEx
-
-deriving instance Show (TypesideEx)
-
 
 instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
   (==) (Typeside tys'  syms'  eqs'  _)
@@ -91,82 +54,105 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
    where syms'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList syms'
          eqs''  = Prelude.map (\(k,s) -> "forall " ++ showCtx k ++ " . " ++ show s) $ Set.toList eqs'
 
-showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
-showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
+instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
+  rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
 
-typecheckTypeside
-  :: (ShowOrdN '[var, ty, sym])
-  => Typeside var ty sym
-  -> Err ()
+typecheckTypeside :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
-data TypesideRaw' = TypesideRaw' {
-    tsraw_tys     :: [String]
+tsToCol :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
+  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
+
+data TypesideEx :: * where
+  TypesideEx
+    :: forall var ty sym. (ShowOrdTypeableN '[var, ty, sym]) =>
+    Typeside var ty sym
+    -> TypesideEx
+
+instance NFData TypesideEx where
+  rnf (TypesideEx x) = rnf x
+
+deriving instance Show (TypesideEx)
+
+------------------------------------------------------------------------------------------------------------
+-- Literal typesides
+
+type Ty  = String
+type Sym = String
+type Var = String
+
+data TypesideRaw' = TypesideRaw'
+  { tsraw_tys     :: [String]
   , tsraw_syms    :: [(String, ([String], String))]
   , tsraw_eqs     :: [([(String, Maybe String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
   , tsraw_imports :: [TypesideExp]
-} deriving (Eq, Show)
-
-
-tsToCol :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
-tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
- where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
+  } deriving (Eq, Show)
 
 evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
-evalTypesideRaw ops t a' =
- do a <- g a'
-    r <- evalTypesideRaw' t a
-    l <- toOptions ops $ tsraw_options t
-    p <- createProver (tsToCol r) l
-    pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
- where
-   f p ctx = prove p (Map.map Left ctx)
-   g :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
-   g [] = return []
-   g ((TypesideEx ts):r) = case cast ts of
-                            Nothing -> Left "Bad import"
-                            Just ts' -> do r'  <- g r
-                                           return $ ts' : r'
+evalTypesideRaw ops t a' = do
+  a <- g a'
+  r <- evalTypesideRaw' t a
+  l <- toOptions ops $ tsraw_options t
+  p <- createProver (tsToCol r) l
+  pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
+  where
+    f p ctx = prove p (Map.map Left ctx)
+    g :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
+    g [] = return []
+    g ((TypesideEx ts):r) = case cast ts of
+      Nothing  -> Left "Bad import"
+      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
 
 evalTypesideRaw' :: TypesideRaw'  -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
-evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is =
-  do tys' <- fromList'' ttys
-     syms' <- fromList' tsyms
-     eqs' <- f (b syms') teqs
-     return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
- where a = foldr Set.union Set.empty $ fmap tys is
-       b syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
-       c = foldr Set.union Set.empty $ fmap eqs is
-       f _ [] = pure $ Set.empty
-       f syms' ((ctx, lhs, rhs):eqs') = do ctx' <- check syms' ctx lhs rhs
-                                           lhs' <- g syms' ctx' lhs
-                                           rhs' <- g syms' ctx' rhs
-                                           rest <- f syms' eqs'
-                                           pure $ Set.insert (ctx', EQ (lhs', rhs')) rest
-       g _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
-       g syms' ctx (RawApp v l) = do l' <- mapM (g syms' ctx) l
-                                     pure $ Sym v l'
-       check _ [] _ _ = pure Map.empty
-       check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
-       infer _ (Just t) _ _ _= return t
-       infer v _ syms' lhs rhs = let t1s = nub $ typesOf v syms' lhs
-                                     t2s = nub $ typesOf v syms' rhs
-                                 in case (t1s, t2s) of
-                                       (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
-                                       (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
-                                       (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
-                                       ([], t : []) -> return t
-                                       (t : [], []) -> return t
-                                       ([], []) -> Left $ "Ambiguous variable: " ++ show v
-       typesOf _ _ (RawApp _ []) = []
-       typesOf v syms' (RawApp f' as) =
-        let fn (a',t) = case a' of
-                          RawApp v' [] -> if v == v' then [t] else []
-                          RawApp _ _   -> typesOf v syms' a'
-        in concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
+evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
+  tys'  <- fromList''  ttys
+  syms' <- fromList'   tsyms
+  eqs'  <- f (b syms') teqs
+  return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
+  where
+    a = foldr Set.union Set.empty $ fmap tys is
+    b syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
+    c = foldr Set.union Set.empty $ fmap eqs is
+    f _ [] = pure $ Set.empty
+    f syms' ((ctx, lhs, rhs):eqs') = do
+      ctx' <- check syms' ctx lhs rhs
+      lhs' <- g syms' ctx' lhs
+      rhs' <- g syms' ctx' rhs
+      rest <- f syms' eqs'
+      pure $ Set.insert (ctx', EQ (lhs', rhs')) rest
+    g _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
+    g syms' ctx (RawApp v l) = do { l' <- mapM (g syms' ctx) l ; pure $ Sym v l' }
+    check _ [] _ _ = pure Map.empty
+    check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
+    infer _ (Just t) _ _ _  = return t
+    infer v _ syms' lhs rhs = case (t1s, t2s) of
+      (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+      (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+      (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+      ([], t : []) -> return t
+      (t : [], []) -> return t
+      ([], []) -> Left $ "Ambiguous variable: " ++ show v
+      where
+        t1s = nub $ typesOf v syms' lhs
+        t2s = nub $ typesOf v syms' rhs
+    typesOf _ _     (RawApp _  []) = []
+    typesOf v syms' (RawApp f' as) = concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
+      where
+        fn (a',t) = case a' of
+          RawApp v' [] -> if v == v' then [t] else []
+          RawApp _ _   -> typesOf v syms' a'
+
+-----------------------------------------------------------------------------------------------------------
+-- Simple typesides
+
+initialTypeside :: Typeside Void Void Void
+initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> error "Impossible, please report.") --todo: use absurd
 
 
+-----------------------------------------------------------------------------------------------------------
+-- Expression syntax
 
 -- there are practical haskell type system related reasons to not want this to be a gadt
 data TypesideExp where
@@ -174,17 +160,17 @@ data TypesideExp where
   TypesideInitial :: TypesideExp
   TypesideRaw :: TypesideRaw' -> TypesideExp
 
-instance Deps TypesideExp where
-  deps (TypesideVar v)                        = [(v, TYPESIDE)]
-  deps TypesideInitial                        = []
-  deps (TypesideRaw (TypesideRaw' _ _ _ _ i)) = concatMap deps i
-
-getOptionsTypeside :: TypesideExp -> [(String, String)]
-getOptionsTypeside (TypesideVar _) = []
-getOptionsTypeside TypesideInitial = []
-getOptionsTypeside (TypesideRaw (TypesideRaw' _ _ _ o _)) = o
-
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp
 
---todo: make pretty
+instance Deps TypesideExp where
+  deps x = case x of
+    TypesideVar v                        -> [(v, TYPESIDE)]
+    TypesideInitial                      -> []
+    TypesideRaw (TypesideRaw' _ _ _ _ i) -> concatMap deps i
+
+getOptionsTypeside :: TypesideExp -> [(String, String)]
+getOptionsTypeside x = case x of
+  TypesideVar _   -> []
+  TypesideInitial -> []
+  TypesideRaw (TypesideRaw' _ _ _ o _) -> o

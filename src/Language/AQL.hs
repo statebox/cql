@@ -5,7 +5,7 @@ module Language.AQL where
 
 import Prelude hiding (EQ)
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Language.Graph
 import Language.Common as C
 import Language.Term as Term
 import Language.Schema as S
@@ -18,13 +18,10 @@ import Data.List (nub)
 import Data.Maybe
 import Language.Parser (parseAqlProgram)
 import Language.Program as P
-import Data.Void
 import Data.Typeable
 import Language.Options
-import Control.Arrow (left)
 import System.Timeout
 import System.IO.Unsafe
---import Control.Exception.Base
 import Control.DeepSeq
 import Control.Concurrent
 import Control.Exception
@@ -51,7 +48,7 @@ timeout' i p = unsafePerformIO $ do
           putMVar m $ Left $ "Timeout after " ++ show i ++ " seconds."
           killThread c
 
-
+-- doesn't work
 timeout'' :: NFData x => Integer -> Err x -> Err x
 timeout'' ms c = case c' of
   Nothing -> Left $ "Timeout after " ++ (show s) ++ " seconds."
@@ -60,21 +57,9 @@ timeout'' ms c = case c' of
     c' = unsafePerformIO $ timeout s $! deepseq c (return c) --not working
     s  = (fromIntegral ms) * 1000000
 
--- simple three phase evaluation and reporting
-runProg :: String -> Err (Prog, Types, Env)
-runProg p = do
-  p1 <- parseAqlProgram p
-  ops<- toOptions defaultOptions $ other p1
-  o  <- findOrder p1
-  p2 <- typecheckAqlProgram o p1 newTypes
-  p3 <- evalAqlProgram o p1 (newEnv ops)
-  return (p1, p2, p3)
 
-type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
-
-wrapError :: String -> Either String b -> Either String b
-wrapError prefix se = (\s -> prefix ++ ": " ++ s) `left` se
-
+-----------------------------------------------------------------------------------------------------------------
+-- Type checking
 
 class Typecheck e e' where
   typecheck :: Types -> e -> Err e'
@@ -88,7 +73,6 @@ typecheckAqlProgram ((v,k):l) prog ts = do
   t <- wrapError ("Type Error in " ++ v ++ ": ") $ typecheck' v ts m
   typecheckAqlProgram l prog t
 
-
 typecheck' :: String -> Types -> Exp -> Err Types
 typecheck' v ts e = case e of
   ExpTy e' -> do { t <- typecheck ts e'; return $ ts { typesides  = Map.insert v t $ typesides  ts } }
@@ -97,7 +81,6 @@ typecheck' v ts e = case e of
   ExpM  e' -> do { t <- typecheck ts e'; return $ ts { mappings   = Map.insert v t $ mappings   ts } }
   ExpT  e' -> do { t <- typecheck ts e'; return $ ts { transforms = Map.insert v t $ transforms ts } }
   ExpQ  e' -> do { t <- typecheck ts e'; return $ ts { queries    = Map.insert v t $ queries    ts } }
-
 
 instance Typecheck TypesideExp TypesideExp where
   typecheck = typecheckTypesideExp
@@ -117,13 +100,9 @@ instance Typecheck TransformExp (InstanceExp, InstanceExp) where
 instance Typecheck QueryExp (SchemaExp, SchemaExp) where
   typecheck = error "todo typecheck query exp"
 
-
-
 typecheckTransExp :: Types -> TransformExp -> Err (InstanceExp, InstanceExp)
 typecheckTransExp p (TransformVar v) = note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
-
 typecheckTransExp _ (TransformId s) = pure (s, s)
-
 typecheckTransExp p (TransformComp f g) = do
   (a,b) <- typecheckTransExp p f
   (c,d) <- typecheckTransExp p g
@@ -227,14 +206,39 @@ typecheckSchemaExp p (SchemaCoProd l r) = do
   then return l'
   else Left "Coproduct has non equal typesides"
 
-getOptions' :: Exp -> [(String, String)]
-getOptions' e = case e of
-  ExpTy e' -> getOptions e'
-  ExpS  e' -> getOptions e'
-  ExpI  e' -> getOptions e'
-  ExpM  e' -> getOptions e'
-  ExpT  e' -> getOptions e'
-  ExpQ  _  -> undefined
+
+------------------------------------------------------------------------------------------------------------
+-- evaluation
+
+-- | The result of evaluating an AQL program.
+type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
+
+-- simple three phase evaluation and reporting
+runProg :: String -> Err (Prog, Types, Env)
+runProg p = do
+  p1 <- parseAqlProgram p
+  ops<- toOptions defaultOptions $ other p1
+  o  <- findOrder p1
+  p2 <- typecheckAqlProgram o p1 newTypes
+  p3 <- evalAqlProgram o p1 (newEnv ops)
+  return (p1, p2, p3)
+
+evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
+evalAqlProgram [] _ env = pure env
+evalAqlProgram ((v,k):l) prog env = do
+  e <- getKindCtx prog v k
+  ops <- toOptions (other env) $ getOptions' e
+  let to = iOps ops Timeout
+  t <- wrapError ("Eval Error in " ++ v) $ timeout' to $ eval' prog env e
+  evalAqlProgram l prog $ setEnv env v t
+
+findOrder :: Prog -> Err [(String, Kind)]
+findOrder (p@(KindCtx t s i m q tr _)) = do
+  ret <- tsort g
+  pure $ reverse ret
+  where
+    g       = Graph (allVars p) $ nub $ f0 t TYPESIDE ++ f0 s SCHEMA ++ f0 i INSTANCE ++ f0 m MAPPING ++ f0 q QUERY ++ f0 tr TRANSFORM
+    f0 m0 k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m0
 
 class Evalable e e' | e' -> e, e -> e' where
   validate :: e' -> Err ()
@@ -302,49 +306,15 @@ instance Evalable QueryExp QueryEx where
   eval = undefined -- evalQuery
   getOptions = undefined -- getOptionsQuery
 
-evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
-evalAqlProgram [] _ env = pure env
-evalAqlProgram ((v,k):l) prog env = do
-  e <- getKindCtx prog v k
-  ops <- toOptions (other env) $ getOptions' e
-  let to = iOps ops Timeout
-  t <- wrapError ("Eval Error in " ++ v) $ timeout' to $ eval' prog env e
-  evalAqlProgram l prog $ setEnv env v t
 
-data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
-
-removeEdge :: (Eq a) => (a, a) -> Graph a -> Graph a
-removeEdge x (Graph v e) = Graph v (filter (/=x) e)
-
-connections :: (Eq a) => ((a, a) -> a) -> a -> Graph a -> [(a, a)]
-connections f0 x (Graph _ e) = filter ((==x) . f0) e
-
-outbound :: Eq b => b -> Graph b -> [(b, b)]
-outbound a = connections fst a
-
-inbound :: Eq a => a -> Graph a -> [(a, a)]
-inbound a = connections snd a
-
-tsort :: (Eq a) => Graph a -> Err [a]
-tsort graph  = tsort' [] (noInbound graph) graph
-  where
-    noInbound (Graph v e) = filter (flip notElem $ fmap snd e) v
-    tsort' l []    (Graph _ []) = pure $ reverse l
-    tsort' _ []    _            = Left "There is at least one cycle in the AQL dependency graph."
-    tsort' l (n:s) g            = tsort' (n:l) s' g'
-      where
-        outEdges = outbound n g
-        outNodes = snd <$> outEdges
-        g'       = foldr removeEdge g outEdges
-        s'       = s ++ filter (null . flip inbound g') outNodes
-
-findOrder :: Prog -> Err [(String, Kind)]
-findOrder (p@(KindCtx t s i m q tr _)) = do
-  ret <- tsort g
-  pure $ reverse ret
-  where
-    g       = Graph (allVars p) $ nub $ f0 t TYPESIDE ++ f0 s SCHEMA ++ f0 i INSTANCE ++ f0 m MAPPING ++ f0 q QUERY ++ f0 tr TRANSFORM
-    f0 m0 k = concatMap (\(v,e) -> [ ((v,k),x) | x <- deps e ]) $ Map.toList m0
+getOptions' :: Exp -> [(String, String)]
+getOptions' e = case e of
+  ExpTy e' -> getOptions e'
+  ExpS  e' -> getOptions e'
+  ExpI  e' -> getOptions e'
+  ExpM  e' -> getOptions e'
+  ExpT  e' -> getOptions e'
+  ExpQ  _  -> undefined
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
@@ -420,8 +390,7 @@ evalTransform prog env (TransformSigmaDeltaCoUnit f' i o) = do
   r <- evalDeltaSigmaCoUnit f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en' fk' att' gen sk x y))) o'
   pure $ TransformEx r
 
-evalTransform _ _ _ = undefined
-
+evalTransform _ _ _ = error "todo"
 
 evalMapping :: Prog -> Env -> MappingExp -> Err MappingEx
 evalMapping _ env (MappingVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ mappings env
@@ -446,9 +415,6 @@ evalMapping p env (MappingRaw r) = do
     SchemaEx s -> case s1 of
        SchemaEx (t::Schema var ty sym en fk att) ->
          evalMappingRaw ((convSchema s) :: Schema var ty sym en fk att) t r ix
-
-typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
-typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> absurd x)
 
 evalSchema :: Prog -> Env -> SchemaExp -> Err SchemaEx
 evalSchema _ env (SchemaVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ schemas env
