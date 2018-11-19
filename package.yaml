@@ -33,7 +33,13 @@ library:
   source-dirs: src
 
 ghc-options:
-- -Wall
+- -Wunused-binds
+- -Wunused-foralls
+- -Wunused-imports
+- -Wincomplete-patterns
+- -Wdodgy-exports
+- -Wdodgy-imports
+- -Wunbanged-strict-patterns
 - -Werror
 
 executables:
