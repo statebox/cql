@@ -368,11 +368,11 @@ checkDoms col = do
     g (e1,e2) = do { isEn e1 ; isEn e2 }
     h (e ,t ) = do { isEn e ; isTy t }
     isEn x  = if Set.member x $ cens col
-              then pure ()
-              else Left $ "Not an entity: " ++ show x
+      then pure ()
+      else Left $ "Not an entity: " ++ show x
     isTy x  = if Set.member x $ ctys col
-              then pure ()
-              else Left $ "Not a type: "    ++ show x
+      then pure ()
+      else Left $ "Not a type: "    ++ show x
 
 typeOfCol
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
@@ -381,7 +381,7 @@ typeOfCol
 typeOfCol col = do
   checkDoms col
   mapM_ (typeOfEq' col) $ Set.toList $ ceqs col
-  pure ()
+
 
 ----------------------------------------------------------------------------------------------------
 -- Checks if all sorts are inhabited

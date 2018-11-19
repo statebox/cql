@@ -306,25 +306,25 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
       pure $ Map.insert gen' t' rest
 
     g ::  RawTerm -> Err (Term Void ty sym en fk att gen' sk')
-    g  (RawApp x [])     | x `member'` gens''                     = do
+    g (RawApp x [])     | x `member'` gens''                     = do
       pure $ Gen $ fromJust $ cast x
-    g  (RawApp x [])     | x `member'` sks'                       = do
+    g (RawApp x [])     | x `member'` sks'                       = do
       pure $ Sk  $ fromJust $ cast x
-    g  (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
+    g (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
       a' <- g a
       case cast x of
-       Just x'2 -> return $ Fk x'2 a'
-       Nothing -> undefined
-    g  (RawApp x (a:[])) | x `member'` (sch_atts $ I.schema dst') = do
+        Just x'2 -> return $ Fk x'2 a'
+        Nothing  -> undefined
+    g (RawApp x (a:[])) | x `member'` (sch_atts $ I.schema dst') = do
       a' <- g a
       case cast x of
-       Just x'2 -> return $ Att x'2 a'
-       Nothing -> undefined
-    g  (RawApp v l)                                               = do
+        Just x'2 -> return $ Att x'2 a'
+        Nothing -> undefined
+    g  (RawApp v l)                                              = do
       l' <- mapM g l
       case cast v :: Maybe sym of
-       Just x -> pure $ Sym x l'
-       Nothing -> undefined
+        Just x  -> pure $ Sym x l'
+        Nothing -> undefined
 
     h :: RawTerm -> Err (Term Void Void Void en fk Void gen' Void)
     h (RawApp x [])     | x `member'` gens'                      = do
@@ -333,5 +333,5 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
       a' <- h a
       case cast x of
         Just x'2 -> return $ Fk x'2 a'
-        Nothing -> undefined
+        Nothing  -> undefined
     h _                                                          = undefined

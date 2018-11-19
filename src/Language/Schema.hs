@@ -68,12 +68,6 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
       atts''  = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList atts'
       eqs'' x = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) $ Set.toList x
 
-sch_fks :: Schema var ty sym en fk att -> Map fk (en, en)
-sch_fks = fks
-
-sch_atts :: Schema var ty sym en fk att -> Map att (en, ty)
-sch_atts = atts
-
 typecheckSchema
   :: (ShowOrdN '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
@@ -99,7 +93,27 @@ up1Ctx g = Map.map (\x -> case x of
   Right v -> absurd v) $ Map.mapKeys Right g
 
 typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
-typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty (\x _ -> absurd x)
+typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty $ \x _ -> absurd x
+
+fksFrom' :: (Show var, Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
+fksFrom' sch en' = f $ Map.assocs $ fks sch
+  where
+    f []                 = []
+    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+
+attsFrom' :: Eq en => Schema var ty sym en fk att -> en -> [(att,ty)]
+attsFrom' sch en' = f $ Map.assocs $ atts sch
+  where
+    f []                 = []
+    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+
+-- | Accessor due to namespace conflicts.
+sch_fks :: Schema var ty sym en fk att -> Map fk (en, en)
+sch_fks = fks
+
+-- | Accessor due to namespace conflicts.
+sch_atts :: Schema var ty sym en fk att -> Map att (en, ty)
+sch_atts = atts
 
 ---------------------------------------------------------------------------------------------------
 -- Expressions
@@ -114,7 +128,7 @@ data SchemaExp where
 getOptionsSchema :: SchemaExp -> [(String, String)]
 getOptionsSchema x = case x of
   SchemaVar _                               -> []
-  SchemaInitial _                           -> []
+  SchemaInitial  _                          -> []
   SchemaCoProd _ _                          -> []
   SchemaRaw (SchemaExpRaw' _ _ _ _ _ _ o _) -> o
 
@@ -139,8 +153,8 @@ instance NFData SchemaEx where
 ------------------------------------------------------------------------------------------------------
 -- Literals
 
-data SchemaExpRaw' = SchemaExpRaw' {
-    schraw_ts      :: TypesideExp
+data SchemaExpRaw' = SchemaExpRaw'
+  { schraw_ts      :: TypesideExp
   , schraw_ens     :: [String]
   , schraw_fks     :: [(String, (String, String))]
   , schraw_atts    :: [(String, (String, String))]
@@ -150,29 +164,14 @@ data SchemaExpRaw' = SchemaExpRaw' {
   , schraw_imports :: [SchemaExp]
 } deriving (Eq, Show)
 
-
+-- | Type of entities for literal schemas.
 type En = String
+
+-- | Type of foreign keys for literal schemas.
 type Fk = String
+
+-- | Type of attributes for literal schemas.
 type Att = String
-
-conv :: (Typeable ty, Show ty) => [(String, (String, String))] -> Err [(String, (String, ty))]
-conv [] = pure []
-conv ((att,(en,ty)):tl) = case cast ty of
-  Just ty' -> do
-    x <- conv tl
-    return $ (att, (en, ty')):x
-  Nothing -> Left $ "Not a type: " ++ show ty
-
-fksFrom' :: Eq en => Schema var ty sym en fk att  -> en -> [(fk,en)]
-fksFrom' sch en' = f $ Map.assocs $ fks sch
-  where f []               = []
-        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
-
-
-attsFrom' :: Eq en => Schema var ty sym en fk att -> en -> [(att,ty)]
-attsFrom' sch en' = f $ Map.assocs $ atts sch
-  where f []               = []
-        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
 evalSchemaRaw'
   :: (Show var, Ord var, ShowOrdTypeableN '[ty, sym])
@@ -180,12 +179,12 @@ evalSchemaRaw'
   -> [Schema var ty sym En Fk Att]
   -> Err (Schema var ty sym En Fk Att)
 evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
-  ens'' <- return $ Set.fromList $ ie ++ ens'x
-  fks'' <- toMapSafely $ fks'x ++ (concatMap (Map.toList . fks) is)
-  cc <- conv atts'x
+  ens''  <- return $ Set.fromList $ ie ++ ens'x
+  fks''  <- toMapSafely $ fks'x ++ (concatMap (Map.toList . fks) is)
+  cc     <- conv atts'x
   atts'' <- toMapSafely $ cc ++ (concatMap (Map.toList . atts) is)
-  peqs' <- k (Set.toList ens'') (Map.toList fks'') peqs
-  oeqs' <- f (Map.toList fks'') (Map.toList atts'') oeqs
+  peqs'  <- k (Set.toList ens'') (Map.toList fks'') peqs
+  oeqs'  <- f (Map.toList fks'') (Map.toList atts'') oeqs
   return $ Schema x ens'' fks'' atts'' (Set.union ip peqs') (Set.union io oeqs') undefined --leave prover blank
   where
     ie = concatMap (Set.toList . ens) is
@@ -195,46 +194,49 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
     keys' = fst . unzip
     --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
     f _ _ [] = pure $ Set.empty
-    f fks' atts' ((v, en', lhs, rhs):eqs') = do en <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
-                                                _ <- return $ Map.fromList [((),en)]
-                                                lhs' <- return $ g v (keys' fks') (keys' atts') lhs
-                                                rhs' <- return $ g v (keys' fks') (keys' atts') rhs
-                                                rest <- f fks' atts' eqs'
-                                                if not $ hasTypeType'' lhs'
-                                                  then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
-                                                  else pure $ Set.insert (en, EQ (lhs', rhs')) rest
-    infer _ (Just t) _ _ _ _ = return t
-    infer v _ fks' atts' lhs rhs = let t1s = nub $ typesOf v fks' atts' lhs
-                                       t2s = nub $ typesOf v fks' atts' rhs
-                                   in case (t1s, t2s) of
-                                         (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
-                                         (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
-                                         (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
-                                         ([], t : []) -> return t
-                                         (t : [], []) -> return t
-                                         ([], []) -> Left $ "Untypeable variable: " ++ show v
-                                         --(l , r) -> error $ "Anomaly, please report.  Typeside 137. " ++ show l ++ " and " ++ show r
+    f fks' atts' ((v, en', lhs, rhs):eqs') = do
+      en   <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
+      _    <- return $ Map.fromList [((),en)]
+      lhs' <- return $ g v (keys' fks') (keys' atts') lhs
+      rhs' <- return $ g v (keys' fks') (keys' atts') rhs
+      rest <- f fks' atts' eqs'
+      if not $ hasTypeType'' lhs'
+        then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
+        else pure $ Set.insert (en, EQ (lhs', rhs')) rest
+
+    infer _ (Just t) _    _     _   _   = return t
+    infer v  _       fks' atts' lhs rhs = let
+      t1s = nub $ typesOf v fks' atts' lhs
+      t2s = nub $ typesOf v fks' atts' rhs
+      in case (t1s, t2s) of
+        (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+        (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+        (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+        ([], t : []) -> return t
+        (t : [], []) -> return t
+        ([], []) -> Left $ "Untypeable variable: " ++ show v
+
     typesOf _ _ _ (RawApp _ []) = []
     typesOf v fks' atts' (RawApp f' ((RawApp a []) : [])) | a == v = case Map.lookup f' fks' of
-      Nothing -> case Map.lookup f' atts' of
-        Nothing -> []
+      Nothing      -> case Map.lookup f' atts' of
+        Nothing    -> []
         Just (s,_) -> [s]
-      Just (s,_) -> [s]
+      Just (s,_)   -> [s]
     typesOf v fks' atts' (RawApp _ as) = concatMap (typesOf v fks' atts') as
 
     g :: Typeable sym => String ->[String]-> [String] -> RawTerm-> Term () ty sym en Fk Att  Void Void
     g v _ _ (RawApp x' []) | v == x' = Var ()
-    g v fks''' atts''' (RawApp x' (a:[])) | elem x' fks''' = Fk x' $ g v fks''' atts''' a
+    g v fks''' atts''' (RawApp x' (a:[])) | elem x' fks'''  = Fk  x' $ g v fks''' atts''' a
     g v fks''' atts''' (RawApp x' (a:[])) | elem x' atts''' = Att x' $ g v fks''' atts''' a
-    g u fks''' atts''' (RawApp v l) = let l' = Prelude.map (g u fks''' atts''') l
+    g u fks''' atts''' (RawApp v l)                         = let l' = Prelude.map (g u fks''' atts''') l
       in case cast v of
-           Just x'' -> Sym x'' l'
-           Nothing -> error "impossible until complex typesides"
+          Just x'' -> Sym x'' l'
+          Nothing  -> error "impossible until complex typesides"
 
     h :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
     h ens'' (s:ex) | elem s ens'' = h ens'' ex
-    h ens'' (s:ex) | otherwise = Fk s $ h ens'' ex
-    h _ []         = Var ()
+    h ens'' (s:ex) | otherwise    = Fk s $ h ens'' ex
+    h _ []                        = Var ()
 
     k _ _ [] = pure $ Set.empty
     k ens' fks' ((l,r):eqs') = do
@@ -248,10 +250,18 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
               else pure $ Set.insert (en, EQ (lhs', rhs')) rest
       pure $ Set.insert (en, EQ (lhs', rhs')) rest
 
-    findEn ens'' _ (s:_) | elem s ens'' = return s
-    findEn _ fks'' (s:_) | Map.member s (Map.fromList fks'') = return $ fst $ fromJust $ Prelude.lookup s fks''
+    findEn ens'' _     (s:_ ) | elem s ens'' = return s
+    findEn _     fks'' (s:_ ) | Map.member s (Map.fromList fks'') = return $ fst $ fromJust $ Prelude.lookup s fks''
     findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
-    findEn _ _ [] = Left "Path equation cannot be typed"
+    findEn _     _     []                 = Left "Path equation cannot be typed"
+
+    conv [] = return []
+    conv ((att, (en, ty)):tl) = case cast ty of
+      Just ty' -> do
+        xx <- conv tl
+        return $ (att, (en, ty')):xx
+      Nothing -> Left $ "Not a type: " ++ show ty
+
 
 evalSchemaRaw
   :: (ShowOrdTypeableN '[var, ty, sym])
@@ -270,5 +280,5 @@ evalSchemaRaw ops ty t a' = do
     f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
     g [] = return []
     g ((SchemaEx ts):r) = case cast ts of
-      Nothing -> Left "Bad import"
+      Nothing -> Left $ "Bad import" ++ show ts
       Just ts' -> do { r'  <- g r ; return $ ts' : r' }

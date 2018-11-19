@@ -1,7 +1,6 @@
 {-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Options where
-import           Data.Char
 import           Language.Common
 import           Text.Read
 import           Data.Void
@@ -10,7 +9,7 @@ data Options = Options {
   iOps :: IntOption -> Integer,
   bOps :: BoolOption -> Bool,
   sOps :: StringOption -> String
---  cOps :: Map CharOption Char
+--  cOps :: Map CharOption Char -- not needed for now
 }
 
 instance Show Options where
@@ -23,12 +22,10 @@ toOptions o [] = return o
 toOptions def ((k,v):l)   = do
   Options s t u <- toOptions def l
   case a of
-    Left _ -> case b of
-      Left _ -> do
-        (o, i) <- c
-        return $ Options s t (f o i u)
-      Right (o,i) -> return $ Options s (f o i t) u
-    Right (o, i)  -> return $ Options (f o i s) t u
+    Left _ -> case b  of
+      Left  _      -> do { (o, i) <- c ; return $ Options s t (f o i u) }
+      Right (o, i) -> return $ Options s (f o i t)   u
+    Right   (o, i) -> return $ Options   (f o i s) t u
   where
     a = toIntegerOption (k, v)
     b = toBoolOption (k, v)
@@ -37,66 +34,74 @@ toOptions def ((k,v):l)   = do
 
 
 toIntegerOption :: (String, String) -> Err (IntOption, Integer)
-toIntegerOption (k,v) = case matches of
-                        [] -> Left $ "No option called " ++ k
-                        (x:_) -> do a <- parseInt v
-                                    return (x, a)
-  where matches = [ k' | k' <- opsI, toLowercase (show k') == k ]
-        parseInt :: String -> Err Integer
-        parseInt x = case readMaybe x of
-                      Nothing -> Left $ "Not an int: " ++ x
-                      Just y  -> Right y
+toIntegerOption (k, v) = case matches of
+  []    -> Left $ "No option called " ++ k
+  (x:_) -> do { a <- parseInt v ; return (x, a) }
+  where
+    matches = [ k' | k' <- opsI, toLowercase (show k') == k ]
+    parseInt :: String -> Err Integer
+    parseInt x = case readMaybe x of
+      Nothing -> Left  $ "Not an int: " ++ x
+      Just y  -> Right y
 
 
 toStringOption :: (String, String) -> Err (StringOption, String)
 toStringOption (k,v) = case matches of
-                        []    -> Left $ "No option called " ++ k
-                        (x:_) -> do return (x, v)
-  where matches = [ k' | k' <- opsS, toLowercase (show k') == k ]
+  []    -> Left $ "No option called " ++ k
+  (x:_) -> return (x, v)
+  where
+    matches = [ k' | k' <- opsS, toLowercase (show k') == k ]
 
-toLowercase :: String -> String
-toLowercase = Prelude.map toLower
 
 toBoolOption :: (String, String) -> Err (BoolOption, Bool)
 toBoolOption (k,v) = case matches of
-                        [] -> Left  $ "No option called " ++ k
-                        (x:_) -> do a <- parseBool v
-                                    return (x, a)
-  where matches = [ k' | k' <- opsB, toLowercase (show k') == k ]
-        parseBool "true"  = Right True
-        parseBool "false"=Right False
-        parseBool x       = Left $ "Not a bool: " ++ x
+  []    -> Left  $ "No option called " ++ k
+  (x:_) -> do { a <- parseBool v ; return (x, a) }
+  where
+    matches = [ k' | k' <- opsB, toLowercase (show k') == k ]
+    parseBool z = case z of
+      "true"  -> Right True
+      "false" -> Right False
+      x       -> Left $ "Not a bool: " ++ x
 
+-- | Default values for Boolean options.
 boolDef :: BoolOption -> Bool
 boolDef o = case o of
   Program_Allow_Nontermination_Unsafe -> False
   Allow_Empty_Sorts_Unsafe -> False
   Program_Allow_Nonconfluence_Unsafe -> False
 
+-- | Default values for Integer options.
 intDef :: IntOption -> Integer
 intDef o = case o of
   Timeout -> 30
 
+-- | Default values for String options.
 stringDef :: StringOption -> String
 stringDef o = case o of
   Prover -> "auto"
 
+-- | Default options.
 defaultOptions :: Options
 defaultOptions = Options intDef boolDef stringDef
 
+-- | Returns a list of all enums in a given class.
 generateEnumValues :: (Enum a) => [a]
 generateEnumValues = enumFrom (toEnum 0)
 
+-- | All the Boolean options.
 opsB :: [BoolOption]
 opsB = generateEnumValues
 
+-- | All the Integer options.
 opsI :: [IntOption]
 opsI = generateEnumValues
 
+-- | All the String options.
 opsS :: [StringOption]
 opsS = generateEnumValues
 
--- comment out options we can't handle yet
+-- comment out options we can't handle yet.
 data BoolOption =
 --    Require_Consistency
 --  | Schema_Only
@@ -131,6 +136,7 @@ data StringOption =
     Prover
   deriving (Eq, Ord, Show, Enum)
 
+-- | Accessor due to namespace colision.
 prover_name :: StringOption
 prover_name = Prover -- for name collision
 
@@ -148,8 +154,7 @@ data IntOption =
 
 type CharOption = Void
  --data CharOption =
- --   Csv_Escape_Char
+ --  Csv_Escape_Char
  --  Csv_Quote_Char
  --  deriving (Eq, Ord, Show, Enum)
 
- --   CompletionPrecedence [String]

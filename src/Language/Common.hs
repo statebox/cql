@@ -10,12 +10,10 @@ import Control.DeepSeq
 import Control.Arrow (left)
 import Data.Maybe
 import Data.Set as Set (Set, empty, member, insert)
-
-
+import Data.Char
 
 showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
-
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' [] = return Set.empty
@@ -66,10 +64,8 @@ toMapSafely ((k,v):x) = do
   then Left $ "Duplicate element " ++ (show k)
   else return $ Map.insert k v y
 
-
 showCtx' :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx' m = intercalate "\n\t" $ fmap (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
-
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.
@@ -81,6 +77,19 @@ intercalate sep xs = snd (foldl go (True, mempty) xs)
 
 mapl :: Foldable f => (a -> b) -> f a -> [b]
 mapl fn = fmap fn . Foldable.toList
+
+toLowercase :: String -> String
+toLowercase = Prelude.map toLower
+
+elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
+elem' x ys = maybe False (flip elem ys) (cast x)
+
+member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
+member' k m = elem' k (Map.keys m)
+
+mergeMaps :: Ord k => [Map k v] -> Map k v
+mergeMaps []    = Map.empty
+mergeMaps (x:y) = Map.union x $ mergeMaps y
 
 -- I'd like to write 'TyMap f `[a,b,c]' instead of (f a, f b, f c) in instance declarations etc
 -- but it doesn't quite work.
