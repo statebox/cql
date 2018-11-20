@@ -146,7 +146,8 @@ instance Deps MappingExp where
 
 data MappingEx :: * where
   MappingEx
-    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+    :: forall var ty sym en fk att en' fk' att'
+    . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 

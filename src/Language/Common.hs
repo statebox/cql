@@ -23,10 +23,11 @@ fromList'' (k:l) = do
   then Left $ "Duplicate binding: " ++ (show k)
   else pure $ Set.insert k l'
 
-fromList' :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
-fromList' [] = return Map.empty
-fromList' ((k,v):l) = do
-  l' <- fromList' l
+-- | Converts a map to a finite list, returning an error when there are duplicate bindings.
+toMapSafely :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
+toMapSafely [] = return Map.empty
+toMapSafely ((k,v):l) = do
+  l' <- toMapSafely l
   if Map.member k l'
   then Left $ "Duplicate binding: " ++ (show k)
   else pure $ Map.insert k v l'
@@ -56,13 +57,6 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
 
 type ID = Integer
 
-toMapSafely :: (Ord k, Show k) => [(k, a)] -> Either [Char] (Map k a)
-toMapSafely [] = return $ Map.empty
-toMapSafely ((k,v):x) = do
-  y <- toMapSafely x
-  if Map.member k y
-  then Left $ "Duplicate element " ++ (show k)
-  else return $ Map.insert k v y
 
 showCtx' :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx' m = intercalate "\n\t" $ fmap (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
@@ -81,18 +75,19 @@ mapl fn = fmap fn . Foldable.toList
 toLowercase :: String -> String
 toLowercase = Prelude.map toLower
 
+-- | Heterogenous membership in a list
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
 elem' x ys = maybe False (flip elem ys) (cast x)
 
+-- | Heterogenous membership in the keys of a map list
 member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
 
 mergeMaps :: Ord k => [Map k v] -> Map k v
-mergeMaps []    = Map.empty
-mergeMaps (x:y) = Map.union x $ mergeMaps y
+mergeMaps z = case z of
+  []    -> Map.empty
+  (x:y) -> Map.union x $ mergeMaps y
 
--- I'd like to write 'TyMap f `[a,b,c]' instead of (f a, f b, f c) in instance declarations etc
--- but it doesn't quite work.
 type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)

@@ -46,15 +46,16 @@ proverStringToName m = case sOps m prover_name of
 
 createProver
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
-  => Collage var ty sym en fk att gen sk
+  => Collage     var  ty  sym  en  fk  att  gen  sk
   -> Options
-  -> Err (Prover var ty sym en fk att gen sk)
-createProver col ops =  do p <- proverStringToName ops
-                           case p of
-                             Free -> freeProver col
-                             Orthogonal -> orthProver col ops
-                             Auto -> if Set.null (ceqs col) then freeProver col else orthProver col ops
-                             z -> Left $ show z ++ " prover not available"
+  -> Err (Prover var  ty  sym  en  fk  att  gen  sk)
+createProver col ops = do
+  p <- proverStringToName ops
+  case p of
+    Free       -> freeProver col
+    Orthogonal -> orthProver col ops
+    Auto       -> if Set.null (ceqs col) then freeProver col else orthProver col ops
+    z          -> Left $ show z ++ " prover not available"
 
 -------------------------------------------------------------------------------------------
 
@@ -62,9 +63,8 @@ freeProver
   :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk)
   => Collage var ty sym en fk att gen sk
   -> Either String (Prover var ty sym en fk att gen sk)
-freeProver col = if Set.size (ceqs col) == 0
-  then return $ Prover col p
-  else Left "Cannot use free prover when there are equations"
+freeProver col | Set.size (ceqs col) == 0 = return $ Prover col p
+               | otherwise = Left "Cannot use free prover when there are equations"
   where
     p _ (EQ (lhs', rhs')) = lhs' == rhs'
 
@@ -93,8 +93,8 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
       []  -> x
       y:_ -> nf $ result y
     allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
-    allow_empty =  bOps ops Allow_Empty_Sorts_Unsafe
-    nonConOk =  bOps ops Program_Allow_Nonconfluence_Unsafe
+    allow_empty   =  bOps ops Allow_Empty_Sorts_Unsafe
+    nonConOk      =  bOps ops Program_Allow_Nonconfluence_Unsafe
     convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
 
 -- | Gets the non-reflexive critical pairs
@@ -123,16 +123,5 @@ convert x = case x of
 
 -- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
-
-
-
-
-
-
-
-
-
-
-
 
 
