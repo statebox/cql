@@ -9,7 +9,7 @@ import Language.Term
 import Data.Void
 import Language.Schema
 import Language.Common
-
+import Control.DeepSeq
 
 data Query var ty sym en fk att en' fk' att'
   = Query
@@ -20,14 +20,6 @@ data Query var ty sym en fk att en' fk' att'
   , fks  :: Map fk'  (Ctx var (Term var Void Void en fk Void Void Void))
   , atts :: Map att' (Term var ty   sym  en fk att  Void Void)
   }
-
-
-data QueryEx :: * where
-  QueryEx :: forall var ty sym en fk att en' fk' att'.
-   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>
-    Query var ty sym en fk att en' fk' att' -> QueryEx
-
-deriving instance Show QueryEx
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
   => Show (Query var ty sym en fk att en' fk' att') where
@@ -40,7 +32,15 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
   (==) (Query s1' s2' ens' fks' atts') (Query s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
 
+instance NFData QueryEx where
+  rnf (QueryEx _) = undefined
 
+data QueryEx :: * where
+  QueryEx :: forall var ty sym en fk att en' fk' att'.
+   (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att') =>
+    Query var ty sym en fk att en' fk' att' -> QueryEx
+
+deriving instance Show QueryEx
 
 data QueryExp where
   QueryVar     :: String -> QueryExp
@@ -53,7 +53,6 @@ instance Deps QueryExp where
  deps (QueryId s) = deps s
  deps (QueryRaw (QueryExpRaw' _ _ _ _)) = error "todo - queries"
 
-
 --old school queries without overlapping names across entities
 data QueryExpRaw' = QueryExpRaw' {
     qraw_ens  :: [(String, ([(String,String)],[(RawTerm,RawTerm)]))]
@@ -61,8 +60,5 @@ data QueryExpRaw' = QueryExpRaw' {
   , qraw_atts  :: [(String, RawTerm)]
   , qraw_options :: [(String, String)]
 } deriving (Eq, Show)
-
---instance Semantics (Query var ty sym en fk att en' fk' att')  where
---  validate = undefined
 
 --------------------------------------------------------------------------------

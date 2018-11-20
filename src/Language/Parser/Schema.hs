@@ -12,82 +12,85 @@ import           Text.Megaparsec
 import           Language.Parser.Typeside
 import           Language.Schema            as X
 import           Language.Term
-import           Language.Typeside 
+import           Language.Typeside
 
 obsEqParser :: Parser (String, Maybe String, RawTerm, RawTerm)
-obsEqParser = do _ <- constant "forall"
-                 i <- identifier
-                 j <- optional $ do { _ <- constant ":"; identifier }
-                 _ <- constant "."
-                 l <- rawTermParser
-                 _ <- constant "="
-                 r <- rawTermParser
-                 return (i,j,l,r)
+obsEqParser = do
+  _ <- constant "forall"
+  i <- identifier
+  j <- optional $ do { _ <- constant ":"; identifier }
+  _ <- constant "."
+  l <- rawTermParser
+  _ <- constant "="
+  r <- rawTermParser
+  return (i, j, l, r)
 
 attParser :: Parser [(Att, (En, Ty))]
 attParser = fkParser
 
-
 fkParser :: Parser [(Fk, (En, En))]
-fkParser = do x <- some identifier
-              _ <- constant ":"
-              y <- identifier
-              _ <- constant "->"
-              z <- identifier
-              return $ map (\a -> (a,(y,z))) x
+fkParser = do
+  x <- some identifier
+  _ <- constant ":"
+  y <- identifier
+  _ <- constant "->"
+  z <- identifier
+  return $ map (\a -> (a, (y, z))) x
 
 pathEqParser :: Parser ([Fk],[Fk])
-pathEqParser = do x <- sepBy1 identifier $ constant "."
-                  _ <- constant "="
-                  y <- sepBy1 identifier $ constant "."
-                  return (x,y)
+pathEqParser = do
+  x <- sepBy1 identifier $ constant "."
+  _ <- constant "="
+  y <- sepBy1 identifier $ constant "."
+  return (x, y)
 
 schemaRawParser :: Parser SchemaExpRaw'
 schemaRawParser = do
-        _ <- constant "literal"
-        _ <- constant ":"
-        t <- typesideExpParser
-        schemaLiteral <- (braces $ p t)
-        pure $ schemaLiteral
- where p t = do  i <- optional $ do
-                    _ <- constant "imports"
-                    many schemaExpParser  
-                 e <- optional $ do
-                    _ <- constant "entities"
-                    many identifier
-                 f <- optional $ do
-                    _ <- constant "foreign_keys"
-                    many fkParser
-                 p' <- optional $ do
-                    _ <- constant "path_equations"
-                    many pathEqParser
-                 a <- optional $ do
-                    _ <- constant "attributes"
-                    many attParser
-                 o <- optional $ do
-                    _ <- constant "observation_equations"
-                    many obsEqParser
-                 o' <- optional $ do
-                    _ <- constant "options"
-                    many optionParser
-                 pure $ SchemaExpRaw' t
-                    (fromMaybe [] e)
-                    (concat $ fromMaybe [] f)
-                    (concat $ fromMaybe [] a)
-                    (fromMaybe [] p')
-                    (fromMaybe [] o)
-                    (fromMaybe [] o')
-                    (fromMaybe [] i)
+  _ <- constant "literal"
+  _ <- constant ":"
+  t <- typesideExpParser
+  schemaLiteral <- (braces $ p t)
+  pure $ schemaLiteral
+  where
+    p t = do
+      i <- optional $ do
+        _ <- constant "imports"
+        many schemaExpParser
+      e <- optional $ do
+        _ <- constant "entities"
+        many identifier
+      f <- optional $ do
+        _ <- constant "foreign_keys"
+        many fkParser
+      p' <- optional $ do
+        _ <- constant "path_equations"
+        many pathEqParser
+      a <- optional $ do
+        _ <- constant "attributes"
+        many attParser
+      o <- optional $ do
+        _ <- constant "observation_equations"
+        many obsEqParser
+      o' <- optional $ do
+        _ <- constant "options"
+        many optionParser
+      pure $ SchemaExpRaw' t
+        (fromMaybe [] e)
+        (concat $ fromMaybe [] f)
+        (concat $ fromMaybe [] a)
+        (fromMaybe [] p')
+        (fromMaybe [] o )
+        (fromMaybe [] o')
+        (fromMaybe [] i )
 
 schemaExpParser :: Parser X.SchemaExp
 schemaExpParser =
-    SchemaRaw <$> schemaRawParser
+  SchemaRaw <$> schemaRawParser
     <|>
-      SchemaVar <$> identifier
+  SchemaVar <$> identifier
     <|>
-       do
-        _ <- constant "empty"
-        _ <- constant ":"
-        x <- typesideExpParser
-        return $ SchemaInitial x
+  do _ <- constant "empty"
+     _ <- constant ":"
+     x <- typesideExpParser
+     return $ SchemaInitial x
     <|> parens schemaExpParser

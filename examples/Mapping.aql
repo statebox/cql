@@ -41,3 +41,6 @@ transform h = literal : I -> I {
  generators
   e -> e.f
 }
+
+mapping m2 = [ M ; M ]
+transform h2 = [ h ; h ]

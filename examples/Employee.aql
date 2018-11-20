@@ -40,8 +40,8 @@ instance I = literal : S {
 	generators  
 		a b : Employee 
 	equations  
-	    //a.manager=a a.worksIn.secretary=a     
-	    //b.manager=a b.worksIn = a.worksIn    
+	    a.manager=a a.worksIn.secretary=a     
+	    b.manager=a b.worksIn = a.worksIn    
         first(a) = Al
 		first(b) = Bob  last(b) = Bo
 }    

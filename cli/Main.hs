@@ -10,5 +10,5 @@ main = do args <- getArgs
           _ <- mapM (putStrLn . f' . runProg) w
           return ()
  where f' (Left x)        = x
-       f' (Right (_,_,c)) = show c
+       f' (Right (_,t,c)) = show t ++ "\n\n-------------------\n\n" ++ show c
 

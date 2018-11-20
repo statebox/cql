@@ -28,6 +28,7 @@ dependencies:
 - semigroups
 - term-rewriting
 - tabular
+- deepseq
 
 library:
   source-dirs: src
