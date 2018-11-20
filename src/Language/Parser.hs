@@ -1,6 +1,7 @@
 module Language.Parser where
 
 import           Data.Map                   as Map
+import           Data.Maybe
 import           Language.Common            as C
 import           Language.Parser.Instance   as I
 import           Language.Parser.LexerRules
@@ -11,7 +12,6 @@ import           Language.Parser.Transform  as TT
 import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
-import           Data.Maybe
 
 
 parseAqlProgram' :: Parser (String, Exp)
@@ -75,5 +75,5 @@ toProg' o ((v,e):p) = case e of
 
 parseAqlProgram :: String -> Err Prog
 parseAqlProgram s = case runParser parseAqlProgram'' "" s of
-  Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
-  Right (o,x)  -> pure $ toProg' o x
+  Left err    -> Left $ "Parse error: " ++ (parseErrorPretty err)
+  Right (o,x) -> pure $ toProg' o x

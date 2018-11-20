@@ -34,14 +34,17 @@ library:
   source-dirs: src
 
 ghc-options:
-- -Wunused-binds
-- -Wunused-foralls
-- -Wunused-imports
-- -Wincomplete-patterns
-- -Wdodgy-exports
-- -Wdodgy-imports
-- -Wunbanged-strict-patterns
+- -Weverything
 - -Werror
+- -Wno-implicit-prelude
+- -Wno-missing-export-lists
+- -Wno-missing-import-lists
+- -Wno-safe
+- -Wno-missing-local-signatures
+- -Wno-unsafe
+- -Wno-monomorphism-restriction
+- -Wno-unused-type-patterns
+- -Wno-name-shadowing
 
 executables:
   aql-exe:

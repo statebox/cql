@@ -18,6 +18,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Schema where
+import           Control.DeepSeq
 import           Data.List         (nub)
 import           Data.Map.Strict   as Map
 import           Data.Maybe
@@ -30,7 +31,6 @@ import           Language.Prover
 import           Language.Term
 import           Language.Typeside
 import           Prelude           hiding (EQ)
-import           Control.DeepSeq
 
 
 data Schema var ty sym en fk att
@@ -75,7 +75,7 @@ typecheckSchema
 typecheckSchema t = typeOfCol $ schToCol  t
 
 schToCol
-  :: (ShowOrdN '[var, ty, sym, en, fk, att])
+  :: (ShowOrdN '[var, ty, sym], Ord en, Ord fk, Ord att)
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
@@ -95,7 +95,7 @@ up1Ctx g = Map.map (\x -> case x of
 typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
 typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty $ \x _ -> absurd x
 
-fksFrom' :: (Show var, Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
+fksFrom' :: (Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
 fksFrom' sch en' = f $ Map.assocs $ fks sch
   where
     f []                 = []
@@ -174,7 +174,7 @@ type Fk = String
 type Att = String
 
 evalSchemaRaw'
-  :: (Show var, Ord var, ShowOrdTypeableN '[ty, sym])
+  :: (Ord ty, Typeable ty, Ord sym, Typeable sym)
   => Typeside var ty sym -> SchemaExpRaw'
   -> [Schema var ty sym En Fk Att]
   -> Err (Schema var ty sym En Fk Att)
@@ -236,7 +236,7 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
     h :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
     h ens'' (s:ex) | elem s ens'' = h ens'' ex
     h ens'' (s:ex) | otherwise    = Fk s $ h ens'' ex
-    h _ []                        = Var ()
+    h _ []         = Var ()
 
     k _ _ [] = pure $ Set.empty
     k ens' fks' ((l,r):eqs') = do
@@ -280,5 +280,5 @@ evalSchemaRaw ops ty t a' = do
     f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
     g [] = return []
     g ((SchemaEx ts):r) = case cast ts of
-      Nothing -> Left $ "Bad import" ++ show ts
+      Nothing  -> Left $ "Bad import" ++ show ts
       Just ts' -> do { r'  <- g r ; return $ ts' : r' }
