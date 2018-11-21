@@ -9,8 +9,16 @@ import Data.Typeable
 import Control.DeepSeq
 import Control.Arrow (left)
 import Data.Maybe
-import Data.Set as Set (Set, empty, member, insert)
+import Data.Set as Set (Set, empty, member, insert, singleton)
 import Data.Char
+
+
+fromListAccum :: (Ord v, Ord k) => [(k, v)] -> Map k (Set v)
+fromListAccum []          = Map.empty
+fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
+  where
+    op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
+    r  = fromListAccum kvs
 
 showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
 showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m

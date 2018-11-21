@@ -68,6 +68,8 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
       atts''  = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList atts'
       eqs'' x = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) $ Set.toList x
 
+-- | Checks that the underlying theory is well-sorted.
+-- I.e. rule out "1" = one kind of errors.
 typecheckSchema
   :: (ShowOrdN '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
@@ -174,6 +176,7 @@ type Fk = String
 -- | Type of attributes for literal schemas.
 type Att = String
 
+-- | Evaluates a schema literal into a theory, but does not create the theorem prover.
 evalSchemaRaw'
   :: (Show var, Ord var, ShowOrdTypeableN '[ty, sym])
   => Typeside var ty sym -> SchemaExpRaw'
@@ -181,7 +184,7 @@ evalSchemaRaw'
   -> Err (Schema var ty sym En Fk Att)
 evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
   ens''  <- return $ Set.fromList $ ie ++ ens'x
-  fks''  <- toMapSafely $ fks'x  ++ (concatMap (Map.toList . fks) is)
+  fks''  <- toMapSafely $ fks'x  ++ (concatMap (Map.toList . fks ) is)
   atts'2 <- convTys atts'x
   atts'' <- toMapSafely $ atts'2 ++ (concatMap (Map.toList . atts) is)
   peqs'  <- procPeqs (Set.toList ens'') (Map.toList fks'' ) peqs
@@ -193,7 +196,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
     io = Set.fromList $ concatMap (Set.toList . obs_eqs ) is
 
     keys' = fst . unzip
-    --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
+
     procOeqs _ _ [] = pure $ Set.empty
     procOeqs fks' atts' ((v, en', lhs, rhs):eqs') = do
       en   <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
@@ -225,7 +228,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
       Just (s,_)   -> [s]
     typesOf v fks' atts' (RawApp _ as) = concatMap (typesOf v fks' atts') as
 
-    procTerm :: Typeable sym => String ->[String]-> [String] -> RawTerm-> Term () ty sym en Fk Att  Void Void
+    procTerm :: Typeable sym => String -> [String] -> [String] -> RawTerm -> Term () ty sym en Fk Att  Void Void
     procTerm v _ _ (RawApp x' []) | v == x' = Var ()
     procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' fks'''  = Fk  x' $ procTerm v fks''' atts''' a
     procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' atts''' = Att x' $ procTerm v fks''' atts''' a
@@ -263,7 +266,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
         return $ (att, (en, ty')):xx
       Nothing -> Left $ "Not a type: " ++ show ty
 
-
+-- | Evaluate a typeside into a theory.  Does not validate.
 evalSchemaRaw
   :: (ShowOrdTypeableN '[var, ty, sym])
   => Options
@@ -272,14 +275,14 @@ evalSchemaRaw
   -> [SchemaEx]
   -> Err SchemaEx
 evalSchemaRaw ops ty t a' = do
-  (a :: [Schema var ty sym En Fk Att]) <- g a'
+  (a :: [Schema var ty sym En Fk Att]) <- doImports a'
   r <- evalSchemaRaw' ty t a
-  l <- toOptions ops $ schraw_options t
-  p <- createProver (schToCol r) l
-  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
+  o <- toOptions ops $ schraw_options t
+  p <- createProver (schToCol r) o
+  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (mkProver p)
   where
-    f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
-    g [] = return []
-    g ((SchemaEx ts):r) = case cast ts of
+    mkProver p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
+    doImports [] = return []
+    doImports ((SchemaEx ts):r) = case cast ts of
       Nothing -> Left $ "Bad import" ++ show ts
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }

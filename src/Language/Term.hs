@@ -87,11 +87,11 @@ deriving instance (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, O
 
 -- | A symbol (non-variable).
 data Head ty sym en fk att gen sk =
-   HSym sym
- | HFk fk
- | HAtt att
- | HGen gen
- | HSk sk
+    HSym  sym
+  | HFk   fk
+  | HAtt  att
+  | HGen  gen
+  | HSk   sk
   deriving (Eq, Show, Ord)
 
 -- | Maps functions through a term.
@@ -163,6 +163,23 @@ hasTypeType'' t = case t of
 ----------------------------------------------------------------------------------------------------------
 -- Substitution and simplification of theories
 
+-- | Experimental
+subst2
+  :: forall ty2 sym2 en2 fk2 att2 gen2 sk2 ty3 sym3 en3 fk3 att3 gen3 sk3 var sym en fk att gen sk var3
+  . (Eq var,                Up sym2 sym,  Up fk2 fk,  Up att2 att,  Up gen2 gen,  Up sk2 sk,  Up en2 en,
+           Up var3 var,     Up sym3 sym,  Up fk3 fk,  Up att3 att,  Up gen3 gen,  Up sk3 sk,  Up en3 en,
+                Up sym3 sym2, Up fk3 fk2, Up att3 att2, Up gen3 gen2, Up sk3 sk2, Up en3 en2, Up ty3 ty2)
+  => Term ()   ty2 sym2 en2 fk2 att2 gen2 sk2
+  -> Term var3 ty3 sym3 en3 fk3 att3 gen3 sk3
+  -> Term var  ty2 sym en fk att gen sk
+subst2 x t = case x of
+  Var ()    -> upp t
+  Sym f as  -> Sym (upgr f) $ (\a -> subst2 a t) <$> as
+  Fk  f a   -> Fk  (upgr f) $ subst2 a t
+  Att f a   -> Att (upgr f) $ subst2 a t
+  Gen g     -> Gen $ upgr g
+  Sk  g     -> Sk  $ upgr g
+
 -- | Given a term with one variable, substitutes the variable with another term.
 subst
   :: Eq var
@@ -176,6 +193,19 @@ subst x t = case x of
   Att f a   -> Att f $ subst a t
   Gen g     -> Gen g
   Sk  g     -> Sk  g
+
+subst'
+  :: Term ()   ty   sym  en fk att  Void Void
+  -> Term Void Void Void en fk Void gen  Void
+  -> Term Void ty   sym  en fk att  gen  sk
+subst' s t = case s of
+  Var ()   -> upp t
+  Sym f as -> Sym f $ (\a -> subst' a t) <$> as
+  Fk  f  a -> Fk  f $ subst' a t
+  Att f  a -> Att f $ subst' a t
+  Gen f    -> absurd f
+  Sk  f    -> absurd f
+
 
 -- | Checks if a given symbol (not variable) occurs in a term.
 occurs
@@ -191,25 +221,26 @@ occurs h x = case x of
   Att h' a  -> h == HAtt h' || occurs h a
   Sym h' as -> h == HSym h' || or (Prelude.map (occurs h) as)
 
--- |  If there is one, finds an equation of the form @gen/sk = term@.
+-- |  If there is one, finds an equation of the form empty |- @gen/sk = term@,
+-- where @gen@ does not occur in @term@.
 findSimplifiable
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
-findSimplifiable = f . Set.toList
+findSimplifiable = procEqs . Set.toList
   where
     g (Var _)    _ = Nothing
     g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
     g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
     g (Sym _ []) _ = Nothing
     g _ _ = Nothing
-    f []  = Nothing
-    f ((m, _):_) | not (Map.null m) = Nothing
-    f ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
+    procEqs []  = Nothing
+    procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
+    procEqs ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
       Nothing -> case g rhs lhs of
-        Nothing     -> f tl
-        Just (y, r) -> Just (y, r)
-      Just   (y, r) -> Just (y, r)
+        Nothing     -> procEqs tl
+        Just y -> Just y
+      Just   y -> Just y
 
 -- | Replaces a symbol by a term in a term.
 replace'
@@ -256,9 +287,9 @@ simplifyFix
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
-simplifyFix eqs subst' = case simplify eqs of
-  Nothing             -> (eqs, subst')
-  Just (eqs1, subst1) -> simplifyFix eqs1 $ subst' ++ [subst1]
+simplifyFix eqs subst0 = case simplify eqs of
+  Nothing             -> (eqs, subst0)
+  Just (eqs1, subst1) -> simplifyFix eqs1 $ subst0 ++ [subst1]
 
 -- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
@@ -393,7 +424,7 @@ initGround col = (me', mt')
     me  = Map.fromList $ Prelude.map (\en -> (en, False)) $ Set.toList $ cens col
     mt  = Map.fromList $ Prelude.map (\ty -> (ty, False)) $ Set.toList $ ctys col
     me' = Prelude.foldr (\(_, en) m -> Map.insert en True m) me $ Map.toList $ cgens col
-    mt' = Prelude.foldr (\(_, ty) m -> Map.insert ty True m) mt $ Map.toList $ csks col
+    mt' = Prelude.foldr (\(_, ty) m -> Map.insert ty True m) mt $ Map.toList $ csks  col
 
 -- | Applies one layer of symbols to the sort to boolean inhabitation map.
 closeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
@@ -452,7 +483,7 @@ checkDoms' mor = do
     g gn = if Map.member gn $ m_gens mor then pure () else Left $ "No gen mapping for "    ++ show gn
     s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No sk mapping for "     ++ show sk
 
-
+-- | Translates a term along a morphism.
 trans'
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
   .  (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var')
@@ -462,29 +493,30 @@ trans'
 trans' _ (Var x) = Var x
 trans' mor (Fk f a) = let
   x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
-  y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
-  in subst (upp y) x
-trans' mor (Gen g) = upp $ fromJust $ Map.lookup g (m_gens mor)
+  y = upp (m_fks mor ! f) :: Term () Void Void en' fk' Void gen' Void
+  in subst y x
+trans' mor (Gen g) = upp $ m_gens mor ! g
 trans' _ (Sym _ _) = undefined
 trans' _ (Att _ _) = undefined
 trans' _ (Sk _   ) = undefined
 
+-- | Translates a term along a morphism.
 trans
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
-  .  (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var')
+  .  (Ord gen, Ord sk, Ord fk, Ord att, Ord var', Eq var)
   => Morphism var  ty sym en  fk  att  gen  sk en' fk' att' gen' sk'
   -> Term     var' ty sym en  fk  att  gen  sk
   -> Term     var' ty sym en' fk' att' gen' sk'
 trans mor term = case term of
   Var x    -> Var x
   Sym f xs -> Sym f $ Prelude.map (trans mor) xs
-  Gen g    -> upp $ fromJust $ Map.lookup g (m_gens mor)
-  Sk  s    -> upp $ fromJust $ Map.lookup s (m_sks mor)
-  Att f a -> subst (upp $ fromJust $ Map.lookup f (m_atts mor)) $ trans mor a
+  Gen g    -> upp $ m_gens mor ! g
+  Sk  s    -> upp $ m_sks mor  ! s
+  Att f a  -> subst (upp $ (m_atts mor) ! f) $ trans mor a
   Fk  f a  -> subst (upp y) x
     where
-      x = trans mor a :: Term var' ty sym en' fk' att' gen' sk'
-      y = fromJust $ Map.lookup f $ m_fks mor :: Term () Void Void en' fk' Void Void Void
+      x = trans mor a   :: Term var' ty sym  en' fk' att' gen' sk'
+      y = m_fks mor ! f :: Term () Void Void en' fk' Void Void Void
 
 
 typeOfMor
