@@ -25,10 +25,21 @@ import           Language.Common
 import           Language.Options            as O hiding (Prover)
 import           Language.Term               as S
 import           Prelude                     hiding (EQ)
+import           Twee.Term                   as TweeTerm
+import           Twee.Base                   as TweeBase
+import           Twee                        as Twee
+import           Data.Maybe
+import           Data.Map
+import           Data.List
+import           Twee.Proof                  as TweeProof hiding (defaultConfig)
+import           Twee.Equation               as TweeEq
+import qualified Twee.KBO as KBO
+import Debug.Trace
+
 
 -- Theorem proving ------------------------------------------------
 
-data ProverName = Free | Congruence | Orthogonal | KB | Auto
+data ProverName = Free | Congruence | Orthogonal | Completion | Auto
   deriving Show
 
 data Prover var ty sym en fk att gen sk = Prover
@@ -39,13 +50,13 @@ data Prover var ty sym en fk att gen sk = Prover
 proverStringToName :: Options -> Err ProverName
 proverStringToName m = case sOps m prover_name of
   "auto"       -> pure Auto
-  "kb"         -> pure KB
+  "completion" -> pure Completion
   "program"    -> pure Orthogonal
   "congruence" -> pure Congruence
   x            -> Left $ "Not a prover: " ++ x
 
 createProver
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage     var  ty  sym  en  fk  att  gen  sk
   -> Options
   -> Err (Prover var  ty  sym  en  fk  att  gen  sk)
@@ -55,6 +66,7 @@ createProver col ops = do
     Free       -> freeProver col
     Orthogonal -> orthProver col ops
     Auto       -> if Set.null (ceqs col) then freeProver col else orthProver col ops
+    Completion -> kbProver col ops
     z          -> Left $ show z ++ " prover not available"
 
 -------------------------------------------------------------------------------------------
@@ -86,42 +98,117 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
   else     Left   "Rewriting Error: not size decreasing"
   where
     (col', f) = simplifyCol col
+
     p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
+
     eqs1 = Prelude.map snd $ Set.toList $ ceqs col'
     eqs2 = Prelude.map convert' eqs1
+
     nf x = case outerRewrite eqs2 x of
       []  -> x
       y:_ -> nf $ result y
+
     allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
     allow_empty   =  bOps ops Allow_Empty_Sorts_Unsafe
     nonConOk      =  bOps ops Program_Allow_Nonconfluence_Unsafe
     convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
 
--- | Gets the non-reflexive critical pairs
-findCps :: (Eq f, Ord v') => [Rule f v'] -> [(R.Term f (Either v' v'), R.Term f (Either v' v'))]
-findCps x = Prelude.map (\y -> (CP.left y, CP.right y)) $ Prelude.filter g $ cps' x
-  where
-    g q = not $ (CP.left q) == (CP.right q)
+    -- | Gets the non-reflexive critical pairs
+    findCps :: (Eq f, Ord v') => [Rule f v'] -> [(R.Term f (Either v' v'), R.Term f (Either v' v'))]
+    findCps x = Prelude.map (\y -> (CP.left y, CP.right y)) $ Prelude.filter g $ cps' x
+      where
+        g q = not $ (CP.left q) == (CP.right q)
 
-noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
-noOverlaps x = (and $ Prelude.map R.isLeftLinear x) && (Prelude.null $ findCps x)
+    noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
+    noOverlaps x = (and $ Prelude.map R.isLeftLinear x) && (Prelude.null $ findCps x)
 
-isDecreasing :: [EQ var ty sym en fk att gen sk] -> Bool
-isDecreasing [] = True
-isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl
+    isDecreasing :: [EQ var ty sym en fk att gen sk] -> Bool
+    isDecreasing [] = True
+    isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl
 
-convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
-convert x = case x of
-  S.Var v    -> T.Var v
-  S.Gen g    -> T.Fun (HGen g) []
-  S.Sk  g    -> T.Fun (HSk  g) []
-  S.Att g a  -> T.Fun (HAtt g) [convert a]
-  S.Fk  g a  -> T.Fun (HFk  g) [convert a]
-  S.Sym g as -> T.Fun (HSym g) $ Prelude.map convert as
+    convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
+    convert x = case x of
+      S.Var v    -> T.Var v
+      S.Gen g    -> T.Fun (HGen g) []
+      S.Sk  g    -> T.Fun (HSk  g) []
+      S.Att g a  -> T.Fun (HAtt g) [convert a]
+      S.Fk  g a  -> T.Fun (HFk  g) [convert a]
+      S.Sym g as -> T.Fun (HSym g) $ Prelude.map convert as
 
 ----------------------------------------------------------------------------------------------
 
--- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
 
+
+instance (ShowOrdTypeableN '[ty, sym, en, fk, att, gen, sk])
+  => Ordered (Extended (Head ty (sym, Int) en fk att gen sk)) where
+  lessEq = KBO.lessEq
+  lessIn = KBO.lessIn
+
+instance Arity (Head ty (sym, Int) en fk att gen sk) where
+  arity x = case x of
+    HGen _ -> 0
+    HSk _ -> 0
+    HAtt _ -> 1
+    HFk _ -> 1
+    HSym (_, i) -> i
+
+instance (ShowOrdTypeableN '[ty, sym, en, fk, att, gen, sk]) =>
+  PrettyTerm (Head ty (sym, Int) en fk att gen sk) where
+
+instance EqualsBonus (Head ty (sym, Int) en fk att gen sk) where
+
+instance Sized (Head ty (sym, Int) en fk att gen sk) where
+  size x = case x of
+    HGen _ -> 0
+    HSk _ -> 0
+    HAtt _ -> 1
+    HFk _ -> 1
+    HSym (_, i) -> i
+
+instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
+  => Pretty (Head ty (sym, Int) en fk att gen sk) where
+  pPrint x = text $ show x
+
+convert
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  => Ctx var (ty+en)
+  -> S.Term var ty sym en fk att gen sk
+  -> TweeBase.Term (Extended (Head ty (sym, Int) en fk att gen sk))
+convert ctx x = case x of
+  S.Var v    -> build $ var $ V (fromJust $ elemIndex v $ keys ctx)
+  S.Gen g    -> build $ con (fun $ Function $ HGen g)
+  S.Sk  g    -> build $ con (fun $ Function $ HSk  g)
+  S.Att g a  -> build $ app (fun $ Function $ HAtt g) [convert ctx a]
+  S.Fk  g a  -> build $ app (fun $ Function $ HFk  g) [convert ctx a]
+  S.Sym g as -> build $ app (fun $ Function $ HSym (g, length as)) $ fmap (convert ctx) as
+
+initState
+  :: forall           var  ty  sym  en  fk  att  gen  sk
+  .  (ShowOrdTypeableN '[     var, ty, sym, en, fk, att, gen, sk])
+  => Collage          var  ty  sym  en  fk  att  gen  sk
+  -> State (Extended (Head ty  (sym, Int)  en  fk  att  gen  sk))
+initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initialState $ ceqs col
+  where
+    toAxiom :: (Ctx var (ty+en), EQ var ty sym en fk att gen sk) -> Axiom (Extended (Head ty (sym, Int) en fk att gen sk))
+    toAxiom (ctx, EQ (lhs, rhs)) = Axiom 0 "" $ (convert ctx lhs) :=: convert ctx rhs
+
+kbProver
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  => Collage var ty sym en fk att gen sk
+  -> Options
+  -> Err (Prover var ty sym en fk att gen sk)
+kbProver col ops = if allSortsInhabited col || allow_empty
+      then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r)
+           in trace (show $ rules $ completed) $ pure $ Prover col p'
+      else Left   "Completion Error: contains uninhabited sorts"
+  where
+    (col', f) = simplifyCol col
+    p ctx (EQ (lhs', rhs')) = normaliseTerm completed (convert ctx lhs') == normaliseTerm completed (convert ctx rhs')
+    completed = completePure defaultConfig (initState col')
+    --nputEqs = Prelude.map (\(ctx,x)->convert ctx x) Set.toList $ ceqs col'
+    allow_empty   =  bOps ops Allow_Empty_Sorts_Unsafe
+
+-------------------------------------------------------------------------------------------
+-- for ground theories: https://hackage.haskell.org/package/toysolver-0.0.4/src/src/Algorithm/CongruenceClosure.hs
 

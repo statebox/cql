@@ -597,7 +597,7 @@ changeEn' fks' atts' t = case t of
   Att h _ -> absurd h
 
 evalSigmaInst
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk], Eq x, Eq y, Eq en')
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk], Eq x, Eq y, Eq en')
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))

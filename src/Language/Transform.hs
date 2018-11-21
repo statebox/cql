@@ -36,6 +36,7 @@ import           Prelude           hiding (EQ)
 import           Control.DeepSeq
 
 
+
 -- | Map from one 'Instance' to another of the same 'Schema'.
 data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   = Transform
@@ -180,7 +181,7 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _)
     a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
 
 evalSigmaTrans
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk', x', y'], Eq x, Eq y, Eq en')
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk', x', y', x, y, en'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Options
@@ -194,7 +195,8 @@ evalSigmaTrans f (Transform src0 dst0 gens' sks') o = do
     sks''  = changeEn  (M.fks f) (M.atts f) <$> sks'
 
 evalDeltaSigmaUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att' . (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk, x, y],  Eq x, Eq y, Eq en')
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk, x, y, en'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y
   -> Options
@@ -209,7 +211,8 @@ evalDeltaSigmaUnit m i o = do
     g j sk  _   = upp $     nf'' (algebra j) $ Sk  sk
 
 evalDeltaSigmaCoUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att'. (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'], Eq x, Eq y, Eq en')
+  :: forall var ty sym en fk att gen sk x y en' fk' att'.
+   (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att', x, y, en'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Options

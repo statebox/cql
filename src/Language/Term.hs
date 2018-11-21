@@ -29,6 +29,7 @@ import           Language.Common
 import           Prelude         hiding (EQ)
 import           Control.DeepSeq
 
+
 data RawTerm = RawApp String [RawTerm]
   deriving Eq
 
@@ -93,6 +94,8 @@ data Head ty sym en fk att gen sk =
   | HGen  gen
   | HSk   sk
   deriving (Eq, Show, Ord)
+
+
 
 -- | Maps functions through a term.
 mapTerm

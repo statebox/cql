@@ -29,6 +29,8 @@ dependencies:
 - term-rewriting
 - tabular
 - deepseq
+- twee-lib
+- pretty
 
 library:
   source-dirs: src

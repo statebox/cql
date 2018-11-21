@@ -1,0 +1,107 @@
+//one = two should not be provable 
+/*
+typeside EmptySortsCheck = literal { 
+	types
+ 		void 
+ 		nat
+	constants
+ 		one two : nat
+ 	equations  
+	 	 forall x:void. one = two 
+	options
+		prover = completion
+		allow_empty_sorts_unsafe = true
+} 
+*/
+/*
+typeside Group = literal {
+	types 
+		S
+	constants
+		e : S
+	functions
+		I : S -> S
+		o : S,S -> S
+	equations
+ 		forall x. (e o x) = x
+ 		forall x. (I(x) o x) = e
+ 		forall x, y, z. ((x o y) o z) = (x o (y o z))
+ 	options
+		prover = completion
+} */
+
+typeside CompletedGroup = literal {
+	types 
+		S
+	constants
+		e : S
+	functions
+		I : S -> S
+		o : S,S -> S
+	equations
+ 		forall x. (e o x) = x
+ 		forall x. (I(x) o x) = e
+ 		forall x, y, z. ((x o y) o z) = (x o (y o z))
+
+ 		forall x, y. (I(x) o (x o y)) = y
+ 		forall . I(e) = e
+ 		forall x. (x o e) = x
+ 		forall x. I(I(x)) = x
+ 		forall x. (x o I(x)) = e
+ 		forall x y. (x o (I(x) o y)) = y
+ 		forall x y. I((x o y)) = (I(y) o I(x))
+
+ 	options
+		prover = completion
+}
+/*
+typeside LR = literal {
+	types 
+		S
+	constants
+		e : S
+	functions
+		I : S -> S
+		o : S,S -> S
+	equations
+ 		forall x. o(e,x) = x
+		forall x. o(x,I(x)) = e
+		forall x y z. o(o(x,y),z)=o(x,o(y,z))
+ 	options
+		prover = completion
+}
+
+typeside RL = literal {
+	types 
+		S
+	constants
+		e : S
+	functions
+		I : S -> S
+		o : S,S -> S
+	equations
+ 		forall x. o(x,e) = x
+		forall x. o(I(x),x) = e
+		forall x, y, z. o(o(x,y),z)=o(x,o(y,z))
+ 	options
+		prover = completion
+}
+
+typeside Arith = literal {
+	types
+		N
+	constants
+		zero : N
+	functions
+		succ : N -> N
+		plus : N,N -> N
+		times : N,N -> N  
+	equations
+		forall x. plus(zero, x) = x
+		forall x, y. plus(succ(x),y) = succ(plus(x,y))
+		forall x. times(zero, x) = zero
+		forall x, y. times(succ(x),y) = plus(y,times(x,y))
+	options
+		prover = completion
+} 
+ */
