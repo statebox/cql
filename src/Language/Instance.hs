@@ -302,12 +302,8 @@ initialAlgebra p dp' sch = simplifyAlg this
     repr'''' (MkTalgGen (Right (x, att))) = Att att $ upp x
 
     teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
+    teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
-fromListAccum :: (Ord v, Ord k) => [(k, v)] -> Map k (Set v)
-fromListAccum []          = Map.empty
-fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
-  where
-    op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
 
 assembleSks
   :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
@@ -336,7 +332,6 @@ simplifyAlg
     ty'' t       = Set.filter (\x -> not $ elem (HSk x) $ fst $ unzip f) $ ty' t
     nf''''' e    = replaceRepeatedly f $ nf'''' e
 
-type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 instance NFData InstanceEx where
   rnf (InstanceEx x) = rnf x
 

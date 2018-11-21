@@ -81,8 +81,8 @@ getAtts = atts
 
 mapToMor
   :: ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att']
-  => Mapping var ty sym en fk att en' fk' att'
-  -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
+  => Mapping    var  ty  sym  en  fk  att  en'  fk'  att'
+  -> Morphism   var  ty  sym  en  fk  att  Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
@@ -101,7 +101,6 @@ validateMapping
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do
   mapM_ validatePathEq (Set.toList $ path_eqs src')
   mapM_ validateObsEq  (Set.toList $ obs_eqs  src')
---  pure ()
   where
     validateObsEq :: (en, EQ () ty sym en fk att Void Void) -> Err ()
     validateObsEq (enx, EQ (l,r)) = let
