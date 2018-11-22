@@ -1,15 +1,31 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Query where
-import Prelude hiding (EQ)
-import Data.Set as Set
-import Data.Map.Strict as Map
-import Language.Term
-import Data.Void
-import Language.Schema
-import Language.Common
-import Control.DeepSeq
+import           Control.DeepSeq
+import           Data.Map.Strict as Map
+import           Data.Set        as Set
+import           Data.Void
+import           Language.Common
+import           Language.Schema
+import           Language.Term
+import           Prelude         hiding (EQ)
 
 data Query var ty sym en fk att en' fk' att'
   = Query
@@ -21,14 +37,14 @@ data Query var ty sym en fk att en' fk' att'
   , atts :: Map att'                   (Term var ty   sym  en fk att  Void Void)
   }
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
+instance TyMap Show '[var, ty, sym, en, fk, att, en', fk', att']
   => Show (Query var ty sym en fk att en' fk' att') where
   show (Query _ _ ens' fks' atts') =
       "ens = "  ++ show ens'  ++
     "\nfks = "  ++ show fks'  ++
     "\natts = " ++ show atts'
 
-instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
+instance TyMap Eq '[var, ty, sym, en, fk, att, en', fk', att']
   => Eq (Query var ty sym en fk att en' fk' att') where
   (==) (Query s1' s2' ens' fks' atts') (Query s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
@@ -40,7 +56,7 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
 data QueryEx :: * where
   QueryEx
     :: forall var ty sym en fk att en' fk' att'
-    .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+    .  (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att'])
     => Query var ty sym en fk att en' fk' att' -> QueryEx
 
 instance NFData QueryEx where
@@ -65,17 +81,17 @@ instance Deps QueryExp where
 
 getOptionsQuery :: QueryExp -> [(String, String)]
 getOptionsQuery x = case x of
-  QueryVar _ -> []
-  QueryId  _ -> []
+  QueryVar _                            -> []
+  QueryId  _                            -> []
   QueryRaw (QueryExpRaw' _ _ _ _ _ o _) -> o
 
 --old school queries without overlapping names across entities
 data QueryExpRaw' = QueryExpRaw'
   { qraw_src     :: SchemaExp
   , qraw_dst     :: SchemaExp
-  , qraw_ens  :: [(String, ([(String,String)],[(RawTerm,RawTerm)]))]
-  , qraw_fks :: [(String, [(String,RawTerm)])]
-  , qraw_atts  :: [(String, RawTerm)]
+  , qraw_ens     :: [(String, ([(String,String)],[(RawTerm,RawTerm)]))]
+  , qraw_fks     :: [(String, [(String,RawTerm)])]
+  , qraw_atts    :: [(String, RawTerm)]
   , qraw_options :: [(String, String)]
   , qraw_imports :: [QueryExp]
 } deriving (Eq, Show)

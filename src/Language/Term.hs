@@ -1,34 +1,32 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE ExplicitForAll         #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE ImpredicativeTypes     #-}
-{-# LANGUAGE IncoherentInstances    #-}
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE LiberalTypeSynonyms    #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE TypeSynonymInstances   #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE IncoherentInstances   #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Term where
 
 import           Control.DeepSeq
-import           Data.Map.Strict as Map hiding (foldr, size)
+import           Data.Map.Merge.Strict
+import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Maybe
-import           Data.Set        as Set hiding (foldr, size)
+import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.Common
-import           Prelude         hiding (EQ)
-import           Data.Map.Merge.Strict
+import           Prelude               hiding (EQ)
 
 data RawTerm = RawApp String [RawTerm]
   deriving Eq
@@ -58,7 +56,7 @@ data Term var ty sym en fk att gen sk
   -- | Skolem term or labelled null; like a generator for a type rather than an entity.
   | Sk  sk
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk) =>
+instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
   NFData (Term var ty sym en fk att gen sk) where
     rnf x = case x of
       Var v   -> rnf v
@@ -68,11 +66,11 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
       Gen   a -> rnf a
       Sk    a -> rnf a
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk) =>
+instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
   NFData (EQ var ty sym en fk att gen sk) where
     rnf (EQ (x, y)) = deepseq x $ rnf y
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) =>
+instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] =>
   Show (Term var ty sym en fk att gen sk)
   where
     show x = case x of
@@ -84,7 +82,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
      Sym sym [] -> show sym
      Sym sym az -> show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
 
-deriving instance (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk) => Ord (Term var ty sym en fk att gen sk)
+deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
 
 -- | A symbol (non-variable).
 data Head ty sym en fk att gen sk =
@@ -205,12 +203,12 @@ subst2
   -> Term var3 ty3 sym3 en3 fk3 att3 gen3 sk3
   -> Term var  ty2 sym en fk att gen sk
 subst2 x t = case x of
-  Var ()    -> upp t
-  Sym f as  -> Sym (upgr f) $ (\a -> subst2 a t) <$> as
-  Fk  f a   -> Fk  (upgr f) $ subst2 a t
-  Att f a   -> Att (upgr f) $ subst2 a t
-  Gen g     -> Gen $ upgr g
-  Sk  g     -> Sk  $ upgr g
+  Var ()   -> upp t
+  Sym f as -> Sym (upgr f) $ (\a -> subst2 a t) <$> as
+  Fk  f a  -> Fk  (upgr f) $ subst2 a t
+  Att f a  -> Att (upgr f) $ subst2 a t
+  Gen g    -> Gen $ upgr g
+  Sk  g    -> Sk  $ upgr g
 
 -- | Given a term with one variable, substitutes the variable with another term.
 subst
@@ -265,13 +263,13 @@ findSimplifiable = procEqs . Set.toList
     g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
     g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
     g (Sym _ []) _ = Nothing
-    g _ _ = Nothing
+    g _ _          = Nothing
     procEqs []  = Nothing
     procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
     procEqs ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
       Nothing -> case g rhs lhs of
-        Nothing     -> procEqs tl
-        Just y -> Just y
+        Nothing -> procEqs tl
+        Just y  -> Just y
       Just   y -> Just y
 
 -- | Replaces a symbol by a term in a term.
@@ -304,6 +302,7 @@ replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplifyCol
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
+--  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   =>  Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
@@ -316,6 +315,7 @@ simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
 simplifyFix
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
+--  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
@@ -327,6 +327,7 @@ simplifyFix eqs subst0 = case simplify eqs of
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplify
   :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
+--  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplify eqs = case findSimplifiable eqs of
@@ -373,10 +374,10 @@ type Ctx k v = Map k v
 newtype EQ var ty sym en fk att gen sk
   = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord,Eq)
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk) => Show (EQ var ty sym en fk att gen sk) where
+instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] => Show (EQ var ty sym en fk att gen sk) where
   show (EQ (lhs,rhs)) = show lhs ++ " = " ++ show rhs
 
-deriving instance (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk) => Eq (Term var ty sym en fk att gen sk)
+deriving instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
 
 hasTypeType' :: EQ Void ty sym en fk att gen sk -> Bool
 hasTypeType' (EQ (lhs, _)) = hasTypeType lhs
@@ -408,7 +409,7 @@ attsFrom sch en' = f $ Map.assocs $ catts sch
 
 -- | Gets the type of a term that is already known to be well-typed.
 typeOf
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Term Void Void Void en fk Void gen Void -> en
 typeOf col e = case typeOf' col Map.empty (upp e) of
@@ -419,7 +420,7 @@ typeOf col e = case typeOf' col Map.empty (upp e) of
 
 
 checkDoms
-  :: (ShowOrdN '[ty, en])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
@@ -441,7 +442,7 @@ checkDoms col = do
       else Left $ "Not a type: "    ++ show x
 
 typeOfCol
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 typeOfCol col = do
@@ -470,16 +471,16 @@ closeGround col (me, mt) = (me', mt'')
     me' = Prelude.foldr (\(_, (en, _ )) m -> if (!) me  en then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
 
 -- | Does a fixed point of closeGround.
-iterGround :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
+iterGround :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
 -- | Gets the inhabitation map for the sorts of a collage.
-computeGround :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
+computeGround :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 computeGround col = iterGround col $ initGround col
 
 -- | True iff all sorts in a collage are inhabited.
-allSortsInhabited :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> Bool
 allSortsInhabited col = t && f
  where (me, mt) = computeGround col
        t = and $ Map.elems me
@@ -501,7 +502,7 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
 
 -- | Checks totality of the morphism mappings.
 checkDoms'
-  :: (ShowOrdN '[en, fk, att, gen, sk])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 checkDoms' mor = do
@@ -521,7 +522,7 @@ checkDoms' mor = do
 -- | Translates a term along a morphism.
 trans'
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
-  .  (Ord gen, Ord sk, Ord fk, Eq var, Ord att, Ord var')
+  .  TyMap Ord '[gen, sk, fk, var, att, var']
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Term var' Void Void en  fk  Void gen  Void
   -> Term var' Void Void en' fk' Void gen' Void
@@ -538,7 +539,7 @@ trans' _ (Sk _   ) = undefined
 -- | Translates a term along a morphism.
 trans
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
-  .  (Ord gen, Ord sk, Ord fk, Ord att, Ord var', Eq var)
+  .  TyMap Ord '[gen, sk, fk, var, att, var']
   => Morphism var  ty sym en  fk  att  gen  sk en' fk' att' gen' sk'
   -> Term     var' ty sym en  fk  att  gen  sk
   -> Term     var' ty sym en' fk' att' gen' sk'
@@ -556,7 +557,7 @@ trans mor term = case term of
 
 typeOfMor
   :: forall var ty sym en fk att gen sk en' fk' att' gen' sk'
-  .  (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
+  .  (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 typeOfMor mor  = do
@@ -602,7 +603,7 @@ typeOfMor mor  = do
 
 -- I've given up on non string based error handling for now
 typeOf'
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty + en)
   -> Term    var ty sym en fk att gen sk
@@ -636,7 +637,7 @@ typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
                      show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
 
 typeOfEq'
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> Err (ty + en)

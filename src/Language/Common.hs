@@ -1,16 +1,33 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, ConstraintKinds, TypeFamilies, DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Common where
-import Data.Map.Strict as Map hiding (foldl)
-import Data.Foldable as Foldable (foldl, toList)
-import Data.Kind
-import Data.Typeable
-import Control.DeepSeq
-import Control.Arrow (left)
-import Data.Maybe
-import Data.Set as Set (Set, empty, member, insert, singleton)
-import Data.Char
+import           Control.Arrow   (left)
+import           Control.DeepSeq
+import           Data.Char
+import           Data.Foldable   as Foldable (foldl, toList)
+import           Data.Kind
+import           Data.Map.Strict as Map hiding (foldl)
+import           Data.Maybe
+import           Data.Set        as Set (Set, empty, insert, member, singleton)
+import           Data.Typeable
 
 split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
 split' []           = ([],[])
@@ -105,10 +122,10 @@ type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
-type family ShowOrdN (xs :: [*]) :: Constraint
-type instance ShowOrdN '[] = ()
-type instance ShowOrdN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdN ts)
+type family ShowOrdNFDataN (xs :: [*]) :: Constraint
+type instance ShowOrdNFDataN '[] = ()
+type instance ShowOrdNFDataN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdNFDataN ts)
 
-type family ShowOrdTypeableN (xs :: [*]) :: Constraint
-type instance ShowOrdTypeableN '[] = ()
-type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableN ts)
+type family ShowOrdTypeableNFDataN (xs :: [*]) :: Constraint
+type instance ShowOrdTypeableNFDataN '[] = ()
+type instance ShowOrdTypeableNFDataN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableNFDataN ts)

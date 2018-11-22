@@ -1,29 +1,44 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE ExplicitForAll         #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE ImpredicativeTypes     #-}
+{-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE LiberalTypeSynonyms    #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Language.AQL where
 
-import Prelude hiding (EQ,exp)
-import qualified Data.Map.Strict as Map
-import Language.Graph
-import Language.Common as C
-import Language.Term as Term
-import Language.Schema as S
-import Language.Instance as I
-import Language.Mapping as M
-import Language.Typeside as T
-import Language.Transform as Tr
-import Language.Query as Q
-import Data.List (nub)
-import Data.Maybe
-import Language.Parser (parseAqlProgram)
-import Language.Program as P
-import Data.Typeable
-import Language.Options
-import System.IO.Unsafe
-import Control.DeepSeq
-import Control.Concurrent
-import Control.Exception
+import           Control.Concurrent
+import           Control.DeepSeq
+import           Control.Exception
+import           Data.List          (nub)
+import qualified Data.Map.Strict    as Map
+import           Data.Maybe
+import           Data.Typeable
+import           Language.Common    as C
+import           Language.Graph
+import           Language.Instance  as I
+import           Language.Mapping   as M
+import           Language.Options
+import           Language.Parser    (parseAqlProgram)
+import           Language.Program   as P
+import           Language.Query     as Q
+import           Language.Schema    as S
+import           Language.Term      as Term
+import           Language.Transform as Tr
+import           Language.Typeside  as T
+import           Prelude            hiding (EQ)
+import           System.IO.Unsafe
 
 -- | Timesout a computation after @i@ microseconds.
 timeout' :: NFData x => Integer -> Err x -> Err x
@@ -258,7 +273,7 @@ getKindCtx g v k = case k of
   MAPPING   -> fmap ExpM  $ n $ Map.lookup v $ mappings   g
   TRANSFORM -> fmap ExpT  $ n $ Map.lookup v $ transforms g
   QUERY     -> fmap ExpQ  $ n $ Map.lookup v $ queries    g
-  _ -> error "todo"
+  _         -> error "todo"
   where
     n :: forall x. Maybe x -> Err x
     n x = note ("Undefined " ++ show k ++ ": " ++ v) x
@@ -333,7 +348,7 @@ evalTypeside p e (TypesideRaw r) = do
   evalTypesideRaw (other e) r x
 
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
-  Nothing -> Left $ "Undefined typeside: " ++ show v
+  Nothing             -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
 
 evalTypeside _ _ TypesideSql = pure $ TypesideEx $ sqlTypeside
