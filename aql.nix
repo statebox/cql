@@ -1,6 +1,6 @@
 { mkDerivation, stdenv, hpack, hspec
 , base, containers, megaparsec, servant-server, term-rewriting, tabular, wai
-, wai-extra, warp, twee-lib }:
+, wai-extra, warp, twee-lib, containers, union-find, fgl, mtl, PropLogic }:
 
 mkDerivation {
   pname = "aql";
