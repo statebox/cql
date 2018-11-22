@@ -1,6 +1,6 @@
 { mkDerivation, stdenv, hpack, hspec
 , base, containers, megaparsec, servant-server, term-rewriting, tabular, wai
-, wai-extra, warp, twee-lib, containers, union-find, fgl, mtl, PropLogic }:
+, wai-extra, warp, twee-lib, union-find, fgl, mtl, PropLogic }:
 
 mkDerivation {
   pname = "aql";
@@ -13,13 +13,13 @@ mkDerivation {
 
   libraryHaskellDepends = [
     base containers megaparsec servant-server term-rewriting tabular wai wai-extra
-    warp twee-lib containers union-find fgl mtl PropLogic 
+    warp twee-lib union-find fgl mtl PropLogic 
   ];
   executableHaskellDepends = [
-    base containers megaparsec term-rewriting twee-lib containers union-find fgl mtl PropLogic
+    base megaparsec term-rewriting twee-lib containers union-find fgl mtl PropLogic
   ];
   testHaskellDepends = [
-    base containers megaparsec term-rewriting hspec twee-lib containers union-find fgl mtl PropLogic
+    base megaparsec term-rewriting hspec twee-lib containers union-find fgl mtl PropLogic
   ];
   buildDepends = [ hpack ];
 
