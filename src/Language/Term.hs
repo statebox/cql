@@ -95,8 +95,6 @@ data Head ty sym en fk att gen sk =
   | HSk   sk
   deriving (Eq, Show, Ord)
 
-
-
 -- | Maps functions through a term.
 mapTerm
   :: (var -> var')
@@ -363,6 +361,9 @@ data Collage var ty sym en fk att gen sk
   , cgens :: Map gen en
   , csks  :: Map sk ty
   } deriving (Eq, Show)
+
+eqsAreGround :: Collage var ty sym en fk att gen sk -> Bool
+eqsAreGround col = Prelude.null [ x | x <- Set.toList $ ceqs col, not $ Map.null (fst x) ]
 
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch

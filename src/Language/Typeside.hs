@@ -151,6 +151,23 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
 initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> error "Impossible, please report.") --todo: use absurd
 
+sqlTypeside :: Typeside Void String Void
+sqlTypeside = Typeside (Set.fromList sqlTypeNames) Map.empty Set.empty (\_ (EQ (l, r)) -> l == r)
+
+sqlTypeNames :: [String]
+sqlTypeNames =
+  [ "Bigint", "Binary", "Bit", "Blob", "Bool", "Boolean"
+  , "Char", "Clob" , "Custom"
+  , "Date", "Decimal", "Dom", "Double", "Doubleprecision"
+  , "Float"
+  , "Int", "Integer"
+  , "Longvarbinary", "Longvarchar"
+  , "Numeric", "Nvarchar"
+  , "Other"
+  , "Real"
+  , "Smallint", "String"
+  , "Text", "Time", "Timestamp", "Tinyint"
+  , "Varbinary", "Varchar" ]
 
 -----------------------------------------------------------------------------------------------------------
 -- Expression syntax
@@ -160,6 +177,7 @@ data TypesideExp where
   TypesideVar :: String -> TypesideExp
   TypesideInitial :: TypesideExp
   TypesideRaw :: TypesideRaw' -> TypesideExp
+  TypesideSql :: TypesideExp
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp
@@ -168,10 +186,13 @@ instance Deps TypesideExp where
   deps x = case x of
     TypesideVar v                        -> [(v, TYPESIDE)]
     TypesideInitial                      -> []
+    TypesideSql                          -> []
     TypesideRaw (TypesideRaw' _ _ _ _ i) -> concatMap deps i
+
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
 getOptionsTypeside x = case x of
   TypesideVar _   -> []
+  TypesideSql     -> []
   TypesideInitial -> []
   TypesideRaw (TypesideRaw' _ _ _ o _) -> o

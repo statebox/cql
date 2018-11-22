@@ -13,13 +13,13 @@ mkDerivation {
 
   libraryHaskellDepends = [
     base containers megaparsec servant-server term-rewriting tabular wai wai-extra
-    warp twee-lib
+    warp twee-lib containers union-find fgl mtl PropLogic 
   ];
   executableHaskellDepends = [
-    base containers megaparsec term-rewriting twee-lib
+    base containers megaparsec term-rewriting twee-lib containers union-find fgl mtl PropLogic
   ];
   testHaskellDepends = [
-    base containers megaparsec term-rewriting hspec twee-lib
+    base containers megaparsec term-rewriting hspec twee-lib containers union-find fgl mtl PropLogic
   ];
   buildDepends = [ hpack ];
 

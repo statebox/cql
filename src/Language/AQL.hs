@@ -180,9 +180,10 @@ typecheckInstExp _ _ = error "todo"
 
 typecheckTypesideExp :: Types -> TypesideExp -> Err TypesideExp
 typecheckTypesideExp p x = case x of
-  TypesideVar v   -> note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
-  TypesideInitial -> pure TypesideInitial
+  TypesideSql     -> pure   TypesideSql
+  TypesideInitial -> pure   TypesideInitial
   TypesideRaw r   -> pure $ TypesideRaw r
+  TypesideVar v   -> note ("Undefined typeside: " ++ show v) $ Map.lookup v $ typesides p
 
 typecheckSchemaExp
   :: Types -> SchemaExp -> Either String TypesideExp
@@ -307,13 +308,17 @@ getOptions' e = case e of
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
+evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ initialTypeside
+
 evalTypeside p e (TypesideRaw r) = do
   x <- mapM (evalTypeside p e) $ tsraw_imports r
   evalTypesideRaw (other e) r x
+
 evalTypeside _ env (TypesideVar v) = case Map.lookup v $ typesides env of
   Nothing -> Left $ "Undefined typeside: " ++ show v
   Just (TypesideEx e) -> Right $ TypesideEx e
-evalTypeside _ _ TypesideInitial = pure $ TypesideEx $ initialTypeside
+
+evalTypeside _ _ TypesideSql = pure $ TypesideEx $ sqlTypeside
 
 
 evalTransform :: Prog -> Env -> TransformExp -> Err TransformEx
