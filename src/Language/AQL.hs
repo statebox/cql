@@ -238,12 +238,18 @@ class Evalable e e' | e' -> e, e -> e' where
 
 eval' :: Prog -> Env -> Exp -> Err Val
 eval' p env e = case e of
-  ExpTy e' -> do { x <- eval p env e'; validate x; return $ ValTy x }
-  ExpS  e' -> do { x <- eval p env e'; validate x; return $ ValS  x }
-  ExpI  e' -> do { x <- eval p env e'; validate x; return $ ValI  x }
-  ExpM  e' -> do { x <- eval p env e'; validate x; return $ ValM  x }
-  ExpT  e' -> do { x <- eval p env e'; validate x; return $ ValT  x }
-  ExpQ  e' -> do { x <- eval p env e'; validate x; return $ ValQ  x }
+  ExpTy e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValTy x }
+  ExpS  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValS  x }
+  ExpI  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValI  x }
+  ExpM  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValM  x }
+  ExpT  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValT  x }
+  ExpQ  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValQ  x }
+  where
+    maybeValidate :: Evalable exp val => exp -> val -> Err ()
+    maybeValidate exp val = do
+      ops <- toOptions (other env) $ getOptions' e
+      if bOps ops Dont_Validate_Unsafe then return () else validate val
+
 
 getKindCtx :: Prog -> String -> Kind -> Err Exp
 getKindCtx g v k = case k of
@@ -278,7 +284,9 @@ instance Evalable SchemaExp SchemaEx where
   getOptions = getOptionsSchema
 
 instance Evalable InstanceExp InstanceEx where
-  validate (InstanceEx x) = typecheckPresentation (schema x) (pres x)
+  validate (InstanceEx x) = do
+    typecheckPresentation (schema x) (pres x)
+    checkSatisfaction x
   eval = evalInstance
   getOptions = getOptionsInstance
 
@@ -424,6 +432,7 @@ evalInstance prog env (InstanceRaw r) = do
   SchemaEx t' <- evalSchema prog env $ instraw_schema r
   i <- mapM (evalInstance prog env) (instraw_imports r)
   evalInstanceRaw (other env) t' r i
+
 
 evalInstance prog env (InstanceSigma f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'

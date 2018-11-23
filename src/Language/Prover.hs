@@ -170,11 +170,11 @@ instance EqualsBonus (Head ty (sym, Int) en fk att gen sk) where
 
 instance Sized (Head ty (sym, Int) en fk att gen sk) where
   size x = case x of
-    HGen _ -> 0
-    HSk _ -> 0
+    HGen _ -> 1
+    HSk _ -> 1
     HAtt _ -> 1
     HFk _ -> 1
-    HSym (_, i) -> i
+    HSym (_, i) -> 1
 
 instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
   => Pretty (Head ty (sym, Int) en fk att gen sk) where

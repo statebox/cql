@@ -1,5 +1,5 @@
 options  
-	prover = congruence  
+	prover = congruence
 		
 typeside T = literal {  
 	types  
@@ -10,7 +10,7 @@ typeside T = literal {
  		zero : nat  
  	functions 		  
 	 	succ : nat -> nat  
-	 	plus : nat, nat -> nat  
+	 	plus : nat, nat -> nat 
 }
 
 schema S = literal : T {   

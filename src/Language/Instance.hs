@@ -18,8 +18,8 @@
 module Language.Instance where
 
 import qualified Data.Foldable         as Foldable
-import           Data.List             hiding (intercalate)
-import           Data.Map.Strict       (Map, unionWith, (!))
+import           Data.List as List            hiding (intercalate)
+import           Data.Map.Strict       (Map, member, unionWith, (!))
 import qualified Data.Map.Strict       as Map
 import           Data.Maybe
 import           Data.Set              (Set)
@@ -38,6 +38,7 @@ import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
 import qualified Text.Tabular.AsciiArt as Ascii
 import           Control.DeepSeq
+import           Control.Monad
 
 
 --------------------------------------------------------------------------------------------------------------------
@@ -62,9 +63,16 @@ data Algebra var ty sym en fk att gen sk x y
   , repr'   :: y -> Term Void ty sym en fk att gen sk
 
   , teqs    :: Set (EQ Void ty sym Void Void Void Void y)
-
   }
 
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
+  => NFData (Algebra var ty sym en fk att gen sk x y)
+  where
+    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
+      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
+      where
+        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
+        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
 
 -- | Evaluate an entity-side schema term with one free variable, given a value for that variable.
 evalSchTerm' :: Algebra var ty sym en fk att gen sk x y -> x -> Term () Void Void en fk Void Void Void -> x
@@ -150,14 +158,6 @@ aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Vo
 aSk alg g = nf'' alg $ Sk g
 
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
-  => NFData (Algebra var ty sym en fk att gen sk x y)
-  where
-    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
-      where
-        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
-        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
 
 -------------------------------------------------------------------------------------------------------------------
 
@@ -250,6 +250,60 @@ algebraToPresentation (alg@(Algebra sch en' _ _ ty' _ _ _)) = Presentation gens'
 reify :: (Ord x, Ord en) => (en -> Set x) -> Set en -> [(x, en)]
 reify f s = concat $ Set.toList $ Set.map (\en'-> Set.toList $ Set.map (\x->(x,en')) $ f en') $ s
 
+-- | Constructs an algebra from a saturated theory with a free type algebra.
+-- Needs to have satisfaction checked.
+saturatedInstance
+  :: forall var ty sym en fk att gen sk
+  .  (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  => Schema var ty sym en fk att
+  -> Presentation var ty sym en fk att gen sk
+  -> Err (Instance var ty sym en fk att gen sk gen sk)
+saturatedInstance sch (Presentation gens sks eqs) = do
+  (fks, atts) <- foldM procEq (Map.empty, Map.empty) eqs
+  checkTotality fks atts
+  _ <- if Set.null (Typeside.eqs $ typeside sch) then return () else Left "Typeside must be free"
+  let alg = Algebra sch (Set.fromList . gens') (nf fks) Gen (Set.fromList . sks') (nf' atts) Sk Set.empty
+  pure $ Instance sch (Presentation gens sks eqs) (\(EQ (l, r)) -> l == r) alg
+  where
+    checkTotality :: Map (gen, fk) gen -> Map (gen, att) (Term Void ty sym Void Void Void Void sk) -> Err ()
+    checkTotality fks atts =
+      mapM_ (\en -> if (List.null (fksMissing en fks)) && (List.null (attsMissing en atts))
+                    then pure ()
+                    else Left $ "Missing equation for " ++ show en) $ Schema.ens sch
+
+    fksMissing  en fks  = [ gen | gen <- gens' en, (fk,  _) <- fksFrom'  sch en, not $ member (gen, fk ) fks  ]
+    attsMissing en atts = [ gen | gen <- gens' en, (att, _) <- attsFrom' sch en, not $ member (gen, att) atts ]
+
+    gens' en = [ gen | (gen, en') <- Map.toList gens, en == en' ]
+    sks'  ty = [ sk  | (sk , ty') <- Map.toList sks , ty == ty' ]
+
+    procEq (fks, atts) (EQ (Fk fk (Gen gen), Gen gen')) = case Map.lookup (gen, fk) fks  of
+      Nothing    -> pure (Map.insert (gen, fk) gen' fks, atts)
+      Just gen'' -> Left $ "Duplicate binding: " ++ show gen ++ " and " ++ show gen''
+
+    procEq (fks, atts) (EQ (Att att (Gen gen), w)) | isJust p  = case Map.lookup (gen, att) atts of
+      Nothing    -> pure (fks, Map.insert (gen, att) (fromJust p) atts)
+      Just gen'' -> Left $ "Duplicate binding: " ++ show gen ++ " and " ++ show gen''
+      where
+        p = case w of
+          Sk s -> Just $ Sk s
+          Sym s [] -> Just $ Sym s []
+          _ -> Nothing
+
+    procEq _ (EQ (l, r)) = Left $ "Bad eq: " ++ show l ++ " = " ++ show r
+
+    nf fks term = case term of
+      Var v   -> absurd v
+      Sk  sk  -> absurd sk
+      Sym f _ -> absurd f
+      Att f _ -> absurd f
+      Fk  f a -> fks ! (nf fks a, f)
+      Gen g   -> g
+
+    nf' _    (Left  sk) = Sk sk
+    nf' atts (Right x ) = atts ! x
+
+
 ---------------------------------------------------------------------------------------------------------------
 -- Initial algebras
 
@@ -271,25 +325,16 @@ initialInstance
 initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
   where
     dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
-
--- | Does the hard work of @initialInstance@.
-initialAlgebra :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
- => Presentation var ty sym en fk att gen sk
- -> (EQ (()+var) ty sym en fk att gen sk -> Bool)
- -> Schema var ty sym en fk att ->
- Algebra var ty sym en fk att gen sk (Carrier en fk gen) (TalgGen en fk att gen sk)
-initialAlgebra p dp' sch = simplifyAlg this
-  where
+    initialAlgebra p dp' sch = simplifyAlg this
     this  = Algebra sch en' nf''' id ty' nf'''' repr'''' teqs'
     col   = presToCol sch p
     ens'  = assembleGens col (close col dp')
     en' k = ens' ! k
     nf''' e = let
       t = typeOf col e
-      f []    = undefined -- impossible
+      f []    = error "impossible, please report"
       f (a:b) = if dp' (EQ (upp a, upp e)) then a else f b
       in f $ Set.toList $ ens' ! t
-
 
     tys' = assembleSks col ens'
     ty' y =  tys' ! y
@@ -380,8 +425,8 @@ dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 close1 :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> Term Void Void Void en fk Void gen Void -> [ (Term Void Void Void en fk Void gen Void) ]
 close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
- where t = typeOf col e
-       l = fksFrom col t
+  where t = typeOf col e
+        l = fksFrom col t
 
 
 --------------------------------------------------------------------------------------------------------
@@ -488,33 +533,37 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
 
 --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
   f _ _ [] = pure $ Set.empty
-  f gens' sks' ((lhs, rhs):eqs'') = do lhs' <- g (keys' gens') (keys' sks') lhs
-                                       rhs' <- g (keys' gens') (keys' sks') rhs
-                                       rest <- f gens' sks' eqs''
-                                       pure $ Set.insert (EQ (lhs', rhs')) rest
+  f gens' sks' ((lhs, rhs):eqs'') = do
+    lhs' <- g (keys' gens') (keys' sks') lhs
+    rhs' <- g (keys' gens') (keys' sks') rhs
+    rest <- f gens' sks' eqs''
+    pure $ Set.insert (EQ (lhs', rhs')) rest
 
 --g' :: [String] -> RawTerm -> Err (Term Void Void Void en fk Void Gen Void)
-  g' gens' (RawApp x [])     | elem x gens'                         = pure $ Gen x
-  g' gens' (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch)     = do a' <- g' gens' a
-                                                                         case cast x :: Maybe fk of
-                                                                           Just x' -> return $ Fk x' a'
-                                                                           Nothing -> undefined
-  g' _     x                                                        = Left $ "cannot type " ++ show x
+  g' gens' (RawApp x [])     | elem  x gens' = pure $ Gen x
+  g' gens' (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch) = do
+    a' <- g' gens' a
+    case cast x :: Maybe fk of
+      Just x' -> return $ Fk x' a'
+      Nothing -> undefined
+  g' _ x = Left $ "cannot type " ++ show x
 
   g :: [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)
-  g gens' _    (RawApp x [])     | elem x gens'                     = pure $ Gen x
-  g _     sks' (RawApp x [])     | elem x sks'                      = pure $ Sk x
+  g gens' _    (RawApp x [])     | elem x gens' = pure $ Gen x
+  g _     sks' (RawApp x [])     | elem x sks'  = pure $ Sk x
   g gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch) = case cast x of
-                                                                        Just x' -> Fk x' <$> g' gens' a
-                                                                        Nothing -> undefined
-  g gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_atts sch) = do a' <- g' gens' a
-                                                                          case cast x of
-                                                                            Just x' -> Right $ Att x' a'
-                                                                            Nothing -> undefined
-  g gens' sks' (RawApp v l)                                          = do l' <- mapM (g gens' sks') l
-                                                                          case cast v :: Maybe sym of
-                                                                            Just x -> Right $ Sym x l'
-                                                                            Nothing -> Left $ "Cannot type: " ++ v
+    Just x' -> Fk x' <$> g' gens' a
+    Nothing -> undefined
+  g gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_atts sch) = do
+    a' <- g' gens' a
+    case cast x of
+      Just x' -> Right $ Att x' a'
+      Nothing -> undefined
+  g gens' sks' (RawApp v l) = do
+    l' <- mapM (g gens' sks') l
+    case cast v :: Maybe sym of
+      Just x -> Right $ Sym x l'
+      Nothing -> Left $ "Cannot type: " ++ v
 
 evalInstanceRaw
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att])
@@ -528,14 +577,17 @@ evalInstanceRaw ops ty' t is =
     r <- evalInstanceRaw' ty' t i
     _ <- typecheckPresentation ty' r
     l <- toOptions ops $ instraw_options t
-    p <- createProver (presToCol ty' r) l
-    pure $ InstanceEx $ initialInstance r (f p) ty'
+    if bOps l Interpret_As_Algebra
+    then do
+      j <- saturatedInstance ty' r
+      pure $ InstanceEx j
+    else do
+      p <- createProver (presToCol ty' r) l
+      pure $ InstanceEx $ initialInstance r (f p) ty'
  where
-   f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
-   --g :: forall var ty sym en fk att gen sk. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable gen, Typeable sk)
-    -- => [InstanceEx] -> Err [Presentation var ty sym en fk att gen sk]
-   g [] = return []
-   g ((InstanceEx ts):r) = case cast (pres ts) of
+    f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
+    g [] = return []
+    g ((InstanceEx ts):r) = case cast (pres ts) of
       Nothing -> Left "Bad import"
       Just ts' -> do { r'  <- g r ; return $ ts' : r' }
 
@@ -637,7 +689,8 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att' . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'])
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
