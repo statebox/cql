@@ -28,6 +28,7 @@ import           Data.Void
 import           Language.Common
 import           Prelude         hiding (EQ)
 import           Control.DeepSeq
+import           Data.Map.Merge.Strict
 
 
 data RawTerm = RawApp String [RawTerm]
@@ -93,7 +94,16 @@ data Head ty sym en fk att gen sk =
   | HAtt  att
   | HGen  gen
   | HSk   sk
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Ord)
+
+instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
+  => Show (Head ty sym en fk att gen sk) where
+  show x = case x of
+    HSym  sym -> show sym
+    HFk   fk  -> show fk
+    HAtt  att -> show att
+    HGen  gen -> show gen
+    HSk   sk  -> show sk
 
 -- | Maps functions through a term.
 mapTerm
@@ -139,6 +149,28 @@ vars x = case x of
   Att _ a  -> vars a
   Fk  _ a  -> vars a
   Sym _ as -> concatMap vars as
+
+
+occsTerm :: (Ord sym, Ord fk, Ord att, Ord gen, Ord sk)
+  => Term var ty sym en fk att gen sk
+  -> Map (Head ty sym en fk att gen sk) Int
+occsTerm x = case x of
+  Var v    -> Map.empty
+  Gen g    -> Map.fromList [(HGen g, 1)]
+  Sk  s    -> Map.fromList [(HSk  s, 1)]
+  Att f a  -> m (Map.fromList [(HAtt f, 1)]) (occsTerm a)
+  Fk  f a  -> m (Map.fromList [(HFk  f, 1)]) (occsTerm a)
+  Sym f as -> foldr m (Map.fromList [(HSym f, 1)]) $ fmap occsTerm as
+  where
+    m = merge preserveMissing preserveMissing $ zipWithMatched (\_ x y -> x + y)
+
+occs :: (Ord sym, Ord fk, Ord att, Ord gen, Ord sk)
+  => Collage var ty sym en fk att gen sk
+  -> Map (Head ty sym en fk att gen sk) Int
+occs col = foldr (\(_, EQ (lhs, rhs)) x -> m x $ m (occsTerm lhs) $ occsTerm rhs) Map.empty $ ceqs col
+  where
+    m = merge preserveMissing preserveMissing $ zipWithMatched (\_ x y -> x + y)
+
 
 -- | True if sort will be a type.
 hasTypeType :: Term Void ty sym en fk att gen sk -> Bool

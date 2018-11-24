@@ -13,7 +13,11 @@ typeside EmptySortsCheck = literal {
 		allow_empty_sorts_unsafe = true
 } 
 */
-/*
+options
+		prover = completion
+		allow_empty_sorts_unsafe = true
+		require_consistency = false
+		
 typeside Group = literal {
 	types 
 		S
@@ -26,10 +30,25 @@ typeside Group = literal {
  		forall x. (e o x) = x
  		forall x. (I(x) o x) = e
  		forall x, y, z. ((x o y) o z) = (x o (y o z))
- 	options
-		prover = completion
-} */
+ 	
+} 
 
+schema G = literal : Group {
+	entities
+		E
+	attributes
+		g : E -> S
+}	
+
+instance AGroup = literal : G {
+	generators
+		e : E
+	equations
+		e.g.I = e.g
+		(e.g o e.g) = e.g	
+} 
+
+/*
 typeside CompletedGroup = literal {
 	types 
 		S
@@ -54,54 +73,4 @@ typeside CompletedGroup = literal {
  	options
 		prover = completion
 }
-/*
-typeside LR = literal {
-	types 
-		S
-	constants
-		e : S
-	functions
-		I : S -> S
-		o : S,S -> S
-	equations
- 		forall x. o(e,x) = x
-		forall x. o(x,I(x)) = e
-		forall x y z. o(o(x,y),z)=o(x,o(y,z))
- 	options
-		prover = completion
-}
-
-typeside RL = literal {
-	types 
-		S
-	constants
-		e : S
-	functions
-		I : S -> S
-		o : S,S -> S
-	equations
- 		forall x. o(x,e) = x
-		forall x. o(I(x),x) = e
-		forall x, y, z. o(o(x,y),z)=o(x,o(y,z))
- 	options
-		prover = completion
-}
-
-typeside Arith = literal {
-	types
-		N
-	constants
-		zero : N
-	functions
-		succ : N -> N
-		plus : N,N -> N
-		times : N,N -> N  
-	equations
-		forall x. plus(zero, x) = x
-		forall x, y. plus(succ(x),y) = succ(plus(x,y))
-		forall x. times(zero, x) = zero
-		forall x, y. times(succ(x),y) = plus(y,times(x,y))
-	options
-		prover = completion
-} 
- */
+*/

@@ -284,10 +284,21 @@ instance Evalable SchemaExp SchemaEx where
   getOptions = getOptionsSchema
 
 instance Evalable InstanceExp InstanceEx where
+
+  -- | Calls @checkSatisfaction@.
   validate (InstanceEx x) = do
     typecheckPresentation (schema x) (pres x)
     checkSatisfaction x
-  eval = evalInstance
+  eval prog env exp = do
+    i  <- evalInstance prog env exp
+    o' <- toOptions (other env) $ getOptions exp
+    _  <- checkCons i $ bOps o' Require_Consistency
+    pure i
+    where
+      checkCons (InstanceEx i) True  = if freeTalg i
+        then pure ()
+        else Left $ "Warning: type algebra not free. Set require_consistency = false to continue."
+      checkCons _ False = pure ()
   getOptions = getOptionsInstance
 
 instance Evalable MappingExp MappingEx where
@@ -424,6 +435,7 @@ evalSchema _ _ _ = undefined
 
 evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx
 evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
+
 evalInstance prog env (InstanceInitial s) = do
   SchemaEx ts'' <- evalSchema prog env s
   pure $ InstanceEx $ emptyInstance ts''
@@ -432,7 +444,6 @@ evalInstance prog env (InstanceRaw r) = do
   SchemaEx t' <- evalSchema prog env $ instraw_schema r
   i <- mapM (evalInstance prog env) (instraw_imports r)
   evalInstanceRaw (other env) t' r i
-
 
 evalInstance prog env (InstanceSigma f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'

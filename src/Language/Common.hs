@@ -12,6 +12,13 @@ import Data.Maybe
 import Data.Set as Set (Set, empty, member, insert, singleton)
 import Data.Char
 
+split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
+split' []           = ([],[])
+split' ((w, ei):tl) =
+  let (a,b) = split' tl
+  in case ei of
+    Left  x -> ((w,x):a, b      )
+    Right x -> (      a, (w,x):b)
 
 fromListAccum :: (Ord v, Ord k) => [(k, v)] -> Map k (Set v)
 fromListAccum []          = Map.empty

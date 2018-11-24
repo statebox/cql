@@ -110,17 +110,17 @@ checkSatisfaction
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
 checkSatisfaction (Instance sch pres' dp' alg) = do
-  _ <- mapM (\(EQ (l, r)) -> if hasTypeType l then h (show l) (show r) (g l r) else h (show l) (show r) (f l r)) $ Set.toList $ eqs0 pres'
-  _ <- mapM (\(en'', EQ (l, r)) -> h (show l) (show r) (g' l r en'')) $ Set.toList $ obs_eqs sch
-  _ <- mapM (\(en'', EQ (l, r)) -> h (show l) (show r) (f' l r en'')) $ Set.toList $ path_eqs sch
+  _ <- mapM (\(EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ eqs0 pres'
+  _ <- mapM (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqT l r en'')) $ Set.toList $ obs_eqs sch
+  _ <- mapM (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqE l r en'')) $ Set.toList $ path_eqs sch
   return ()
   where
-    f l r = nf alg (down1 l) == nf alg (down1 r)
-    g l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
-    h _ _ True  = return ()
-    h l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
-    f' l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
-    g' l r e = foldr (\x b -> (dp' $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
+    instEqE l r = nf alg (down1 l) == nf alg (down1 r)
+    instEqT l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
+    report _ _ True  = return ()
+    report l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
+    schEqE l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
+    schEqT l r e = foldr (\x b -> (dp' $ EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
 
 
 -- | Evaluates a type side term to a term in the type algebra.  Crashes if given a term of entity sort.
@@ -210,6 +210,10 @@ data Instance var ty sym en fk att gen sk x y
   , algebra :: Algebra      var  ty sym en fk att gen sk x y
   }
 
+-- | True if the type algebra is empty, which approximates it being free,
+-- which approximates it being conservative over the typeside.
+freeTalg (Instance _ _ _ (Algebra _ _ _ _ _ _ _ teqs)) = Prelude.null teqs
+
 -- | Just syntactic equality of the theory for now.
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y)
   => Eq (Instance var ty sym en fk att gen sk x y) where
@@ -257,25 +261,30 @@ saturatedInstance
   .  (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
-  -> Err (Instance var ty sym en fk att gen sk gen sk)
+  -> Err (Instance var ty sym en fk att gen sk gen (Either sk (gen, att)))
 saturatedInstance sch (Presentation gens sks eqs) = do
   (fks, atts) <- foldM procEq (Map.empty, Map.empty) eqs
-  checkTotality fks atts
+  checkTotality fks
   _ <- if Set.null (Typeside.eqs $ typeside sch) then return () else Left "Typeside must be free"
-  let alg = Algebra sch (Set.fromList . gens') (nf fks) Gen (Set.fromList . sks') (nf' atts) Sk Set.empty
+  let alg = Algebra sch (Set.fromList . gens') (nf fks) Gen (Set.fromList . (sks' atts)) (nf' atts) repr' Set.empty
   pure $ Instance sch (Presentation gens sks eqs) (\(EQ (l, r)) -> l == r) alg
   where
-    checkTotality :: Map (gen, fk) gen -> Map (gen, att) (Term Void ty sym Void Void Void Void sk) -> Err ()
-    checkTotality fks atts =
-      mapM_ (\en -> if (List.null (fksMissing en fks)) && (List.null (attsMissing en atts))
+    checkTotality :: Map (gen, fk) gen -> Err ()
+    checkTotality fks =
+      mapM_ (\en -> if (List.null (fksMissing en fks))
                     then pure ()
                     else Left $ "Missing equation for " ++ show en) $ Schema.ens sch
 
     fksMissing  en fks  = [ gen | gen <- gens' en, (fk,  _) <- fksFrom'  sch en, not $ member (gen, fk ) fks  ]
-    attsMissing en atts = [ gen | gen <- gens' en, (att, _) <- attsFrom' sch en, not $ member (gen, att) atts ]
 
     gens' en = [ gen | (gen, en') <- Map.toList gens, en == en' ]
-    sks'  ty = [ sk  | (sk , ty') <- Map.toList sks , ty == ty' ]
+
+    sks'  atts ty = [ Left sk  | (sk , ty') <- Map.toList sks , ty == ty' ] ++
+      [ Right (gen, att) | enX :: en <- Set.toList (Schema.ens sch), gen <- gens' enX, (att, t) <- attsFrom' sch (enX :: en), not (member (gen, att) atts), t == ty ]
+
+    --diff = sks'' en ty \\ atts
+    repr' (Left g)         = Sk g
+    repr' (Right (x, att)) = Att att $ Gen x
 
     procEq (fks, atts) (EQ (Fk fk (Gen gen), Gen gen')) = case Map.lookup (gen, fk) fks  of
       Nothing    -> pure (Map.insert (gen, fk) gen' fks, atts)
@@ -286,7 +295,7 @@ saturatedInstance sch (Presentation gens sks eqs) = do
       Just gen'' -> Left $ "Duplicate binding: " ++ show gen ++ " and " ++ show gen''
       where
         p = case w of
-          Sk s -> Just $ Sk s
+          Sk s -> Just $ Sk $ Left s
           Sym s [] -> Just $ Sym s []
           _ -> Nothing
 
@@ -300,8 +309,8 @@ saturatedInstance sch (Presentation gens sks eqs) = do
       Fk  f a -> fks ! (nf fks a, f)
       Gen g   -> g
 
-    nf' _    (Left  sk) = Sk sk
-    nf' atts (Right x ) = atts ! x
+    nf' _    (Left  sk) = Sk $ Left sk
+    nf' atts (Right x ) = Map.findWithDefault (Sk (Right x)) x atts
 
 
 ---------------------------------------------------------------------------------------------------------------
@@ -493,15 +502,6 @@ conv' ((att,ty'):tl) = case cast ty' of
    Nothing -> Left $ "Not in schema/typeside: " ++ show ty'
 
 
-split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
-split' []           = ([],[])
-split' ((w, ei):tl) =
-  let (a,b) = split' tl
-  in case ei of
-    Left  x -> ((w,x):a, b      )
-    Right x -> (      a, (w,x):b)
-
-
 split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, String)] -> Err ([(a, en)], [(a, ty)])
 split'' _     _   []           = return ([],[])
 split'' ens2 tys2 ((w, ei):tl) =
@@ -526,44 +526,31 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
   sks'''        <- return $ Map.toList sks''
   let gensX = concatMap (Map.toList . gens) is ++ gens'''
       sksX  = concatMap (Map.toList . sks ) is ++ sks'''
-  eqs'' <- f gensX sksX eqs'
-  return $ Presentation (Map.fromList gensX) (Map.fromList sksX) $ Set.fromList $ (concatMap (Set.toList . eqs0) is) ++ (Set.toList eqs'')
+  eqs'' <- transEq gensX sksX eqs'
+  pure $ Presentation (Map.fromList gensX) (Map.fromList sksX) $ Set.fromList $ (concatMap (Set.toList . eqs0) is) ++ (Set.toList eqs'')
   where
-  keys' = fst . unzip
+    keys' = fst . unzip
 
---f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
-  f _ _ [] = pure $ Set.empty
-  f gens' sks' ((lhs, rhs):eqs'') = do
-    lhs' <- g (keys' gens') (keys' sks') lhs
-    rhs' <- g (keys' gens') (keys' sks') rhs
-    rest <- f gens' sks' eqs''
-    pure $ Set.insert (EQ (lhs', rhs')) rest
+    transEq _ _ [] = pure $ Set.empty
+    transEq gens' sks' ((lhs, rhs):eqs'') = do
+      lhs' <- transTerm (keys' gens') (keys' sks') lhs
+      rhs' <- transTerm (keys' gens') (keys' sks') rhs
+      rest <- transEq gens' sks' eqs''
+      pure $ Set.insert (EQ (lhs', rhs')) rest
 
---g' :: [String] -> RawTerm -> Err (Term Void Void Void en fk Void Gen Void)
-  g' gens' (RawApp x [])     | elem  x gens' = pure $ Gen x
-  g' gens' (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch) = do
-    a' <- g' gens' a
-    case cast x :: Maybe fk of
-      Just x' -> return $ Fk x' a'
-      Nothing -> undefined
-  g' _ x = Left $ "cannot type " ++ show x
+    --transPath :: forall en fk gen . [String] -> RawTerm -> Err (Term Void Void Void en fk Void Gen Void)
+    transPath gens' (RawApp x [])     | elem  x gens' = pure $ Gen x
+    transPath gens' (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch) = Fk (fromJust $ cast x) <$> transPath gens' a
+    transPath _ x = Left $ "cannot type " ++ show x
 
-  g :: [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)
-  g gens' _    (RawApp x [])     | elem x gens' = pure $ Gen x
-  g _     sks' (RawApp x [])     | elem x sks'  = pure $ Sk x
-  g gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks sch) = case cast x of
-    Just x' -> Fk x' <$> g' gens' a
-    Nothing -> undefined
-  g gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_atts sch) = do
-    a' <- g' gens' a
-    case cast x of
-      Just x' -> Right $ Att x' a'
-      Nothing -> undefined
-  g gens' sks' (RawApp v l) = do
-    l' <- mapM (g gens' sks') l
-    case cast v :: Maybe sym of
-      Just x -> Right $ Sym x l'
-      Nothing -> Left $ "Cannot type: " ++ v
+    --transTerm :: forall ty sym en fk att Gen Sk . [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)
+    transTerm gens' _    (RawApp x [])     | elem  x gens' = pure $ Gen x
+    transTerm _     sks' (RawApp x [])     | elem  x sks'  = pure $ Sk  x
+    transTerm gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_fks  sch) = Fk  (fromJust $ cast x) <$> transPath gens' a
+    transTerm gens' _    (RawApp x (a:[])) | elem' x (Map.keys $ sch_atts sch) = Att (fromJust $ cast x) <$> transPath gens' a
+    transTerm gens' sks' (RawApp v l) = case cast v :: Maybe sym of
+        Just x -> Sym x <$> mapM (transTerm gens' sks') l
+        Nothing -> Left $ "Cannot type: " ++ v
 
 evalInstanceRaw
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att])
@@ -573,7 +560,7 @@ evalInstanceRaw
   -> [InstanceEx]
   -> Err InstanceEx
 evalInstanceRaw ops ty' t is =
- do (i :: [Presentation var ty sym en fk att Gen Sk]) <- g is
+ do (i :: [Presentation var ty sym en fk att Gen Sk]) <- doImports is
     r <- evalInstanceRaw' ty' t i
     _ <- typecheckPresentation ty' r
     l <- toOptions ops $ instraw_options t
@@ -583,13 +570,13 @@ evalInstanceRaw ops ty' t is =
       pure $ InstanceEx j
     else do
       p <- createProver (presToCol ty' r) l
-      pure $ InstanceEx $ initialInstance r (f p) ty'
+      pure $ InstanceEx $ initialInstance r (prv p) ty'
  where
-    f p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
-    g [] = return []
-    g ((InstanceEx ts):r) = case cast (pres ts) of
+    prv p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
+    doImports [] = return []
+    doImports ((InstanceEx ts):r) = case cast (pres ts) of
       Nothing -> Left "Bad import"
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
 ---------------------------------------------------------------------------------------------------------------
 -- Basic instances
@@ -655,7 +642,7 @@ evalSigmaInst
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
 evalSigmaInst f i o = do
   d <- createProver (presToCol s p) o
-  return $ initialInstance p (\(EQ (l,r)) -> prove d Map.empty (EQ (l,r))) s
+  return $ initialInstance p (\(EQ (l, r)) -> prove d Map.empty (EQ (l, r))) s
   where
     p = subs f $ pres i
     s = dst  f
@@ -663,7 +650,7 @@ evalSigmaInst f i o = do
 mapGen :: (t1 -> t2) -> Term var ty sym en (t2 -> t2) att t1 sk -> t2
 mapGen f (Gen g)   = f g
 mapGen f (Fk fk a) = fk $ mapGen f a
-mapGen _ _         = undefined
+mapGen _ _         = error "please report, error on mapGen"
 
 evalDeltaAlgebra
   :: forall var ty sym en fk att gen sk x y en' fk' att'
@@ -675,17 +662,16 @@ evalDeltaAlgebra
 evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
   (Instance _ _ _ (alg@(Algebra _ en' nf''' repr''' ty' _ _ teqs')))
   = Algebra src' en'' nf''x Gen ty' nf'''' Sk teqs'
- where en'' e = Set.map (\x -> (e,x)) $ en' $ ens' ! e
-       nf''x :: Term Void Void Void en fk Void (en,x) Void -> (en, x)
-       nf''x (Gen g) = g
-       nf''x (Fk f a) = let (_,x) = nf''x a
-                        in (snd $ Schema.fks src' ! f,
-                            nf''' $ subst (upp $ fks0 ! f) (repr''' x) )
-       nf''x _ = undefined
-       nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
-       nf'''' (Left y) = Sk y
-       nf'''' (Right ((_,x), att)) =
-         nf'' alg $ subst (upp $ atts0 ! att) (upp $ repr''' x)
+ where
+  en'' e = Set.map (\x -> (e,x)) $ en' $ ens' ! e
+
+  nf''x :: Term Void Void Void en fk Void (en, x) Void -> (en, x)
+  nf''x (Gen g) = g
+  nf''x (Fk f a) = (snd $ Schema.fks src' ! f, nf''' $ subst (upp $ fks0 ! f) (repr''' $ snd $ nf''x a))
+  nf''x _ = error "please report, error in eval delta"
+  nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
+  nf'''' (Left y) = Sk y
+  nf'''' (Right ((_, x), att)) = nf'' alg $ subst (upp $ atts0 ! att) (upp $ repr''' x)
 
 
 evalDeltaInst
@@ -775,7 +761,7 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
 
     prettyColumnHeaders :: [String]
     prettyColumnHeaders =
-      (prettyTypedIdent <$> fksFrom' sch es) ++
+      (prettyTypedIdent <$> fksFrom'  sch es) ++
       (prettyTypedIdent <$> attsFrom' sch es)
 
     prettyRow e =

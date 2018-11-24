@@ -1,6 +1,6 @@
 module Language.Parser where
 
-import           Data.Map                   as Map
+import           Data.Map                   as Map hiding ((\\))
 import           Language.Common            as C
 import           Language.Parser.Instance   as I
 import           Language.Parser.LexerRules
@@ -12,6 +12,7 @@ import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
 import           Data.Maybe
+import           Data.List
 
 
 parseAqlProgram' :: Parser (String, Exp)
@@ -62,7 +63,7 @@ parseAqlProgram'' = between spaceConsumer eof g
       return (fromMaybe [] x, y)
 
 
-toProg' :: [(String,String)] -> [(String, Exp)] -> Prog
+toProg' :: [(String, String)] -> [(String, Exp)] -> Prog
 toProg' _ [] = newProg
 toProg' o ((v,e):p) = case e of
    ExpTy ty' -> KindCtx (Map.insert v ty' t) s i m q tr o
@@ -76,4 +77,12 @@ toProg' o ((v,e):p) = case e of
 parseAqlProgram :: String -> Err Prog
 parseAqlProgram s = case runParser parseAqlProgram'' "" s of
   Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
-  Right (o,x)  -> pure $ toProg' o x
+  Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
+    then pure $ toProg' o x
+    else Left $ "Duplicate definition: " ++ show (nub ((fst $ unzip x) \\ (nub $ fst $ unzip x)))
+
+
+
+
+
+

@@ -15,13 +15,14 @@ typeside T = literal {
 	 	succ : nat -> nat  
 	 	plus : nat, nat -> nat  
 	equations    
+//	zero = zero
 //	 	forall x . plus(zero, x) = x  
 //	 	forall x , y . plus(succ(x),y) = succ(plus(x,y))  
  }
 
 schema S = literal : T {   
 	entities  
-		Employee 
+		Employee   
 		Department 
 	foreign_keys 
 		manager   : Employee -> Employee 
@@ -41,9 +42,12 @@ instance I = literal : S {
 		a b : Employee 
 	equations  
 	    a.manager=a a.worksIn.secretary=a     
-	    b.manager=a b.worksIn = a.worksIn    
-        first(a) = Al
-		first(b) = Bob  last(b) = Bo
+	    b.manager=a b.worksIn = a.worksIn  
+	     last(b) = Bo 
+
+	multi_equations
+		first -> {a Al, b Bob}
+		 
 }    
 
 
@@ -57,7 +61,7 @@ y:nat
 	    a.manager=a a.worksIn = d   c.secretary=b     
 	    b.manager=a b.worksIn = c   d.secretary=b    
         first(a) = Al a.last = Al  d.name=Bob
-c.name = Al		first(b) = Bob  last(b) = Bo
+c.name = Al	
 		age(a)=zero age(b) = y
- //options interpret_as_algebra = true
+ options interpret_as_algebra = true
 }    

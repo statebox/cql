@@ -34,9 +34,12 @@ import           Data.List
 import           Twee.Proof                  as TweeProof hiding (defaultConfig)
 import           Twee.Equation               as TweeEq
 import qualified Twee.KBO as KBO
-import Debug.Trace
+--import Debug.Trace
 import Language.Congruence as Cong
 import Language.Internal (Term)
+import Data.Map.Strict as Map
+import Data.Typeable
+
 
 
 -- Theorem proving ------------------------------------------------
@@ -150,76 +153,109 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
 ----------------------------------------------------------------------------------------------
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
 
-instance (ShowOrdTypeableN '[ty, sym, en, fk, att, gen, sk])
-  => Ordered (Extended (Head ty (sym, Int) en fk att gen sk)) where
-  lessEq = KBO.lessEq
-  lessIn = KBO.lessIn
+data Constant x = Constant
+  { con_prec  :: !Precedence
+  , con_id    :: !x
+  , con_arity :: !Int
+  , con_size  :: !Int
+  , con_bonus :: !(Maybe (Maybe Bool))
+  } deriving (Eq, Ord)
 
-instance Arity (Head ty (sym, Int) en fk att gen sk) where
-  arity x = case x of
-    HGen _ -> 0
-    HSk _ -> 0
-    HAtt _ -> 1
-    HFk _ -> 1
-    HSym (_, i) -> i
+instance Sized (Constant x) where
+  size (Constant _ _ _ y _) = y
 
-instance (ShowOrdTypeableN '[ty, sym, en, fk, att, gen, sk]) =>
-  PrettyTerm (Head ty (sym, Int) en fk att gen sk) where
+instance Arity (Constant x) where
+  arity (Constant _ _ y _ _) = y
 
-instance EqualsBonus (Head ty (sym, Int) en fk att gen sk) where
+instance Show x => Pretty (Constant x) where
+  pPrint (Constant _ y _ _ _) = text $ show y
 
-instance Sized (Head ty (sym, Int) en fk att gen sk) where
-  size x = case x of
-    HGen _ -> 1
-    HSk _ -> 1
-    HAtt _ -> 1
-    HFk _ -> 1
-    HSym (_, i) -> 1
+instance Show x => PrettyTerm (Constant x) where
 
-instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
-  => Pretty (Head ty (sym, Int) en fk att gen sk) where
-  pPrint x = text $ show x
+instance (Show x, Ord x, Typeable x) => Ordered (Extended (Constant x)) where
+  lessEq t u = KBO.lessEq t u
+  lessIn model t u = KBO.lessIn model t u
+
+instance EqualsBonus (Constant x) where
+  hasEqualsBonus = isJust . con_bonus
+  isEquals = not . isJust . fromJust . con_bonus
+  isTrue = fromJust . fromJust . con_bonus
+  isFalse = fromJust . fromJust . con_bonus
+
+data Precedence = Precedence !Bool !(Maybe Int) !Int
+  deriving (Eq, Ord)
+
+prec
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  => Collage var ty sym en fk att gen sk
+  -> Head        ty sym en fk att gen sk
+  -> Precedence
+prec col c = Precedence p q r -- trace (show (p,q,r)) $
+  where
+    prec' = [] --[show "I", show "o", show "e"] -- for now
+    p = isNothing $ elemIndex (show c) prec'
+    q = fmap negate (elemIndex (show c) prec')
+    r = negate (Map.findWithDefault 0 c $ occs col)
+
+toTweeConst
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  => Collage var ty sym en fk att gen sk
+  -> Head        ty sym en fk att gen sk
+  -> Constant (Head ty sym en fk att gen sk)
+toTweeConst col c = Constant (prec col c) c arr sz Nothing
+  where
+    sz = 1 -- for now
+    arr = case c of
+      HGen _ -> 0
+      HSk  _ -> 0
+      HAtt _ -> 1
+      HFk  _ -> 1
+      HSym s -> length $ fst $ (csyms col) ! s
 
 convert
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
-  => Ctx var (ty+en)
+  => Collage var ty sym en fk att gen sk
+  -> Ctx var (ty+en)
   -> S.Term var ty sym en fk att gen sk
-  -> TweeBase.Term (Extended (Head ty (sym, Int) en fk att gen sk))
-convert ctx x = case x of
+  -> TweeBase.Term (Extended (Constant (Head ty sym en fk att gen sk)))
+convert col ctx x = case x of
   S.Var v    -> build $ var $ V (fromJust $ elemIndex v $ keys ctx)
-  S.Gen g    -> build $ con (fun $ TweeBase.Function $ HGen g)
-  S.Sk  g    -> build $ con (fun $ TweeBase.Function $ HSk  g)
-  S.Att g a  -> build $ app (fun $ TweeBase.Function $ HAtt g) [convert ctx a]
-  S.Fk  g a  -> build $ app (fun $ TweeBase.Function $ HFk  g) [convert ctx a]
-  S.Sym g as -> build $ app (fun $ TweeBase.Function $ HSym (g, length as)) $ fmap (convert ctx) as
+  S.Gen g    -> build $ con (fun $ TweeBase.Function $ toTweeConst col $ HGen g)
+  S.Sk  g    -> build $ con (fun $ TweeBase.Function $ toTweeConst col $ HSk  g)
+  S.Att g a  -> build $ app (fun $ TweeBase.Function $ toTweeConst col $ HAtt g) [convert col ctx a]
+  S.Fk  g a  -> build $ app (fun $ TweeBase.Function $ toTweeConst col $ HFk  g) [convert col ctx a]
+  S.Sym g as -> build $ app (fun $ TweeBase.Function $ toTweeConst col $ HSym g) $ fmap (convert col ctx) as
 
 initState
-  :: forall              var  ty  sym         en  fk  att  gen  sk
-  .  (ShowOrdTypeableN '[var, ty, sym,        en, fk, att, gen, sk])
-  => Collage             var  ty  sym         en  fk  att  gen  sk
-  -> State (Extended (Head    ty (sym, Int)   en  fk  att  gen  sk))
+  :: forall                     var  ty  sym  en  fk  att  gen  sk
+  .  (ShowOrdTypeableN '[       var, ty, sym, en, fk, att, gen, sk])
+  => Collage                    var  ty  sym  en  fk  att  gen  sk
+  -> State (Extended (Constant (Head ty  sym  en  fk  att  gen  sk)))
 initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initialState $ ceqs col
   where
-    toAxiom :: (Ctx var (ty+en), EQ var ty sym en fk att gen sk) -> Axiom (Extended (Head ty (sym, Int) en fk att gen sk))
-    toAxiom (ctx, EQ (lhs, rhs)) = Axiom 0 "" $ (convert ctx lhs) :=: convert ctx rhs
+    toAxiom :: (Ctx var (ty+en), EQ var ty sym en fk att gen sk) -> Axiom (Extended (Constant (Head ty sym en fk att gen sk)))
+    toAxiom (ctx, EQ (lhs, rhs)) = Axiom 0 "" $ convert col ctx lhs :=: convert col ctx rhs
 
 -- | Does Knuth-Bendix completion.  Attempts to orient equations into rewrite rules
 -- lhs -> rhs where the lhs is larger than the rhs, adding additional equations whenever
 -- critical pairs (rule overlaps) are detected.
 kbProver
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: forall                     var  ty  sym  en  fk  att  gen  sk
+  .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
 kbProver col ops = if allSortsInhabited col || allow_empty
       then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r)
-           in trace (show $ rules $ completed) $ pure $ Prover col p'
+           in pure $ Prover col p'
       else Left "Completion Error: contains uninhabited sorts"
   where
     (col', f) = simplifyCol col
-    p ctx (EQ (lhs', rhs')) = normaliseTerm completed (convert ctx lhs') == normaliseTerm completed (convert ctx rhs')
-    completed = completePure defaultConfig (initState col')
+    p ctx (EQ (lhs', rhs')) = normaliseTerm (completed ctx lhs' rhs') (convert col ctx lhs') == normaliseTerm (completed ctx lhs' rhs') (convert col ctx rhs')
+    completed g l r = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
     allow_empty = bOps ops Allow_Empty_Sorts_Unsafe
+    toGoal :: Ctx var (ty+en) -> S.Term var ty sym en fk att gen sk -> S.Term var ty sym en fk att gen sk -> Goal (Extended (Constant (Head ty sym en fk att gen sk)))
+    toGoal ctx lhs rhs = goal 0 "" $ convert col ctx lhs :=: convert col ctx rhs
 
 -------------------------------------------------------------------------------------------
 -- for ground theories

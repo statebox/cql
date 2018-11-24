@@ -39,6 +39,8 @@ eqParser = do
       g <- sepBy varParser $ constant ","
       _ <- constant "."
       return $ concat g
+      <|>
+      return []
 
 
 varParser :: Parser [(String, Maybe String)]

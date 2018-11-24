@@ -72,6 +72,7 @@ boolDef o = case o of
   Program_Allow_Nonconfluence_Unsafe -> False
   Dont_Validate_Unsafe -> False
   Interpret_As_Algebra -> False
+  Require_Consistency  -> True
 
 -- | Default values for Integer options.
 intDef :: IntOption -> Integer
@@ -105,18 +106,18 @@ opsS = generateEnumValues
 
 -- comment out options we can't handle yet.
 data BoolOption =
---    Require_Consistency
---  | Schema_Only
-      Dont_Validate_Unsafe
---  | Always_Reload
+      Require_Consistency
+    | Dont_Validate_Unsafe
+--    | Always_Reload
     | Program_Allow_Nonconfluence_Unsafe
     | Interpret_As_Algebra
+    | Program_Allow_Nontermination_Unsafe
+    | Allow_Empty_Sorts_Unsafe
+--  | Schema_Only
 --  | Query_Remove_Redundancy
 --  | Import_As_Theory
 --  | Import_Joined
 --  | Prepend_Entity_On_Ids
-  | Program_Allow_Nontermination_Unsafe
-  | Allow_Empty_Sorts_Unsafe
 --  | Csv_Generate_Ids
 --  | Completion_Sort
 --  | Completion_Compose
