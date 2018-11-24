@@ -57,7 +57,7 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
 instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
   rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
 
-typecheckTypeside :: (ShowOrdNFDataN '[var, ty, sym]) => Typeside var ty sym -> Err ()
+typecheckTypeside :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym]) => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
 -- | Converts a typeside to a collage.
@@ -67,7 +67,7 @@ tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.em
 
 data TypesideEx :: * where
   TypesideEx
-    :: forall var ty sym. (ShowOrdTypeableNFDataN '[var, ty, sym]) =>
+    :: forall var ty sym. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym]) =>
     Typeside var ty sym
     -> TypesideEx
 

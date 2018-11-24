@@ -79,14 +79,14 @@ getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sy
 getAtts = atts
 
 mapToMor
-  :: ShowOrdNFDataN '[var, ty, sym, en, fk, att, en', fk', att']
+  :: MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, en', fk', att']
   => Mapping var ty sym en fk att en' fk' att'
   -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
 typecheckMapping
-  :: (ShowOrdNFDataN '[var, ty], ShowOrdTypeableNFDataN '[sym, en, fk, att, en', fk', att'])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty], MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
@@ -94,7 +94,7 @@ typecheckMapping m =  typeOfMor $ mapToMor m
 -- | Given @F@ checks that each @S |- p = q  ->  T |- F p = F q@.
 validateMapping
   :: forall  var ty sym en fk att en' fk' att'
-  . (ShowOrdNFDataN '[var, ty], ShowOrdTypeableNFDataN '[sym, en, fk, att, en', fk', att'])
+  . (MultiTyMap '[Show, Ord, NFData] '[var, ty], MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do
@@ -144,7 +144,7 @@ instance Deps MappingExp where
 
 data MappingEx :: * where
   MappingEx
-    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att'])
+    :: forall var ty sym en fk att en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 
@@ -158,7 +158,7 @@ instance NFData MappingEx where
 
 -- | Compose two mappings.
 composeMapping
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
   =>      Mapping var ty sym en  fk  att  en'  fk'  att'
   ->      Mapping var ty sym en' fk' att' en'' fk'' att''
   -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
@@ -186,7 +186,7 @@ data MappingExpRaw' =
 
 -- | Does the hard work of @evalMappingRaw@.
 evalMappingRaw'
-  :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableNFDataN '[sym, en, fk, att, en', fk', att'])
+  :: forall var ty sym en fk att en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'
   -> [Mapping var ty sym en fk att en' fk' att']
@@ -274,7 +274,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
 
 -- | Evaluates a literal into a mapping.  Does not typecheck or validate.
 evalMappingRaw
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att'])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en  fk  att
   -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'

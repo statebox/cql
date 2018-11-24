@@ -301,8 +301,7 @@ replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 -- | Simplify a collage by replacing symbols of the form @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplifyCol
-  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
---  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   =>  Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
@@ -314,8 +313,7 @@ simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
 
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
 simplifyFix
-  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
---  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
@@ -326,8 +324,7 @@ simplifyFix eqs subst0 = case simplify eqs of
 -- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplify
-  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
---  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplify eqs = case findSimplifiable eqs of
@@ -409,7 +406,7 @@ attsFrom sch en' = f $ Map.assocs $ catts sch
 
 -- | Gets the type of a term that is already known to be well-typed.
 typeOf
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Term Void Void Void en fk Void gen Void -> en
 typeOf col e = case typeOf' col Map.empty (upp e) of
@@ -420,7 +417,7 @@ typeOf col e = case typeOf' col Map.empty (upp e) of
 
 
 checkDoms
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
@@ -442,7 +439,7 @@ checkDoms col = do
       else Left $ "Not a type: "    ++ show x
 
 typeOfCol
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 typeOfCol col = do
@@ -471,16 +468,16 @@ closeGround col (me, mt) = (me', mt'')
     me' = Prelude.foldr (\(_, (en, _ )) m -> if (!) me  en then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
 
 -- | Does a fixed point of closeGround.
-iterGround :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
+iterGround :: (MultiTyMap '[Show, Ord, NFData] '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
 iterGround col r = if r == r' then r else iterGround col r'
  where r' = closeGround col r
 
 -- | Gets the inhabitation map for the sorts of a collage.
-computeGround :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
+computeGround :: (MultiTyMap '[Show, Ord, NFData] '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 computeGround col = iterGround col $ initGround col
 
 -- | True iff all sorts in a collage are inhabited.
-allSortsInhabited :: (ShowOrdNFDataN '[ty, en]) => Collage var ty sym en fk att gen sk -> Bool
+allSortsInhabited :: (MultiTyMap '[Show, Ord, NFData] '[ty, en]) => Collage var ty sym en fk att gen sk -> Bool
 allSortsInhabited col = t && f
  where (me, mt) = computeGround col
        t = and $ Map.elems me
@@ -502,7 +499,7 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
 
 -- | Checks totality of the morphism mappings.
 checkDoms'
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 checkDoms' mor = do
@@ -557,7 +554,7 @@ trans mor term = case term of
 
 typeOfMor
   :: forall var ty sym en fk att gen sk en' fk' att' gen' sk'
-  .  (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
+  .  (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 typeOfMor mor  = do
@@ -603,7 +600,7 @@ typeOfMor mor  = do
 
 -- I've given up on non string based error handling for now
 typeOf'
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty + en)
   -> Term    var ty sym en fk att gen sk
@@ -637,7 +634,7 @@ typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
                      show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
 
 typeOfEq'
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> Err (ty + en)

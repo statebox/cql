@@ -21,6 +21,7 @@ module Language.Query where
 import           Control.DeepSeq
 import           Data.Map.Strict as Map
 import           Data.Set        as Set
+import           Data.Typeable
 import           Data.Void
 import           Language.Common
 import           Language.Schema
@@ -56,7 +57,7 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
 data QueryEx :: * where
   QueryEx
     :: forall var ty sym en fk att en' fk' att'
-    .  (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att'])
+    .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
     => Query var ty sym en fk att en' fk' att' -> QueryEx
 
 instance NFData QueryEx where

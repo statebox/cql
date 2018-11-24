@@ -19,8 +19,8 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Common where
+
 import           Control.Arrow   (left)
-import           Control.DeepSeq
 import           Data.Char
 import           Data.Foldable   as Foldable (foldl, toList)
 import           Data.Kind
@@ -122,10 +122,6 @@ type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
-type family ShowOrdNFDataN (xs :: [*]) :: Constraint
-type instance ShowOrdNFDataN '[] = ()
-type instance ShowOrdNFDataN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdNFDataN ts)
-
-type family ShowOrdTypeableNFDataN (xs :: [*]) :: Constraint
-type instance ShowOrdTypeableNFDataN '[] = ()
-type instance ShowOrdTypeableNFDataN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableNFDataN ts)
+type family MultiTyMap (fs :: [* -> Constraint]) (xs :: [*]) :: Constraint
+type instance MultiTyMap '[] _ = ()
+type instance MultiTyMap (f : fs) xs = (TyMap f xs, MultiTyMap fs xs)

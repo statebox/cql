@@ -16,6 +16,8 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Prover where
+
+import           Control.DeepSeq
 import           Data.List
 import           Data.Map
 import           Data.Maybe
@@ -62,7 +64,7 @@ data Prover var ty sym en fk att gen sk = Prover
 
 -- | Create a prover from a collage and user-provided options.
 createProver
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var  ty  sym  en  fk  att  gen  sk)
@@ -98,7 +100,7 @@ freeProver col | Set.size (ceqs col) == 0 = return $ Prover col p
 -- without empty sorts and without non-trivial critical pairs (rule overlaps).
 -- Runs the rules non deterministically to get a unique normal form.
 orthProver
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -189,7 +191,7 @@ data Precedence = Precedence !Bool !(Maybe Int) !Int
   deriving (Eq, Ord)
 
 prec
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Head        ty sym en fk att gen sk
   -> Precedence
@@ -201,7 +203,7 @@ prec col c = Precedence p q r -- trace (show (p,q,r)) $
     r = negate (Map.findWithDefault 0 c $ occs col)
 
 toTweeConst
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Head        ty sym en fk att gen sk
   -> Constant (Head ty sym en fk att gen sk)
@@ -216,7 +218,7 @@ toTweeConst col c = Constant (prec col c) c arr sz Nothing
       HSym s -> length $ fst $ (csyms col) ! s
 
 convert
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty+en)
   -> S.Term var ty sym en fk att gen sk
@@ -231,7 +233,7 @@ convert col ctx x = case x of
 
 initState
   :: forall                     var  ty  sym  en  fk  att  gen  sk
-  .  (ShowOrdTypeableNFDataN '[       var, ty, sym, en, fk, att, gen, sk])
+  .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[       var, ty, sym, en, fk, att, gen, sk])
   => Collage                    var  ty  sym  en  fk  att  gen  sk
   -> State (Extended (Constant (Head ty  sym  en  fk  att  gen  sk)))
 initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initialState $ ceqs col
@@ -244,7 +246,7 @@ initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initial
 -- critical pairs (rule overlaps) are detected.
 kbProver
   :: forall                     var  ty  sym  en  fk  att  gen  sk
-  .  (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -267,7 +269,7 @@ kbProver col ops = if allSortsInhabited col || allow_empty
 -- how much of the congruence graph gets preserved between calls; the code we have could re-run
 -- building the congruence graph on each call to eq.
 congProver
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err (Prover var ty sym en fk att gen sk)
 congProver col = if eqsAreGround col'
@@ -281,7 +283,7 @@ congProver col = if eqsAreGround col'
     (col', f) = simplifyCol col
 
 convertCong
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => S.Term var ty sym en fk att gen sk
   -> Language.Internal.Term (Head ty sym en fk att gen sk)
 convertCong x = case x of

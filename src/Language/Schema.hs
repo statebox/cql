@@ -71,14 +71,14 @@ instance TyMap Show '[var, ty, sym, en, fk, att]
 -- | Checks that the underlying theory is well-sorted.
 -- I.e. rule out "1" = one kind of errors.
 typecheckSchema
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
 
 -- | Converts a schema to a collage.
 schToCol
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
@@ -144,7 +144,7 @@ instance Deps SchemaExp where
 
 data SchemaEx :: * where
   SchemaEx
-    :: forall var ty sym en fk att . (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att])
+    :: forall var ty sym en fk att . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att])
     => Schema var ty sym en fk att
     -> SchemaEx
 
@@ -268,7 +268,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
 
 -- | Evaluate a typeside into a theory.  Does not validate.
 evalSchemaRaw
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym])
   => Options
   -> Typeside var ty sym
   -> SchemaExpRaw'

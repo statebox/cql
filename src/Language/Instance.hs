@@ -107,7 +107,7 @@ down1 _        = error "Anomaly: please report.  Function name: down1."
 
 -- | Checks that an instance satisfies its schema.
 checkSatisfaction
-  :: (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Ord x)
+  :: (MultiTyMap '[Show] '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq x)
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
 checkSatisfaction (Instance sch pres' dp' alg) = do
@@ -173,7 +173,7 @@ instance (NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, N
 
 -- | Checks that an instance presentation is a well-formed theory.
 typecheckPresentation
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Err ()
@@ -187,7 +187,7 @@ eqs0 (Presentation _ _ x) = x
 
 -- | Converts a presentation to a collage.
 presToCol
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Collage (()+var) ty sym en fk att gen sk
@@ -227,7 +227,7 @@ instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk, x, y]
 data InstanceEx :: * where
   InstanceEx
     :: forall var ty sym en fk att gen sk x y
-    .  (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+    .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
     => Instance var ty sym en fk att gen sk x y
     -> InstanceEx
 
@@ -235,7 +235,7 @@ data InstanceEx :: * where
 -- | Converts an algebra into a presentation: adds one equation per fact in the algebra
 -- and one generator per element.  Presentations in this form are called saturated because
 -- they are maximally large without being redundant.  @I(fk.x) = I(fk)(I(x))@
-algebraToPresentation :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk], Ord y, Ord x)
+algebraToPresentation :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk], Ord y, Ord x)
   => Algebra var ty sym en fk att gen sk x y
   -> Presentation var ty sym en fk att x y
 algebraToPresentation (alg@(Algebra sch en' _ _ _ ty' _ _ _)) = Presentation gens' sks' eqs'
@@ -258,7 +258,7 @@ reify f s = concat $ Set.toList $ Set.map (\en'-> Set.toList $ Set.map (\x->(x,e
 -- Needs to have satisfaction checked.
 saturatedInstance
   :: forall var ty sym en fk att gen sk
-  .  (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  .  (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Err (Instance var ty sym en fk att gen sk gen (Either sk (gen, att)))
@@ -321,7 +321,7 @@ newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att)
 -- The term model is constructed by repeatedly adding news terms to the empty model
 -- until a fixedpoint is reached.
 initialInstance
-  :: (ShowOrdNFDataN '[ var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Presentation var  ty  sym  en  fk  att  gen  sk
   -> (EQ    (() + var) ty  sym  en  fk  att  gen  sk -> Bool)
   -> Schema       var  ty  sym  en  fk  att
@@ -358,7 +358,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
 
 
 assembleSks
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Map en (Set (Carrier en fk gen))
   -> Map ty (Set (TalgGen en fk att gen sk))
@@ -371,7 +371,7 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
 -- | Inlines type-algebra equations of the form @gen = term@.
 -- The hard work is delegtated to functions from the Term module.
 simplifyAlg
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
 simplifyAlg
@@ -398,7 +398,7 @@ deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att ge
 
 deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
 
-assembleGens :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+assembleGens :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
  => Collage var ty sym en fk att gen sk -> [Carrier en fk gen] -> Map en (Set (Carrier en fk gen))
 assembleGens col [] = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toList $ cens col
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
@@ -407,7 +407,7 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
        s = m ! t
 
 close
-  :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var  ty   sym  en fk att  gen sk
   -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
   -> [Term   Void Void Void en fk Void gen Void]
@@ -417,7 +417,7 @@ close col dp' =
     y f x = let z = f x in if x == z then x else y f z
 
 close1m
-  :: (Foldable t, ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (Foldable t, MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => (EQ var ty sym en fk att gen sk -> Bool)
   -> Collage var ty sym en fk att gen sk
   -> t (Term Void Void Void en fk Void gen Void)
@@ -429,7 +429,7 @@ dedup :: (EQ var ty sym en fk att gen sk -> Bool)
                -> [Term Void Void Void en fk Void gen Void]
 dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
-close1 :: (ShowOrdNFDataN '[var, ty, sym, en, fk, att, gen, sk])
+close1 :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> Term Void Void Void en fk Void gen Void -> [ (Term Void Void Void en fk Void gen Void) ]
 close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
   where t = typeOf col e
@@ -511,7 +511,7 @@ split'' ens2 tys2 ((w, ei):tl) =
           else Left $ "Not an entity or type: " ++ show ei
 
 evalInstanceRaw'
-  :: forall var ty sym en fk att . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+  :: forall var ty sym en fk att . (MultiTyMap '[Ord, Typeable] '[ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> InstExpRaw'
   -> [Presentation var ty sym en fk att Gen Sk]
@@ -551,7 +551,7 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
         Nothing -> Left $ "Cannot type: " ++ v
 
 evalInstanceRaw
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att])
   => Options
   -> Schema var ty sym en fk att
   -> InstExpRaw'
@@ -590,7 +590,7 @@ emptyInstance ts'' = Instance ts''
       Set.empty)
 
 pivot
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Instance  var ty sym en        fk        att  gen sk x   y
   -> (Schema   var ty sym x (x, fk) (x, att)
   ,   Instance var ty sym x (x, fk) (x, att) x sk x  y
@@ -632,7 +632,7 @@ pivot (Instance sch (Presentation _ sks _) _ (Algebra _ ens _ fk _ tys nnf _ teq
 -- Functorial data migration
 
 subs
-  :: (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord en', Ord fk', Ord att', Ord gen, Ord sk)
+  :: (MultiTyMap '[Ord] '[ty, sym, en, fk, att, en', fk', att', gen, sk])
   => Mapping var ty sym en fk att en' fk' att'
   -> Presentation var ty sym en  fk  att  gen sk
   -> Presentation var ty sym en' fk' att' gen sk
@@ -671,7 +671,7 @@ changeEn' fks' atts' t = case t of
   Att h _ -> absurd h
 
 evalSigmaInst
-  :: (ShowOrdTypeableNFDataN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att', gen, sk])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
@@ -712,10 +712,7 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att'
-  . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord x, Ord y, Ord var,
-     Show var, Show ty, Show sym, Show en, Show fk, Show att, Show x, Show y,
-     NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
+  :: forall var ty sym en fk att gen sk x y en' fk' att' . (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, x, y])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
