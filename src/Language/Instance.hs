@@ -55,8 +55,9 @@ data Algebra var ty sym en fk att gen sk x y
   { aschema :: Schema var ty sym en fk att
 
   , en      :: en -> (Set x) -- globally unique xs
-  , nf      :: Term Void Void Void en fk Void gen Void -> x
-  , repr    :: x -> Term Void Void Void en fk Void gen Void
+  , aGen    :: gen -> x
+  , aFk     :: fk  -> x -> x
+  , repr    :: x   -> Term Void Void Void en fk Void gen Void
 
   , ty      :: ty -> (Set y) -- globally unique ys
   , nf'     :: sk + (x, att) -> Term Void ty sym Void Void Void Void y
@@ -68,8 +69,8 @@ data Algebra var ty sym en fk att gen sk x y
 instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
   => NFData (Algebra var ty sym en fk att gen sk x y)
   where
-    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
+    rnf (Algebra s0 e0 nf0 nf02 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
+      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ deepseq nf02 $ rnf eqs1
       where
         f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
         w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
@@ -131,6 +132,12 @@ nf'' alg t = case t of
   Sk  s    -> nf' alg $ Left s
   _        -> error "Impossible, please report. Non typeside term passed to nf''."
 
+-- | Evaluates a entity side term to a carrier.  Crashes if given a term of type sort.
+nf :: Algebra var ty sym en fk att gen sk x y -> Term Void ty' sym' en fk att' gen sk' -> x
+nf alg (Gen g  ) = aGen alg g
+nf alg (Fk  f a) = aFk  alg f $ nf alg a
+nf _ _ = error "Impossible, error in nf"
+
 -- | "Reverse evaluates" a type algebra term to a term in instance.
 repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk
 repr'' alg t = case t of
@@ -140,14 +147,6 @@ repr'' alg t = case t of
   Att a _  -> absurd a
   Fk  f _  -> absurd f
   Var v    -> absurd v
-
--- | Evaluates a generator.
-aGen :: Algebra var ty sym en fk att gen sk x y -> gen -> x
-aGen alg g = nf alg $ Gen g
-
--- | Evaluates a foreign key on a value.
-aFk :: Algebra var ty sym en fk att gen sk x y -> fk -> x -> x
-aFk alg f x = nf alg $ Fk f $ repr alg x
 
 -- | Evaluates an attribute on a value.
 aAtt :: Algebra var ty sym en fk att gen sk x y -> att -> x -> Term Void ty sym Void Void Void Void y
@@ -212,7 +211,7 @@ data Instance var ty sym en fk att gen sk x y
 
 -- | True if the type algebra is empty, which approximates it being free,
 -- which approximates it being conservative over the typeside.
-freeTalg (Instance _ _ _ (Algebra _ _ _ _ _ _ _ teqs)) = Prelude.null teqs
+freeTalg (Instance _ _ _ (Algebra _ _ _ _ _ _ _ _ teqs)) = Prelude.null teqs
 
 -- | Just syntactic equality of the theory for now.
 instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y)
@@ -238,7 +237,7 @@ data InstanceEx :: * where
 algebraToPresentation :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Ord y, Ord x)
   => Algebra var ty sym en fk att gen sk x y
   -> Presentation var ty sym en fk att x y
-algebraToPresentation (alg@(Algebra sch en' _ _ ty' _ _ _)) = Presentation gens' sks' eqs'
+algebraToPresentation (alg@(Algebra sch en' _ _ _ ty' _ _ _)) = Presentation gens' sks' eqs'
   where
     gens'   = Map.fromList $ reify en' $ Schema.ens sch
     sks'    = Map.fromList $ reify ty' $ Typeside.tys $ Schema.typeside sch
@@ -266,10 +265,10 @@ saturatedInstance sch (Presentation gens sks eqs) = do
   (fks, atts) <- foldM procEq (Map.empty, Map.empty) eqs
   checkTotality fks
   _ <- if Set.null (Typeside.eqs $ typeside sch) then return () else Left "Typeside must be free"
-  let alg = Algebra sch (Set.fromList . gens') (nf fks) Gen (Set.fromList . (sks' atts)) (nf' atts) repr' Set.empty
+  let alg = Algebra sch (Set.fromList . gens') (nf1 fks) (nf2 fks) Gen (Set.fromList . (sks' atts)) (nf' atts) repr' Set.empty
   pure $ Instance sch (Presentation gens sks eqs) (\(EQ (l, r)) -> l == r) alg
   where
-    checkTotality :: Map (gen, fk) gen -> Err ()
+    --checkTotality :: Map (gen, fk) gen -> Err ()
     checkTotality fks =
       mapM_ (\en -> if (List.null (fksMissing en fks))
                     then pure ()
@@ -301,13 +300,8 @@ saturatedInstance sch (Presentation gens sks eqs) = do
 
     procEq _ (EQ (l, r)) = Left $ "Bad eq: " ++ show l ++ " = " ++ show r
 
-    nf fks term = case term of
-      Var v   -> absurd v
-      Sk  sk  -> absurd sk
-      Sym f _ -> absurd f
-      Att f _ -> absurd f
-      Fk  f a -> fks ! (nf fks a, f)
-      Gen g   -> g
+    nf1 fks g = g
+    nf2 fks f a = fks ! (a, f)
 
     nf' _    (Left  sk) = Sk $ Left sk
     nf' atts (Right x ) = Map.findWithDefault (Sk (Right x)) x atts
@@ -335,11 +329,14 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
   where
     dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
     initialAlgebra p dp' sch = simplifyAlg this
-    this  = Algebra sch en' nf''' id ty' nf'''' repr'''' teqs'
+    this  = Algebra sch en' nf''' nf'''2 id ty' nf'''' repr'''' teqs'
     col   = presToCol sch p
     ens'  = assembleGens col (close col dp')
     en' k = ens' ! k
-    nf''' e = let
+
+    nf'''    e = nf'''_old $ Gen e
+    nf'''2 f e = nf'''_old $ Fk  f e
+    nf'''_old e = let
       t = typeOf col e
       f []    = error "impossible, please report"
       f (a:b) = if dp' (EQ (upp a, upp e)) then a else f b
@@ -351,7 +348,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
     nf'''' (Left g)          = Sk $ MkTalgGen $ Left   g
     nf'''' (Right (gt, att)) = Sk $ MkTalgGen $ Right (gt, att)
 
-    repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
+    --repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
     repr'''' (MkTalgGen (Left g))         = Sk g
     repr'''' (MkTalgGen (Right (x, att))) = Att att $ upp x
 
@@ -377,8 +374,8 @@ simplifyAlg
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
 simplifyAlg
-  (Algebra sch en' nf''' repr''' ty'  nf''''  repr'''' teqs'   ) =
-   Algebra sch en' nf''' repr''' ty'' nf''''' repr'''' teqs''''
+  (Algebra sch en' nf''' nf'''2 repr''' ty'  nf''''  repr'''' teqs'   ) =
+   Algebra sch en' nf''' nf'''2 repr''' ty'' nf''''' repr'''' teqs''''
    where
     teqs''       = Set.map (\x -> (Map.empty, x)) teqs'
     (teqs''', f) = simplifyFix teqs'' []
@@ -587,7 +584,7 @@ emptyInstance ts'' = Instance ts''
     (Presentation Map.empty Map.empty Set.empty)
     (const undefined)
     (Algebra ts''
-      (const Set.empty) (const undefined) (const undefined)
+      (const Set.empty) (const undefined) (const undefined) (const undefined)
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
 
@@ -660,15 +657,18 @@ evalDeltaAlgebra
   -> Instance var ty sym en' fk' att' gen       sk  x       y
   -> Algebra  var ty sym en  fk  att  (en, x)   y   (en, x) y
 evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
-  (Instance _ _ _ (alg@(Algebra _ en' nf''' repr''' ty' _ _ teqs')))
-  = Algebra src' en'' nf''x Gen ty' nf'''' Sk teqs'
+  (Instance _ _ _ (alg@(Algebra _ en' nf''' nf'''2 repr''' ty' _ _ teqs')))
+  = Algebra src' en'' nf''x1 nf''x2 Gen ty' nf'''' Sk teqs'
  where
   en'' e = Set.map (\x -> (e,x)) $ en' $ ens' ! e
 
-  nf''x :: Term Void Void Void en fk Void (en, x) Void -> (en, x)
-  nf''x (Gen g) = g
-  nf''x (Fk f a) = (snd $ Schema.fks src' ! f, nf''' $ subst (upp $ fks0 ! f) (repr''' $ snd $ nf''x a))
-  nf''x _ = error "please report, error in eval delta"
+  --nf''x :: Term Void Void Void en fk Void (en, x) Void -> (en, x)
+  --nf''x (Gen g) = g
+  --nf''x (Fk f a) = (snd $ Schema.fks src' ! f, nf''' $ subst (upp $ fks0 ! f) (repr''' $ snd $ nf''x a))
+  --nf''x _ = error "please report, error in eval delta"
+
+  nf''x1 g = g
+  nf''x2 f a =  (snd $ Schema.fks src' ! f, nf alg $ subst (upp $ fks0 ! f) (repr''' $ snd $ a))
   nf'''' :: y + ((en,x), att) -> Term Void ty sym Void Void Void Void y
   nf'''' (Left y) = Sk y
   nf'''' (Right ((_, x), att)) = nf'' alg $ subst (upp $ atts0 ! att) (upp $ repr''' x)
@@ -709,7 +709,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
 
 instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
-  show alg@(Algebra sch _ _ _ ty' _ _ teqs') =
+  show alg@(Algebra sch _ _ _ _ ty' _ _ teqs') =
     "algebra" ++ "\n" ++
     (intercalate "\n\n" prettyEntities) ++ "\n" ++
     "type-algebra" ++ "\n" ++
@@ -727,7 +727,7 @@ prettyEntity
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String
-prettyEntity alg@(Algebra sch en' _ _ _ _ _ _) es =
+prettyEntity alg@(Algebra sch en' _ _ _ _ _ _ _) es =
   show es ++ " (" ++ (show . Set.size $ en' es) ++ ")\n" ++
   "-------------\n" ++
   (intercalate "\n" $ prettyEntityRow es `mapl` en' es)
@@ -749,7 +749,7 @@ prettyEntityTable
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String
-prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _) es =
+prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
   show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
   (Ascii.render show id id tbl)
   where
