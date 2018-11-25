@@ -572,8 +572,8 @@ evalInstanceRaw ops ty' t is =
     prv p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
     doImports [] = return []
     doImports ((InstanceEx ts):r) = case cast (pres ts) of
-      Nothing -> Left "Bad import"
-      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
+      Nothing  -> Left "Bad import"
+      Just ts' -> do { r' <- doImports r ; return $ ts' : r' }
 
 ---------------------------------------------------------------------------------------------------------------
 -- Basic instances
@@ -587,6 +587,43 @@ emptyInstance ts'' = Instance ts''
       (const Set.empty) (const undefined) (const undefined) (const undefined)
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
+
+pivot
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+  => Instance  var ty sym en        fk        att  gen sk x   y
+  -> (Schema   var ty sym x (x, fk) (x, att)
+  ,   Instance var ty sym x (x, fk) (x, att) x sk x  y
+  ,   Mapping  var ty sym x (x, fk) (x, att) en fk att)
+pivot (Instance sch (Presentation gens sks eqs) dp (alg@(Algebra _ ens gen fk rep tys nnf rep2 teqs))) = (sch', inst, mapp)
+  where
+    sch'_ens  = Set.fromList $ concat [ Set.toList (ens en                    ) | en <- Set.toList (Schema.ens sch) ]
+    sch'_fks  = Map.fromList          [            ((x, fk0 ), (x, fk  fk0  x)) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
+    sch'_atts = Map.fromList          [            ((x, att0), (x, ty'       )) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (att0, ty') <- attsFrom' sch en ]
+    sch'_peqs = Set.empty
+    sch'_oeqs = Set.empty
+    dp' = undefined
+    ens'  = Set.singleton
+    gen'  = id
+    fk' (x, f) x' | x == x' = fk f x
+                  | otherwise = error "pivot anomaly, please report"
+    rep'  = Gen
+    nnf' (Left sk) = nnf (Left sk)
+    nnf' (Right (x, (x', att))) | x == x' = nnf $ Right (x, att)
+                                | otherwise = error "pivot anomaly 2, please report"
+    rep2' = undefined
+    gens' = Map.fromList [  (x, x)   | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
+    sks'  = sks
+    eqs'  = undefined
+    es'   = teqs
+    tys'  = tys
+    em    = Map.fromList [  (x, en ) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
+    fm    = Map.fromList [ ((x, fk ) , Fk  fk  $ Var ()) | (x, fk ) <- Map.keys sch'_fks  ]
+    am    = Map.fromList [ ((x, att) , Att att $ Var ()) | (x, att) <- Map.keys sch'_atts ]
+    dp2 _ (EQ (l, r)) = l == r -- todo: stopping for now, this definition is wrong and AQL java should change too
+    sch'  = Schema (typeside sch) sch'_ens sch'_fks sch'_atts sch'_peqs sch'_oeqs dp2
+    inst  = Instance sch' (Presentation gens' sks' eqs') dp' $ Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
+    mapp  = Mapping sch' sch em fm am
+
 
 -- coproducts, etc
 
