@@ -18,6 +18,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Typeside where
+import           Control.DeepSeq
 import           Data.List        (nub)
 import           Data.Map.Strict  hiding (foldr)
 import qualified Data.Map.Strict  as Map
@@ -30,7 +31,6 @@ import           Language.Options
 import           Language.Prover
 import           Language.Term
 import           Prelude          hiding (EQ)
-import           Control.DeepSeq
 
 -- | A user-defined kind for customization of data types.
 data Typeside var ty sym
@@ -60,7 +60,7 @@ instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) whe
 typecheckTypeside :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
-tsToCol :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
+tsToCol :: (Ord var, Ord ty, Ord sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
   where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
 
@@ -171,6 +171,6 @@ instance Deps TypesideExp where
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
 getOptionsTypeside x = case x of
-  TypesideVar _   -> []
-  TypesideInitial -> []
+  TypesideVar _                        -> []
+  TypesideInitial                      -> []
   TypesideRaw (TypesideRaw' _ _ _ o _) -> o

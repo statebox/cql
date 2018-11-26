@@ -1,9 +1,9 @@
 {-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Options where
+import           Data.Void
 import           Language.Common
 import           Text.Read
-import           Data.Void
 
 data Options = Options {
   iOps :: IntOption -> Integer,
@@ -68,8 +68,8 @@ toBoolOption (k,v) = case matches of
 boolDef :: BoolOption -> Bool
 boolDef o = case o of
   Program_Allow_Nontermination_Unsafe -> False
-  Allow_Empty_Sorts_Unsafe -> False
-  Program_Allow_Nonconfluence_Unsafe -> False
+  Allow_Empty_Sorts_Unsafe            -> False
+  Program_Allow_Nonconfluence_Unsafe  -> False
 
 -- | Default values for Integer options.
 intDef :: IntOption -> Integer

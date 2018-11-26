@@ -56,7 +56,7 @@ instRawParser = do
         pure $ x
  where p t = do  i <- optional $ do
                     _ <- constant "imports"
-                    many instExpParser  
+                    many instExpParser
                  e <- optional $ do
                     _ <- constant "generators"
                     y <- many genParser

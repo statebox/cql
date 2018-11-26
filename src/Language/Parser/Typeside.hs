@@ -35,7 +35,7 @@ eqParser = do o <- p
               r <- rawTermParser
               return (o,l,r) --(fromMaybe [] o, l, r)
  where p = do _ <- constant "forall"
-              g <- sepBy varParser $ constant "," 
+              g <- sepBy varParser $ constant ","
               _ <- constant "."
               return $ concat g
 
@@ -64,7 +64,7 @@ typesideLiteralSectionParser :: Parser X.TypesideRaw'
 typesideLiteralSectionParser = do
     i <- optional $ do
         _ <- constant "imports"
-        many typesideExpParser  
+        many typesideExpParser
     t <- optional $ do
         _ <- constant "types"
         many identifier

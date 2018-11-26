@@ -19,6 +19,7 @@
 --{-# LANGUAGE DisambiguateRecordFields #-}
 
 module Language.Mapping where
+import           Control.DeepSeq
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Maybe
@@ -29,7 +30,6 @@ import           Language.Common
 import           Language.Schema as Schema
 import           Language.Term
 import           Prelude         hiding (EQ)
-import           Control.DeepSeq
 
 -- | Morphism of schemas.
 data Mapping var ty sym en fk att en' fk' att'
@@ -87,7 +87,7 @@ mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCo
 
 -- | Checks well-typedness of underlying theory.
 typecheckMapping
-  :: (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
@@ -95,7 +95,7 @@ typecheckMapping m =  typeOfMor $ mapToMor m
 -- | Given @F@ checks that each @S |- p = q  ->  T |- F p = F q@.
 validateMapping
   :: forall  var ty sym en fk att en' fk' att'
-  . (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
+  . (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do
@@ -132,9 +132,9 @@ data MappingExp where
 
 getOptionsMapping :: MappingExp -> [(String, String)]
 getOptionsMapping x = case x of
-  MappingVar  _   -> []
-  MappingId   _   -> []
-  MappingComp _ _ -> []
+  MappingVar  _                             -> []
+  MappingId   _                             -> []
+  MappingComp _ _                           -> []
   MappingRaw (MappingExpRaw' _ _ _ _ _ o _) -> o
 
 instance Deps MappingExp where
@@ -186,7 +186,7 @@ data MappingExpRaw' =
 } deriving (Eq, Show)
 
 evalMappingRaw'
-  :: forall var ty sym en fk att en' fk' att' . (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
+  :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[en, en'], Typeable sym, Ord fk, Typeable fk, Ord att, Typeable att, Ord fk', Typeable fk', Ord att', Typeable att')
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'
   -> [Mapping var ty sym en fk att en' fk' att']
@@ -235,7 +235,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
     g' v _ _ (RawApp x []) | v == x = Var ()
     g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
     g' _ _ _ _ = error "impossible"
-    g :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
+    g :: String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
     g v _ _ (RawApp x []) | v == x = Var ()
     g v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
     g v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ g' v fks'' atts'' a

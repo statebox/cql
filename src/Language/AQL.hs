@@ -27,7 +27,7 @@ import Control.Concurrent
 import Control.Exception
 
 -- works
-timeout' :: (Show x, NFData x) => Integer -> Err x -> Err x
+timeout' :: (NFData x) => Integer -> Err x -> Err x
 timeout' i p = unsafePerformIO $ do
   m <- newEmptyMVar
   computer <- forkIO $ f m p
@@ -452,7 +452,6 @@ evalInstance prog env (InstanceSigma f' i o) = do
   o' <- toOptions (other env) o
   r <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
   return $ InstanceEx r
-
 evalInstance prog env (InstanceDelta f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i
