@@ -137,9 +137,13 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
     noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
     noOverlaps x = (and $ Prelude.map R.isLeftLinear x) && (Prelude.null $ findCps x)
 
-    isDecreasing :: [EQ var ty sym en fk att gen sk] -> Bool
+    isDecreasing :: Eq var => [EQ var ty sym en fk att gen sk] -> Bool
     isDecreasing [] = True
-    isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl
+    isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl && moreOnLhs (S.vars lhs') (S.vars rhs')
+      where
+        moreOnLhs lvars rvars = and $ fmap (\r -> count lvars r >= count rvars r) rvars
+        count [] x = 0
+        count (a:b) x = count b x + if a == x then 1 else 0
 
     convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
     convert x = case x of
