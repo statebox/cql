@@ -81,7 +81,7 @@ data QueryExpRaw' = QueryExpRaw'
 } deriving (Eq, Show)
 
 typecheckQuery
-  :: (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
+  :: -- (ShowOrdN '[var, ty], ShowOrdTypeableN '[sym, en, fk, att, en', fk', att'])
   => Query var ty sym en fk att en' fk' att'
   -> Err ()
 typecheckQuery = undefined

@@ -237,7 +237,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
     inferTerm' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
     inferTerm' _ _ _ _ = error "impossible"
 
-    inferTerm :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
+    --inferTerm :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
     inferTerm v _ _ (RawApp x []) | v == x = Var ()
     inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x fks''  = Fk  (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
     inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ inferTerm' v fks'' atts'' a

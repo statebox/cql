@@ -15,6 +15,7 @@ typesideExpParser = parseSql <|> parseRaw <|> parseEmpty <|> parseVar <|> parens
 parseEmpty :: Parser TypesideExp
 parseEmpty = do { _ <- constant "empty" ; return TypesideInitial }
 
+parseSql :: Parser TypesideExp
 parseSql = do { _ <- constant "sql" ; return TypesideSql }
 
 parseVar :: Parser TypesideExp
