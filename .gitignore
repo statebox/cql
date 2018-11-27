@@ -3,3 +3,6 @@ aql.cabal
 http/aql-http.cabal
 *~
 .DS_Store
+*.yaml#
+*.aql#
+
