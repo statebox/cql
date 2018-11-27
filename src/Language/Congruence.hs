@@ -48,13 +48,13 @@ merge gr (u,v) = do
     predOfAllVertEquivTo vert =
       concatMap (predecessors gr) <$> filterM (equivalent vert) (vertices gr)
 
-notEquivalentButCongruent :: (Functor m, Monad m) => Graph t -> (Vert t, Vert t) -> UnionFindT (LNode t) m Bool
+notEquivalentButCongruent :: (Monad m) => Graph t -> (Vert t, Vert t) -> UnionFindT (LNode t) m Bool
 notEquivalentButCongruent gr (x,y) = do
   notEquiv <- not <$> equivalent x y
   cong <- congruent gr x y
   return $ notEquiv && cong
 
-congruent :: (Functor m, Monad m) => Graph t -> Vert t -> Vert t -> UnionFindT (LNode t) m Bool
+congruent :: (Monad m) => Graph t -> Vert t -> Vert t -> UnionFindT (LNode t) m Bool
 congruent gr x y = do
   if outDegree gr x /= outDegree gr y
     then return False
