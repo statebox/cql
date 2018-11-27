@@ -17,6 +17,7 @@
 
 module Language.Instance where
 
+import           Control.DeepSeq
 import qualified Data.Foldable         as Foldable
 import           Data.List as List            hiding (intercalate)
 import           Data.Map.Strict       (Map, member, unionWith, (!))
@@ -37,7 +38,6 @@ import           Language.Typeside     as Typeside
 import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
 import qualified Text.Tabular.AsciiArt as Ascii
-import           Control.DeepSeq
 import           Control.Monad
 
 
@@ -107,7 +107,7 @@ down1 _        = error "Anomaly: please report.  Function name: down1."
 
 -- | Checks that an instance satisfies its schema.
 checkSatisfaction
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+  :: (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Ord x)
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
 checkSatisfaction (Instance sch pres' dp' alg) = do
@@ -156,6 +156,15 @@ aAtt alg f x = nf'' alg $ Att f $ upp $ repr alg x
 aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Void Void Void y
 aSk alg g = nf'' alg $ Sk g
 
+
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
+  => NFData (Algebra var ty sym en fk att gen sk x y)
+  where
+    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
+      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
+      where
+        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
+        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
 
 
 -------------------------------------------------------------------------------------------------------------------
@@ -230,6 +239,7 @@ data InstanceEx :: * where
     .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
     => Instance var ty sym en fk att gen sk x y
     -> InstanceEx
+
 
 -- | Converts an algebra into a presentation: adds one equation per fact in the algebra
 -- and one generator per element.  Presentations in this form are called saturated because
@@ -395,9 +405,9 @@ instance (Show en, Show fk, Show att, Show gen, Show sk) => Show (TalgGen en fk 
 
 deriving instance (Ord en, Ord fk, Ord att, Ord gen, Ord sk) => Ord (TalgGen en fk att gen sk)
 
-deriving instance (Eq en, Eq fk, Eq att, Eq gen, Eq sk) => Eq (TalgGen en fk att gen sk)
+deriving instance (Eq fk, Eq att, Eq gen, Eq sk) => Eq (TalgGen en fk att gen sk)
 
-assembleGens :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
+assembleGens :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
  => Collage var ty sym en fk att gen sk -> [Carrier en fk gen] -> Map en (Set (Carrier en fk gen))
 assembleGens col [] = Map.fromList $ Prelude.map (\x -> (x,Set.empty)) $ Set.toList $ cens col
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
@@ -406,7 +416,7 @@ assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
        s = m ! t
 
 close
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var  ty   sym  en fk att  gen sk
   -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
   -> [Term   Void Void Void en fk Void gen Void]
@@ -428,7 +438,7 @@ dedup :: (EQ var ty sym en fk att gen sk -> Bool)
                -> [Term Void Void Void en fk Void gen Void]
 dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
-close1 :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
+close1 :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
  => Collage var ty sym en fk att gen sk -> (EQ var ty sym en fk att gen sk -> Bool) -> Term Void Void Void en fk Void gen Void -> [ (Term Void Void Void en fk Void gen Void) ]
 close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
   where t = typeOf col e
@@ -465,14 +475,14 @@ instance Deps InstanceExp where
 
 getOptionsInstance :: InstanceExp -> [(String, String)]
 getOptionsInstance x = case x of
-  InstanceVar _                        -> []
-  InstanceInitial _                    -> []
-  InstanceDelta  _ _ o                 -> o
-  InstanceSigma  _ _ o                 -> o
-  InstancePi     _ _                   -> undefined
-  InstanceEval   _ _                   -> undefined
-  InstanceCoEval _ _                   -> undefined
-  InstanceRaw (InstExpRaw' _ _ _ o _)  -> o
+  InstanceVar _                       -> []
+  InstanceInitial _                   -> []
+  InstanceDelta  _ _ o                -> o
+  InstanceSigma  _ _ o                -> o
+  InstancePi     _ _                  -> undefined
+  InstanceEval   _ _                  -> undefined
+  InstanceCoEval _ _                  -> undefined
+  InstanceRaw (InstExpRaw' _ _ _ o _) -> o
 
 
 ----------------------------------------------------------------------------------------------------------------------
@@ -510,7 +520,7 @@ split'' ens2 tys2 ((w, ei):tl) =
           else Left $ "Not an entity or type: " ++ show ei
 
 evalInstanceRaw'
-  :: forall var ty sym en fk att . (ShowOrdN '[var, ty, sym, en, fk, att], Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+  :: forall var ty sym en fk att . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
   => Schema var ty sym en fk att
   -> InstExpRaw'
   -> [Presentation var ty sym en fk att Gen Sk]
@@ -631,7 +641,7 @@ pivot (Instance sch (Presentation gens sks eqs) dp (alg@(Algebra _ ens gen fk re
 -- Functorial data migration
 
 subs
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk], Eq en')
+  :: (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord en', Ord fk', Ord att', Ord gen, Ord sk)
   => Mapping var ty sym en fk att en' fk' att'
   -> Presentation var ty sym en  fk  att  gen sk
   -> Presentation var ty sym en' fk' att' gen sk
@@ -670,7 +680,7 @@ changeEn' fks' atts' t = case t of
   Att h _ -> absurd h
 
 evalSigmaInst
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', gen, sk], Eq x, Eq y, Eq en')
+  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk], Ord en, Ord fk, Ord att)
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
@@ -688,8 +698,7 @@ mapGen _ _         = error "please report, error on mapGen"
 
 evalDeltaAlgebra
   :: forall var ty sym en fk att gen sk x y en' fk' att'
-   . ( Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Show en', Show fk', Show att'
-     , Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, Ord en', Ord fk', Ord att')
+   . (Ord en, Ord fk, Ord att, Ord x)
   => Mapping  var ty sym en  fk  att  en'       fk' att'
   -> Instance var ty sym en' fk' att' gen       sk  x       y
   -> Algebra  var ty sym en  fk  att  (en, x)   y   (en, x) y
@@ -712,8 +721,8 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att'
-  . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'])
+  :: forall var ty sym en fk att gen sk x y en' fk' att' 
+  . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord x, Ord y)
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
@@ -760,7 +769,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
       prettyTypeEqns = intercalate "\n" (Set.map show teqs')
 
 prettyEntity
-  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  :: (Show ty, Show sym, Show en, Show fk, Show att, Show x, Show y, Eq en)
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String
@@ -782,7 +791,7 @@ prettyEntity alg@(Algebra sch en' _ _ _ _ _ _ _) es =
 
 -- TODO unquote identifiers; stick fks and attrs in separate `Group`s?
 prettyEntityTable
-  :: (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk, Show x, Show y, Eq en)
+  :: (Show ty, Show sym, Show en, Show fk, Show att, Show x, Show y, Eq en)
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String

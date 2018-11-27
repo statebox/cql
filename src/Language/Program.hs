@@ -1,22 +1,35 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs
-           , KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances
-           , MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators, LiberalTypeSynonyms, ImpredicativeTypes
-           , UndecidableInstances, FunctionalDependencies
-#-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE DuplicateRecordFields  #-}
+{-# LANGUAGE ExplicitForAll         #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE ImpredicativeTypes     #-}
+{-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE LiberalTypeSynonyms    #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Language.Program where
 
-import           Prelude hiding (EQ)
-import           Data.Map.Strict as Map
-import           Language.Common as C
-import           Language.Instance as I
-import           Language.Mapping as M
-import           Language.Schema as S
-import           Language.Term as Term
-import           Language.Query as Q
-import           Language.Transform as Tr
-import           Language.Typeside as T
 import           Control.DeepSeq
+import           Data.Map.Strict    as Map
+import           Language.Common    as C
+import           Language.Instance  as I
+import           Language.Mapping   as M
+import           Language.Query     as Q
+import           Language.Schema    as S
+import           Language.Term      as Term
+import           Language.Transform as Tr
+import           Language.Typeside  as T
+import           Prelude            hiding (EQ)
 
 -- | Top level AQL expressions, untyped.
 data Exp

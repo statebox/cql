@@ -7,6 +7,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs                  #-}
 {-# LANGUAGE ImpredicativeTypes     #-}
+{-# LANGUAGE IncoherentInstances    #-}
 {-# LANGUAGE InstanceSigs           #-}
 {-# LANGUAGE KindSignatures         #-}
 {-# LANGUAGE LiberalTypeSynonyms    #-}
@@ -17,19 +18,17 @@
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE UndecidableInstances   #-}
-{-# LANGUAGE IncoherentInstances    #-}
 
 module Language.Term where
 
+import           Control.DeepSeq
 import           Data.Map.Strict as Map hiding (foldr, size)
 import           Data.Maybe
 import           Data.Set        as Set hiding (foldr, size)
 import           Data.Void
 import           Language.Common
 import           Prelude         hiding (EQ)
-import           Control.DeepSeq
 import           Data.Map.Merge.Strict
-
 
 data RawTerm = RawApp String [RawTerm]
   deriving Eq
@@ -220,12 +219,12 @@ subst
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
 subst x t = case x of
-  Var ()    -> t
-  Sym f as  -> Sym f $ (\a -> subst a t) <$> as
-  Fk  f a   -> Fk  f $ subst a t
-  Att f a   -> Att f $ subst a t
-  Gen g     -> Gen g
-  Sk  g     -> Sk  g
+  Var ()   -> t
+  Sym f as -> Sym f $ (\a -> subst a t) <$> as
+  Fk  f a  -> Fk  f $ subst a t
+  Att f a  -> Att f $ subst a t
+  Gen g    -> Gen g
+  Sk  g    -> Sk  g
 
 subst'
   :: Term ()   ty   sym  en fk att  Void Void
@@ -304,7 +303,7 @@ replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 -- | Simplify a collage by replacing symbols of the form @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplifyCol
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
   =>  Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
@@ -316,7 +315,7 @@ simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
 
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
 simplifyFix
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
@@ -327,7 +326,7 @@ simplifyFix eqs subst0 = case simplify eqs of
 -- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplify
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (Ord var, Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk)
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplify eqs = case findSimplifiable eqs of
@@ -409,7 +408,7 @@ attsFrom sch en' = f $ Map.assocs $ catts sch
 
 -- | Gets the type of a term that is already known to be well-typed.
 typeOf
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk], Eq en)
+  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Term Void Void Void en fk Void gen Void -> en
 typeOf col e = case typeOf' col Map.empty (upp e) of
@@ -420,7 +419,7 @@ typeOf col e = case typeOf' col Map.empty (upp e) of
 
 
 checkDoms
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (ShowOrdN '[ty, en])
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
@@ -502,7 +501,7 @@ data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
 
 -- | Checks totality of the morphism mappings.
 checkDoms'
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
+  :: (ShowOrdN '[en, fk, att, gen, sk])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 checkDoms' mor = do

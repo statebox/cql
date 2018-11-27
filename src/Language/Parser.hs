@@ -14,7 +14,6 @@ import           Text.Megaparsec
 import           Data.Maybe
 import           Data.List
 
-
 parseAqlProgram' :: Parser (String, Exp)
 parseAqlProgram' = do
   _ <- constant "typeside"
@@ -80,4 +79,3 @@ parseAqlProgram s = case runParser parseAqlProgram'' "" s of
   Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
     then pure $ toProg' o x
     else Left $ "Duplicate definition: " ++ show (nub ((fst $ unzip x) \\ (nub $ fst $ unzip x)))
-

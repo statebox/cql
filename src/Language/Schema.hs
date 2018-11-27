@@ -18,6 +18,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Schema where
+import           Control.DeepSeq
 import           Data.List         (nub)
 import           Data.Map.Strict   as Map
 import           Data.Maybe
@@ -30,7 +31,6 @@ import           Language.Prover
 import           Language.Term
 import           Language.Typeside
 import           Prelude           hiding (EQ)
-import           Control.DeepSeq
 
 
 data Schema var ty sym en fk att
@@ -78,7 +78,7 @@ typecheckSchema t = typeOfCol $ schToCol  t
 
 -- | Converts a schema to a collage.
 schToCol
-  :: (ShowOrdN '[var, ty, sym, en, fk, att])
+  :: (ShowOrdN '[var, ty, sym], Ord en, Ord fk, Ord att)
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
@@ -98,7 +98,7 @@ up1Ctx g = Map.map (\x -> case x of
 typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
 typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty $ \x _ -> absurd x
 
-fksFrom' :: (Show var, Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
+fksFrom' :: (Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
 fksFrom' sch en' = f $ Map.assocs $ fks sch
   where
     f []                 = []
@@ -178,7 +178,7 @@ type Att = String
 
 -- | Evaluates a schema literal into a theory, but does not create the theorem prover.
 evalSchemaRaw'
-  :: (Show var, Ord var, ShowOrdTypeableN '[ty, sym])
+  :: (Ord ty, Typeable ty, Ord sym, Typeable sym)
   => Typeside var ty sym -> SchemaExpRaw'
   -> [Schema var ty sym En Fk Att]
   -> Err (Schema var ty sym En Fk Att)
