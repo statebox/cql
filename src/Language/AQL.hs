@@ -27,7 +27,7 @@ import Control.Exception
 
 
 -- | Timesout a computation after @i@ microseconds.
-timeout' :: (Show x, NFData x) => Integer -> Err x -> Err x
+timeout' :: NFData x => Integer -> Err x -> Err x
 timeout' i p = unsafePerformIO $ do
   m <- newEmptyMVar
   computer <- forkIO $ f m p

@@ -32,9 +32,8 @@ hasModel (Conjunction conjunctions) = runUnionFind $ do
   traverse_ (merge gr) pos
 
   anyEquiv <- any equivalent neg
-  if anyEquiv
-    then return False
-    else return True -- constructModel gr
+  pure $ not anyEquiv
+
 
 merge :: Monad m => Graph t -> (Vert t, Vert t) -> UnionFindT (LNode t) m ()
 merge gr (u,v) = do

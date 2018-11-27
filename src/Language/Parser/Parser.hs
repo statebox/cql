@@ -30,11 +30,11 @@ rawTermParser =
           return $ RawApp i [])
   <|>
   try (do _ <- constant "("
-          a <- rawTermParser
-          f <- identifier
-          b <- rawTermParser
-          _ <- constant ")"
-          return $ RawApp f [a, b])
+           a <- rawTermParser
+           f <- identifier
+           b <- rawTermParser
+           _ <- constant ")"
+           return $ RawApp f [a, b])
 
 optionParser :: Parser (String, String)
 optionParser =

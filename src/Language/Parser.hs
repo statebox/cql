@@ -81,8 +81,3 @@ parseAqlProgram s = case runParser parseAqlProgram'' "" s of
     then pure $ toProg' o x
     else Left $ "Duplicate definition: " ++ show (nub ((fst $ unzip x) \\ (nub $ fst $ unzip x)))
 
-
-
-
-
-

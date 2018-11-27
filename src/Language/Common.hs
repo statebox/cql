@@ -99,9 +99,12 @@ member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool
 member' k m = elem' k (Map.keys m)
 
 mergeMaps :: Ord k => [Map k v] -> Map k v
-mergeMaps z = case z of
+mergeMaps = foldl Map.union Map.empty
+
+{-- z = case z of
   []    -> Map.empty
   (x:y) -> Map.union x $ mergeMaps y
+--}
 
 type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
