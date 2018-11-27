@@ -66,7 +66,7 @@ data Algebra var ty sym en fk att gen sk x y
   , teqs    :: Set (EQ Void ty sym Void Void Void Void y)
   }
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y)
+instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
   => NFData (Algebra var ty sym en fk att gen sk x y)
   where
     rnf (Algebra s0 e0 nf0 nf02 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
@@ -167,7 +167,7 @@ data Presentation var ty sym en fk att gen sk
   , eqs  :: Set (EQ Void ty sym en fk att gen sk)
   }
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk)
+instance (NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk)
   => NFData (Presentation var ty sym en fk att gen sk) where
   rnf (Presentation g s e) = deepseq g $ deepseq s $ rnf e
 
@@ -210,6 +210,7 @@ data Instance var ty sym en fk att gen sk x y
 
 -- | True if the type algebra is empty, which approximates it being free,
 -- which approximates it being conservative over the typeside.
+freeTalg :: Instance var ty sym en fk att gen sk x y -> Bool
 freeTalg (Instance _ _ _ (Algebra _ _ _ _ _ _ _ _ teqs)) = Prelude.null teqs
 
 -- | Just syntactic equality of the theory for now.
@@ -300,7 +301,7 @@ saturatedInstance sch (Presentation gens sks eqs) = do
 
     procEq _ (EQ (l, r)) = Left $ "Bad eq: " ++ show l ++ " = " ++ show r
 
-    nf1 fks g = g
+    nf1 _ g = g
     nf2 fks f a = fks ! (a, f)
 
     nf' _    (Left  sk) = Sk $ Left sk
@@ -325,10 +326,10 @@ initialInstance
   -> (EQ    (() + var) ty  sym  en  fk  att  gen  sk -> Bool)
   -> Schema       var  ty  sym  en  fk  att
   -> Instance     var  ty  sym  en  fk  att  gen  sk (Carrier en fk gen) (TalgGen en fk att gen sk)
-initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra p dp' sch
+initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
   where
     dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
-    initialAlgebra p dp' sch = simplifyAlg this
+    initialAlgebra = simplifyAlg this
     this  = Algebra sch en' nf''' nf'''2 id ty' nf'''' repr'''' teqs'
     col   = presToCol sch p
     ens'  = assembleGens col (close col dp')
@@ -594,10 +595,10 @@ pivot
   -> (Schema   var ty sym x (x, fk) (x, att)
   ,   Instance var ty sym x (x, fk) (x, att) x sk x  y
   ,   Mapping  var ty sym x (x, fk) (x, att) en fk att)
-pivot (Instance sch (Presentation gens sks eqs) dp (alg@(Algebra _ ens gen fk rep tys nnf rep2 teqs))) = (sch', inst, mapp)
+pivot (Instance sch (Presentation _ sks _) _ (Algebra _ ens _ fk _ tys nnf _ teqs)) = (sch', inst, mapp)
   where
     sch'_ens  = Set.fromList $ concat [ Set.toList (ens en                    ) | en <- Set.toList (Schema.ens sch) ]
-    sch'_fks  = Map.fromList          [            ((x, fk0 ), (x, fk  fk0  x)) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
+    sch'_fks  = Map.fromList          [            ((x, fk0 ), (x, fk  fk0  x)) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  _  ) <- fksFrom'  sch en ]
     sch'_atts = Map.fromList          [            ((x, att0), (x, ty'       )) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (att0, ty') <- attsFrom' sch en ]
     sch'_peqs = Set.empty
     sch'_oeqs = Set.empty
@@ -693,7 +694,7 @@ evalDeltaAlgebra
   -> Instance var ty sym en' fk' att' gen       sk  x       y
   -> Algebra  var ty sym en  fk  att  (en, x)   y   (en, x) y
 evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
-  (Instance _ _ _ (alg@(Algebra _ en' nf''' nf'''2 repr''' ty' _ _ teqs')))
+  (Instance _ _ _ (alg@(Algebra _ en' _ _ repr''' ty' _ _ teqs')))
   = Algebra src' en'' nf''x1 nf''x2 Gen ty' nf'''' Sk teqs'
  where
   en'' e = Set.map (\x -> (e,x)) $ en' $ ens' ! e
