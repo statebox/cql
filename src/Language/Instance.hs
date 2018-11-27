@@ -157,16 +157,6 @@ aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Vo
 aSk alg g = nf'' alg $ Sk g
 
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
-  => NFData (Algebra var ty sym en fk att gen sk x y)
-  where
-    rnf (Algebra s0 e0 nf0 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ rnf eqs1
-      where
-        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
-        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
-
-
 -------------------------------------------------------------------------------------------------------------------
 
 -- | A presentation of an instance.
@@ -680,7 +670,7 @@ changeEn' fks' atts' t = case t of
   Att h _ -> absurd h
 
 evalSigmaInst
-  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk], Ord en, Ord fk, Ord att)
+  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk], Ord en, Ord fk, Ord att, Typeable var, Typeable ty, Typeable sym, Typeable en', Typeable fk', Typeable att', Typeable gen, Typeable sk )
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
@@ -721,8 +711,10 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att' 
-  . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord x, Ord y)
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Ord x, Ord y, Ord var,
+     Show var, Show ty, Show sym, Show en, Show fk, Show att, Show x, Show y,
+     NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
@@ -731,7 +723,7 @@ evalDeltaInst m i _ = pure $ Instance (src m) (algebraToPresentation alg) eq' al
     alg = evalDeltaAlgebra m i
     eq' (EQ (l, r)) = dp i $ EQ (translateTerm l, translateTerm r)
 
-    translateTerm :: Term Void ty sym en  fk  att (en, x) y -> Term Void ty sym en' fk' att' gen    sk
+    --translateTerm :: Term Void ty sym en  fk  att (en, x) y -> Term Void ty sym en' fk' att' gen    sk
     translateTerm t = case t of
       Var v      -> absurd v
       Sym s'  as -> Sym s' $ translateTerm <$> as

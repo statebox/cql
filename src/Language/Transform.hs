@@ -96,7 +96,7 @@ validateTransform (m@(Transform src' dst' _ _)) = do
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
 transToMor
-  :: (ShowOrdN '[var, ty, sym, en', fk', att'], Ord gen, Ord sk, Ord gen', Ord sk')
+  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk, gen', sk'])
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
 transToMor (Transform src' dst' gens' sks') =
@@ -181,7 +181,7 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _)
     a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
 
 evalSigmaTrans
-  :: (ShowOrdN '[var, ty, sym, gen, sk, en', fk', att', gen', sk'], Ord en, Ord fk, Ord att)
+  :: (ShowOrdTypeableN '[var, ty, sym, gen, sk, en', fk', att', gen', sk'], Ord en, Ord fk, Ord att)
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Options
@@ -195,8 +195,8 @@ evalSigmaTrans f (Transform src0 dst0 gens' sks') o = do
     sks''  = changeEn  (M.fks f) (M.atts f) <$> sks'
 
 evalDeltaSigmaUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att' 
-  . (ShowOrdN '[var, ty, sym, gen , sk, en', fk', att'], Ord en, Ord fk, Ord att)
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  . (ShowOrdTypeableN '[var, ty, sym, gen , sk, en', fk', att', en, fk, att])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y
   -> Options
@@ -211,7 +211,8 @@ evalDeltaSigmaUnit m i o = do
     g j sk  _   = upp $     nf'' (algebra j) $ Sk  sk
 
 evalDeltaSigmaCoUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att'. (ShowOrdN '[var, ty, sym, en, x, y, en', fk', att'], Ord fk, Ord att)
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  .  (ShowOrdTypeableN '[var, ty, sym, en, x, y, en', fk', att', fk, att])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Options
@@ -225,7 +226,7 @@ evalDeltaSigmaCoUnit m i o = do
     g _ (sk      , _) = (sk      , repr' (algebra i) sk)
 
 evalDeltaTrans
-  :: (NFData var, Show var, Ord var, NFData ty, Show ty, Ord ty, NFData sym, Show sym, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, NFData en', Show en', Ord en', NFData fk', Show fk', Ord fk', NFData att', Show att', Ord att', Ord gen', Ord sk', Ord x', Ord y')
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y', en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y'
   -> Options
