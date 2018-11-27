@@ -54,6 +54,7 @@ notEquivalentButCongruent gr (x,y) = do
   cong <- congruent gr x y
   return $ notEquiv && cong
 
+-- testing
 congruent :: (Monad m) => Graph t -> Vert t -> Vert t -> UnionFindT (LNode t) m Bool
 congruent gr x y = do
   if outDegree gr x /= outDegree gr y
