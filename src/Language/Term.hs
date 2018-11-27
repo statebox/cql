@@ -154,7 +154,7 @@ occsTerm :: (Ord sym, Ord fk, Ord att, Ord gen, Ord sk)
   => Term var ty sym en fk att gen sk
   -> Map (Head ty sym en fk att gen sk) Int
 occsTerm x = case x of
-  Var v    -> Map.empty
+  Var _    -> Map.empty
   Gen g    -> Map.fromList [(HGen g, 1)]
   Sk  s    -> Map.fromList [(HSk  s, 1)]
   Att f a  -> m (Map.fromList [(HAtt f, 1)]) (occsTerm a)
