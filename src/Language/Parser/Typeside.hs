@@ -91,4 +91,3 @@ typesideLiteralSectionParser = do
     (fromMaybe [] e)
     (fromMaybe [] o)
     (fromMaybe [] i)
-

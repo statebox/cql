@@ -1,13 +1,13 @@
 module Language.Parser.Transform (transExpParser) where
 
 import           Data.Maybe
-import           Language.Transform
-import           Text.Megaparsec
 import           Language.Parser.Instance
 import           Language.Parser.LexerRules
 import           Language.Parser.Mapping
 import           Language.Parser.Parser
 import           Language.Term
+import           Language.Transform
+import           Text.Megaparsec
 
 
 gParser :: Parser (String, RawTerm)
