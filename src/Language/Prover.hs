@@ -114,10 +114,10 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
   where
     (col', f) = simplifyCol col
 
-    p _ (EQ (lhs', rhs')) = nf (convert lhs') == nf (convert rhs')
+    p _ (EQ (lhs', rhs')) = nf (convert' lhs') == nf (convert' rhs')
 
     eqs1 = Prelude.map snd $ Set.toList $ ceqs col'
-    eqs2 = Prelude.map convert' eqs1
+    eqs2 = Prelude.map convert'' eqs1
 
     nf x = case outerRewrite eqs2 x of
       []  -> x
@@ -126,7 +126,7 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
     allow_nonTerm =  bOps ops Program_Allow_Nontermination_Unsafe
     allow_empty   =  bOps ops Allow_Empty_Sorts_Unsafe
     nonConOk      =  bOps ops Program_Allow_Nonconfluence_Unsafe
-    convert' (EQ (lhs', rhs')) = Rule (convert lhs') (convert rhs')
+    convert'' (EQ (lhs', rhs')) = Rule (convert' lhs') (convert' rhs')
 
     -- | Gets the non-reflexive critical pairs
     findCps :: (Eq f, Ord v') => [Rule f v'] -> [(R.Term f (Either v' v'), R.Term f (Either v' v'))]
@@ -142,17 +142,17 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
     isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl && moreOnLhs (S.vars lhs') (S.vars rhs')
       where
         moreOnLhs lvars rvars = and $ fmap (\r -> count lvars r >= count rvars r) rvars
-        count [] x = 0
-        count (a:b) x = count b x + if a == x then 1 else 0
+        count [] _ = 0
+        count (a:b) x = count b x + if a == x then 1 else 0 :: Integer
 
-    convert :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
-    convert x = case x of
+    convert' :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
+    convert' x = case x of
       S.Var v    -> T.Var v
       S.Gen g    -> T.Fun (HGen g) []
       S.Sk  g    -> T.Fun (HSk  g) []
-      S.Att g a  -> T.Fun (HAtt g) [convert a]
-      S.Fk  g a  -> T.Fun (HFk  g) [convert a]
-      S.Sym g as -> T.Fun (HSym g) $ Prelude.map convert as
+      S.Att g a  -> T.Fun (HAtt g) [convert' a]
+      S.Fk  g a  -> T.Fun (HFk  g) [convert' a]
+      S.Sym g as -> T.Fun (HSym g) $ Prelude.map convert' as
 
 ----------------------------------------------------------------------------------------------
 -- for arbitrary theories: http://hackage.haskell.org/package/twee
@@ -238,7 +238,7 @@ initState
 initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initialState $ ceqs col
   where
     toAxiom :: (Ctx var (ty+en), EQ var ty sym en fk att gen sk) -> Axiom (Extended (Constant (Head ty sym en fk att gen sk)))
-    toAxiom (ctx, EQ (lhs, rhs)) = Axiom 0 "" $ convert col ctx lhs :=: convert col ctx rhs
+    toAxiom (ctx, EQ (lhs0, rhs0)) = Axiom 0 "" $ convert col ctx lhs0 :=: convert col ctx rhs0
 
 -- | Does Knuth-Bendix completion.  Attempts to orient equations into rewrite rules
 -- lhs -> rhs where the lhs is larger than the rhs, adding additional equations whenever
@@ -259,7 +259,7 @@ kbProver col ops = if allSortsInhabited col || allow_empty
     completed g l r = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
     allow_empty = bOps ops Allow_Empty_Sorts_Unsafe
     toGoal :: Ctx var (ty+en) -> S.Term var ty sym en fk att gen sk -> S.Term var ty sym en fk att gen sk -> Goal (Extended (Constant (Head ty sym en fk att gen sk)))
-    toGoal ctx lhs rhs = goal 0 "" $ convert col ctx lhs :=: convert col ctx rhs
+    toGoal ctx lhs0 rhs0 = goal 0 "" $ convert col ctx lhs0 :=: convert col ctx rhs0
 
 -------------------------------------------------------------------------------------------
 -- for ground theories
@@ -276,8 +276,8 @@ congProver col = if eqsAreGround col'
            in pure $ Prover col' prv
   else Left   "Congruence Error: Not ground"
   where
-    hidden = decide rules
-    rules = fmap (\(_, EQ (l, r)) -> (convertCong l, convertCong r)) $ Set.toList $ ceqs col
+    hidden = decide rules'
+    rules' = fmap (\(_, EQ (l, r)) -> (convertCong l, convertCong r)) $ Set.toList $ ceqs col
     doProof l r = hidden (convertCong l) (convertCong r)
     (col', f) = simplifyCol col
 
@@ -286,7 +286,7 @@ convertCong
   => S.Term var ty sym en fk att gen sk
   -> Language.Internal.Term (Head ty sym en fk att gen sk)
 convertCong x = case x of
-  S.Var v    -> error "Anomaly, please report.  Congruence conversion received variable."
+  S.Var _    -> error "Anomaly, please report.  Congruence conversion received variable."
   S.Gen g    -> Cong.Function (HGen g) []
   S.Sk  g    -> Cong.Function (HSk  g) []
   S.Att g a  -> Cong.Function (HAtt g) [convertCong a]

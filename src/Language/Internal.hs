@@ -8,7 +8,7 @@
 #-}
 module Language.Internal where
 
-import           Prelude hiding (any)
+import           Prelude hiding (any,abs)
 
 import           Control.Arrow
 import           Control.Monad
@@ -25,9 +25,12 @@ import           Data.Traversable (traverse)
 import           Data.Graph.Inductive hiding (Graph)
 
 
+
+
 newtype Conjunctions t = Conjunction [Equation t]
-data Equation t =  Equal (Term t) (Term t)
-              | NotEqual (Term t) (Term t)
+data Equation t
+  =    Equal (Term t) (Term t)
+  | NotEqual (Term t) (Term t)
 data Term t = Function t [(Term t)]
   deriving (Eq, Ord)
 
@@ -65,21 +68,21 @@ interleave :: [(a,a)] -> [a]
 interleave ((x,y):rest) = x : y : interleave rest
 interleave []           = []
 
-termGraph :: (Functor m, Monad m, Ord t) => [Equation t] -> UnionFindT (LNode t) m (Graph t)
+termGraph :: (Monad m, Ord t) => [Equation t] -> UnionFindT (LNode t) m (Graph t)
 termGraph = termGraph' . interleave . terms
 
-termGraph' :: (Functor m, Monad m, Ord t) => [Term t] -> UnionFindT (LNode t) m (Graph t)
+termGraph' :: (Monad m, Ord t) => [Term t] -> UnionFindT (LNode t) m (Graph t)
 termGraph' ts = do
   let (nodeMap, gr) = snd $ run empty $ traverse_ insertTerm ts
   vars <- traverse genVars (labNodes gr)
   return $ Graph (nodeMap, mkGraph vars (labEdges gr))
   where
     insertTerm :: Ord t => Term t -> NodeMapM (Term t) Int Gr ()
-    insertTerm term@(Function name childs) = do
-      insMapNodeM term
+    insertTerm trm@(Function _ childs) = do
+      _ <- insMapNodeM trm
       forM_ (zip childs [1..]) $ \(child,i) -> do
-        insMapNodeM child
-        insMapEdgeM (term,child,i)
+        _ <- insMapNodeM child
+        insMapEdgeM (trm,child,i)
         insertTerm child
 
     genVars (node, Function name _) = do
@@ -87,8 +90,8 @@ termGraph' ts = do
       return (node,(name,var))
 
 vertex :: Ord t => Graph t -> Term t -> Vert t
-vertex gr@(Graph (nodeMap,_)) term =
-  let (node,_) = mkNode_ nodeMap term
+vertex gr@(Graph (nodeMap,_)) trm =
+  let (node,_) = mkNode_ nodeMap trm
   in label gr node
 
 graph :: Graph t -> Gr (t, Point (LNode t)) Int
@@ -103,10 +106,10 @@ outDegree (graph -> gr) (Vert (x, _)) = outdeg gr x
 label :: Graph t -> Node -> Vert t
 label (graph -> gr) a = Vert (a, fromJust (lab gr a))
 
-equivalent :: (Functor m, Monad m) => Vert t -> Vert t -> UnionFindT (LNode t) m Bool
+equivalent :: (Monad m) => Vert t -> Vert t -> UnionFindT (LNode t) m Bool
 equivalent (Vert (_,(_,x))) (Vert (_,(_,y))) = U.equivalent x y
 
-union :: (Functor m, Monad m) => Vert t -> Vert t -> UnionFindT (LNode t) m ()
+union :: (Monad m) => Vert t -> Vert t -> UnionFindT (LNode t) m ()
 union (Vert (_,(_,x))) (Vert (_,(_,y))) = U.union x y
 
 predecessors :: Graph t -> Vert t -> [Vert t]
@@ -123,15 +126,15 @@ terms = map go
       NotEqual t1 t2 -> (t1,t2)
 
 term :: Graph t -> Vert t -> Term t
-term (Graph (_,gr)) (Vert (n,_)) = go gr n
+term (Graph (_,gr0)) (Vert (n0,_)) = go gr0 n0
   where
     go :: Gr (t, a) Int -> Node -> Term t
     go gr n =
       case match n gr of
         (Nothing,_) -> error "context is Nothing"
-        (Just (_,_,(sym,_),out),gr') ->
-          Function sym $ map (go gr') $ sortEdges out
-    sortEdges out = map snd $ L.sortBy (comparing fst) out
+        (Just (_,_,(sym,_),out0),gr') ->
+          Function sym $ map (go gr') $ sortEdges out0
+    sortEdges out0 = map snd $ L.sortBy (comparing fst) out0
 
 partition :: Ord t => Graph t -> (Equation t -> Bool) -> [Equation t] -> ([(Vert t,Vert t)],[(Vert t,Vert t)])
 partition gr f equations =
@@ -161,3 +164,39 @@ any f ((a,b):abs) = do
   if r
     then return True
     else any f abs
+
+
+{--
+
+  Copyright (c) 2014, Sven Keidel
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Sven Keidel nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--}
