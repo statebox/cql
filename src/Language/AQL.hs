@@ -3,7 +3,7 @@
 
 module Language.AQL where
 
-import Prelude hiding (EQ)
+import Prelude hiding (EQ,exp)
 import qualified Data.Map.Strict as Map
 import Language.Graph
 import Language.Common as C
@@ -237,15 +237,15 @@ class Evalable e e' | e' -> e, e -> e' where
 
 eval' :: Prog -> Env -> Exp -> Err Val
 eval' p env e = case e of
-  ExpTy e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValTy x }
-  ExpS  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValS  x }
-  ExpI  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValI  x }
-  ExpM  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValM  x }
-  ExpT  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValT  x }
-  ExpQ  e' -> do { x <- eval p env e'; maybeValidate e' x; return $ ValQ  x }
+  ExpTy e' -> do { x <- eval p env e'; maybeValidate x; return $ ValTy x }
+  ExpS  e' -> do { x <- eval p env e'; maybeValidate x; return $ ValS  x }
+  ExpI  e' -> do { x <- eval p env e'; maybeValidate x; return $ ValI  x }
+  ExpM  e' -> do { x <- eval p env e'; maybeValidate x; return $ ValM  x }
+  ExpT  e' -> do { x <- eval p env e'; maybeValidate x; return $ ValT  x }
+  ExpQ  e' -> do { x <- eval p env e'; maybeValidate x; return $ ValQ  x }
   where
-    maybeValidate :: Evalable exp val => exp -> val -> Err ()
-    maybeValidate exp val = do
+    maybeValidate :: Evalable exp val => val -> Err ()
+    maybeValidate val = do
       ops <- toOptions (other env) $ getOptions' e
       if bOps ops Dont_Validate_Unsafe then return () else validate val
 
