@@ -118,10 +118,21 @@ member' k m = elem' k (Map.keys m)
 mergeMaps :: Ord k => [Map k v] -> Map k v
 mergeMaps = foldl Map.union Map.empty
 
+-- | Allows to set a constraint for multiple type variables at the same time.
+-- For example you could use `TyMap Show '[a, b, c]` instead of
+-- `(Show a, Show b, Show c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
 type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
+-- | Allows to set multiple contraints for multiple type variables at the same
+-- time.
+-- For example you could use `MultiTyMap '[Show, Ord] '[a, b, c]` insted of
+-- `(Show a, Ord a, Show b, Ord b, Show c, Ord c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
 type family MultiTyMap (fs :: [* -> Constraint]) (xs :: [*]) :: Constraint
 type instance MultiTyMap '[] _ = ()
 type instance MultiTyMap (f : fs) xs = (TyMap f xs, MultiTyMap fs xs)
