@@ -60,6 +60,7 @@ instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) whe
 typecheckTypeside :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
+-- | Converts a typeside to a collage.
 tsToCol :: (Ord var, Ord ty, Ord sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
 tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
   where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
@@ -73,7 +74,7 @@ data TypesideEx :: * where
 instance NFData TypesideEx where
   rnf (TypesideEx x) = rnf x
 
-deriving instance Show (TypesideEx)
+deriving instance Show TypesideEx
 
 ------------------------------------------------------------------------------------------------------------
 -- Literal typesides
@@ -92,38 +93,38 @@ data TypesideRaw' = TypesideRaw'
 
 evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
 evalTypesideRaw ops t a' = do
-  a <- g a'
+  a <- doImports a'
   r <- evalTypesideRaw' t a
   l <- toOptions ops $ tsraw_options t
   p <- createProver (tsToCol r) l
   pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
   where
     f p ctx = prove p (Map.map Left ctx)
-    g :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
-    g [] = return []
-    g ((TypesideEx ts):r) = case cast ts of
+    doImports :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
+    doImports [] = return []
+    doImports ((TypesideEx ts):r) = case cast ts of
       Nothing  -> Left "Bad import"
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
 evalTypesideRaw' :: TypesideRaw'  -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
 evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
   tys'  <- fromList''  ttys
-  syms' <- fromList'   tsyms
-  eqs'  <- f (b syms') teqs
-  return $ Typeside (Set.union a tys') (b syms') (Set.union c eqs') undefined -- leave prover blank
+  syms' <- toMapSafely   tsyms
+  eqs'  <- evalEqs (addImportedSyms syms') teqs
+  return $ Typeside (Set.union imported_tys' tys') (addImportedSyms syms') (Set.union imported_eqs eqs') undefined -- leave prover blank
   where
-    a = foldr Set.union Set.empty $ fmap tys is
-    b syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
-    c = foldr Set.union Set.empty $ fmap eqs is
-    f _ [] = pure $ Set.empty
-    f syms' ((ctx, lhs, rhs):eqs') = do
+    imported_tys' = foldr Set.union Set.empty $ fmap tys is
+    addImportedSyms syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
+    imported_eqs = foldr Set.union Set.empty $ fmap eqs is
+    evalEqs _ [] = pure $ Set.empty
+    evalEqs syms' ((ctx, lhs, rhs):eqs') = do
       ctx' <- check syms' ctx lhs rhs
-      lhs' <- g syms' ctx' lhs
-      rhs' <- g syms' ctx' rhs
-      rest <- f syms' eqs'
+      lhs' <- evalTerm syms' ctx' lhs
+      rhs' <- evalTerm syms' ctx' rhs
+      rest <- evalEqs syms' eqs'
       pure $ Set.insert (ctx', EQ (lhs', rhs')) rest
-    g _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
-    g syms' ctx (RawApp v l) = do { l' <- mapM (g syms' ctx) l ; pure $ Sym v l' }
+    evalTerm _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
+    evalTerm syms' ctx (RawApp v l) = do { l' <- mapM (evalTerm syms' ctx) l ; pure $ Sym v l' }
     check _ [] _ _ = pure Map.empty
     check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
     infer _ (Just t) _ _ _  = return t
@@ -150,6 +151,23 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
 initialTypeside :: Typeside Void Void Void
 initialTypeside = Typeside Set.empty Map.empty Set.empty (\_ _ -> error "Impossible, please report.") --todo: use absurd
 
+sqlTypeside :: Typeside Void String Void
+sqlTypeside = Typeside (Set.fromList sqlTypeNames) Map.empty Set.empty (\_ (EQ (l, r)) -> l == r)
+
+sqlTypeNames :: [String]
+sqlTypeNames =
+  [ "Bigint", "Binary", "Bit", "Blob", "Bool", "Boolean"
+  , "Char", "Clob" , "Custom"
+  , "Date", "Decimal", "Dom", "Double", "Doubleprecision"
+  , "Float"
+  , "Int", "Integer"
+  , "Longvarbinary", "Longvarchar"
+  , "Numeric", "Nvarchar"
+  , "Other"
+  , "Real"
+  , "Smallint", "String"
+  , "Text", "Time", "Timestamp", "Tinyint"
+  , "Varbinary", "Varchar" ]
 
 -----------------------------------------------------------------------------------------------------------
 -- Expression syntax
@@ -159,6 +177,7 @@ data TypesideExp where
   TypesideVar :: String -> TypesideExp
   TypesideInitial :: TypesideExp
   TypesideRaw :: TypesideRaw' -> TypesideExp
+  TypesideSql :: TypesideExp
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp
@@ -167,10 +186,13 @@ instance Deps TypesideExp where
   deps x = case x of
     TypesideVar v                        -> [(v, TYPESIDE)]
     TypesideInitial                      -> []
+    TypesideSql                          -> []
     TypesideRaw (TypesideRaw' _ _ _ _ i) -> concatMap deps i
+
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
 getOptionsTypeside x = case x of
+  TypesideSql                          -> []
   TypesideVar _                        -> []
   TypesideInitial                      -> []
   TypesideRaw (TypesideRaw' _ _ _ o _) -> o

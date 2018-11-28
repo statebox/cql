@@ -29,6 +29,13 @@ dependencies:
 - term-rewriting
 - tabular
 - deepseq
+- twee-lib
+- pretty
+- containers
+- union-find >=0.2 && <0.3
+- fgl >=5.5 
+- mtl >= 2.0
+- PropLogic >= 0.9.0.4
 
 library:
   source-dirs: src

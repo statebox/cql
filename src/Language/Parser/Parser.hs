@@ -28,13 +28,20 @@ rawTermParser =
   <|>
   try (do i <- identifier
           return $ RawApp i [])
+  <|>
+  try (do _ <- constant "("
+          a <- rawTermParser
+          f <- identifier
+          b <- rawTermParser
+          _ <- constant ")"
+          return $ RawApp f [a, b])
 
 optionParser :: Parser (String, String)
 optionParser =
   do i <- identifier
      _ <- constant "="
      j <- identifier
-     return (i,j)
+     return (i, j)
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)

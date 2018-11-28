@@ -68,24 +68,27 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
       atts''  = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList atts'
       eqs'' x = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) $ Set.toList x
 
+-- | Checks that the underlying theory is well-sorted.
+-- I.e. rule out "1" = one kind of errors.
 typecheckSchema
   :: (ShowOrdN '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
 
+-- | Converts a schema to a collage.
 schToCol
   :: (ShowOrdN '[var, ty, sym], Ord en, Ord fk, Ord att)
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
- Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
-  ens' (csyms tscol) fks' atts' Map.empty Map.empty
-   where
-     tscol = tsToCol ts
-     e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) path_eqs'
-     e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) obs_eqs'
-     e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (upp l, upp r))) $ ceqs tscol
+  Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
+    ens' (csyms tscol) fks' atts' Map.empty Map.empty
+  where
+    tscol = tsToCol ts
+    e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) path_eqs'
+    e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) obs_eqs'
+    e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (upp l, upp r))) $ ceqs tscol
 
 up1Ctx :: (Ord var) => Ctx var (ty+Void) -> Ctx (()+var) (ty+x)
 up1Ctx g = Map.map (\x -> case x of
@@ -173,18 +176,19 @@ type Fk = String
 -- | Type of attributes for literal schemas.
 type Att = String
 
+-- | Evaluates a schema literal into a theory, but does not create the theorem prover.
 evalSchemaRaw'
   :: (Ord ty, Typeable ty, Ord sym, Typeable sym)
   => Typeside var ty sym -> SchemaExpRaw'
   -> [Schema var ty sym En Fk Att]
   -> Err (Schema var ty sym En Fk Att)
-evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
+evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
   ens''  <- return $ Set.fromList $ ie ++ ens'x
-  fks''  <- toMapSafely $ fks'x ++ (concatMap (Map.toList . fks) is)
-  cc     <- conv atts'x
-  atts'' <- toMapSafely $ cc ++ (concatMap (Map.toList . atts) is)
-  peqs'  <- k (Set.toList ens'') (Map.toList fks'') peqs
-  oeqs'  <- f (Map.toList fks'') (Map.toList atts'') oeqs
+  fks''  <- toMapSafely $ fks'x  ++ (concatMap (Map.toList . fks ) is)
+  atts'2 <- convTys atts'x
+  atts'' <- toMapSafely $ atts'2 ++ (concatMap (Map.toList . atts) is)
+  peqs'  <- procPeqs (Set.toList ens'') (Map.toList fks'' ) peqs
+  oeqs'  <- procOeqs (Map.toList fks'') (Map.toList atts'') oeqs
   return $ Schema x ens'' fks'' atts'' (Set.union ip peqs') (Set.union io oeqs') undefined --leave prover blank
   where
     ie = concatMap (Set.toList . ens) is
@@ -192,14 +196,14 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
     io = Set.fromList $ concatMap (Set.toList . obs_eqs ) is
 
     keys' = fst . unzip
-    --f :: [(String, String, RawTerm, RawTerm)] -> Err (Set (En, EQ () ty   sym  en fk att  Void Void))
-    f _ _ [] = pure $ Set.empty
-    f fks' atts' ((v, en', lhs, rhs):eqs') = do
+
+    procOeqs _ _ [] = pure $ Set.empty
+    procOeqs fks' atts' ((v, en', lhs, rhs):eqs') = do
       en   <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
       _    <- return $ Map.fromList [((),en)]
-      lhs' <- return $ g v (keys' fks') (keys' atts') lhs
-      rhs' <- return $ g v (keys' fks') (keys' atts') rhs
-      rest <- f fks' atts' eqs'
+      lhs' <- return $ procTerm v (keys' fks') (keys' atts') lhs
+      rhs' <- return $ procTerm v (keys' fks') (keys' atts') rhs
+      rest <- procOeqs fks' atts' eqs'
       if not $ hasTypeType'' lhs'
         then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
         else pure $ Set.insert (en, EQ (lhs', rhs')) rest
@@ -224,27 +228,27 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
       Just (s,_)   -> [s]
     typesOf v fks' atts' (RawApp _ as) = concatMap (typesOf v fks' atts') as
 
-    g :: Typeable sym => String ->[String]-> [String] -> RawTerm-> Term () ty sym en Fk Att  Void Void
-    g v _ _ (RawApp x' []) | v == x' = Var ()
-    g v fks''' atts''' (RawApp x' (a:[])) | elem x' fks'''  = Fk  x' $ g v fks''' atts''' a
-    g v fks''' atts''' (RawApp x' (a:[])) | elem x' atts''' = Att x' $ g v fks''' atts''' a
-    g u fks''' atts''' (RawApp v l)                         = let l' = Prelude.map (g u fks''' atts''') l
+    procTerm :: Typeable sym => String -> [String] -> [String] -> RawTerm -> Term () ty sym en Fk Att  Void Void
+    procTerm v _ _ (RawApp x' []) | v == x' = Var ()
+    procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' fks'''  = Fk  x' $ procTerm v fks''' atts''' a
+    procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' atts''' = Att x' $ procTerm v fks''' atts''' a
+    procTerm u fks''' atts''' (RawApp v l)                         = let l' = Prelude.map (procTerm u fks''' atts''') l
       in case cast v of
           Just x'' -> Sym x'' l'
           Nothing  -> error "impossible until complex typesides"
 
-    h :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
-    h ens'' (s:ex) | elem s ens'' = h ens'' ex
-    h ens'' (s:ex) | otherwise    = Fk s $ h ens'' ex
-    h _ []         = Var ()
+    procPath :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
+    procPath ens'' (s:ex) | elem s ens'' = procPath ens'' ex
+    procPath ens'' (s:ex) | otherwise    = Fk s $ procPath ens'' ex
+    procPath _ []                        = Var ()
 
-    k _ _ [] = pure $ Set.empty
-    k ens' fks' ((l,r):eqs') = do
-      lhs' <- return $ h ens' $ reverse l
-      rhs' <- return $ h ens' $ reverse r
+    procPeqs _ _ [] = pure $ Set.empty
+    procPeqs ens' fks' ((l,r):eqs') = do
+      lhs' <- return $ procPath ens' $ reverse l
+      rhs' <- return $ procPath ens' $ reverse r
       en   <- findEn ens' fks' l
       _    <- return $ Map.fromList [((),en)]
-      rest <- k ens' fks' eqs'
+      rest <- procPeqs ens' fks' eqs'
       _    <- if hasTypeType'' lhs'
               then Left $ "Bad path equation: " ++ show lhs' ++ " = " ++ show rhs'
               else pure $ Set.insert (en, EQ (lhs', rhs')) rest
@@ -255,14 +259,14 @@ evalSchemaRaw' (x@(Typeside _ _ _ _)) (SchemaExpRaw' _ ens'x fks'x atts'x peqs o
     findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
     findEn _     _     []                 = Left "Path equation cannot be typed"
 
-    conv [] = return []
-    conv ((att, (en, ty)):tl) = case cast ty of
+    convTys [] = return []
+    convTys ((att, (en, ty)):tl) = case cast ty of
       Just ty' -> do
-        xx <- conv tl
+        xx <- convTys tl
         return $ (att, (en, ty')):xx
       Nothing -> Left $ "Not a type: " ++ show ty
 
-
+-- | Evaluate a typeside into a theory.  Does not validate.
 evalSchemaRaw
   :: (ShowOrdTypeableN '[var, ty, sym])
   => Options
@@ -271,14 +275,14 @@ evalSchemaRaw
   -> [SchemaEx]
   -> Err SchemaEx
 evalSchemaRaw ops ty t a' = do
-  (a :: [Schema var ty sym En Fk Att]) <- g a'
+  (a :: [Schema var ty sym En Fk Att]) <- doImports a'
   r <- evalSchemaRaw' ty t a
-  l <- toOptions ops $ schraw_options t
-  p <- createProver (schToCol r) l
-  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (f p)
+  o <- toOptions ops $ schraw_options t
+  p <- createProver (schToCol r) o
+  pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (mkProver p)
   where
-    f p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
-    g [] = return []
-    g ((SchemaEx ts):r) = case cast ts of
-      Nothing  -> Left $ "Bad import" ++ show ts
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
+    mkProver p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
+    doImports [] = return []
+    doImports ((SchemaEx ts):r) = case cast ts of
+      Nothing -> Left $ "Bad import" ++ show ts
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }

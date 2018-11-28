@@ -36,6 +36,7 @@ import           Language.Term
 import           Prelude           hiding (EQ)
 
 
+
 -- | Map from one 'Instance' to another of the same 'Schema'.
 data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   = Transform
@@ -95,12 +96,12 @@ validateTransform (m@(Transform src' dst' _ _)) = do
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
 transToMor
-  :: (ShowOrdN '[var, ty, sym, en', fk', att'], Ord gen, Ord sk, Ord gen', Ord sk')
+  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk, gen', sk'])
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
 transToMor (Transform src' dst' gens' sks') =
-  Morphism (instToCol (I.schema src') (pres src'))
-           (instToCol (I.schema src') (pres dst'))
+  Morphism (presToCol (I.schema src') (pres src'))
+           (presToCol (I.schema src') (pres dst'))
            ens0 fks0 atts0 gens' sks'
   where
     ens0  = Map.fromSet (\en0   -> en0            ) (S.ens  $ I.schema src')
@@ -180,7 +181,7 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _)
     a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
 
 evalSigmaTrans
-  :: (ShowOrdN '[var, ty, sym, gen, sk, en', fk', att', gen', sk'], Ord en, Ord fk, Ord att)
+  :: (ShowOrdTypeableN '[var, ty, sym, gen, sk, en', fk', att', gen', sk'], Ord en, Ord fk, Ord att)
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Options
@@ -194,7 +195,8 @@ evalSigmaTrans f (Transform src0 dst0 gens' sks') o = do
     sks''  = changeEn  (M.fks f) (M.atts f) <$> sks'
 
 evalDeltaSigmaUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att' . (ShowOrdN '[var, ty, sym, gen , sk, en', fk', att'], Ord en, Ord fk, Ord att)
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  . (ShowOrdTypeableN '[var, ty, sym, gen , sk, en', fk', att', en, fk, att])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y
   -> Options
@@ -209,7 +211,8 @@ evalDeltaSigmaUnit m i o = do
     g j sk  _   = upp $     nf'' (algebra j) $ Sk  sk
 
 evalDeltaSigmaCoUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att'. (ShowOrdN '[var, ty, sym, en, x, y, en', fk', att'], Ord fk, Ord att)
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+  .  (ShowOrdTypeableN '[var, ty, sym, en, x, y, en', fk', att', fk, att])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Options
@@ -223,7 +226,7 @@ evalDeltaSigmaCoUnit m i o = do
     g _ (sk      , _) = (sk      , repr' (algebra i) sk)
 
 evalDeltaTrans
-  :: (NFData var, Show var, Ord var, NFData ty, Show ty, Ord ty, NFData sym, Show sym, Ord sym, Ord en, Ord fk, Ord att, Ord gen, Ord sk, Ord x, Ord y, NFData en', Show en', Ord en', NFData fk', Show fk', Ord fk', NFData att', Show att', Ord att', Ord gen', Ord sk', Ord x', Ord y')
+  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y', en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y'
   -> Options
@@ -248,6 +251,7 @@ data TransExpRaw'
   , transraw_imports :: [TransformExp]
 } deriving Show
 
+-- | Evaluates a literal into a transform.
 evalTransformRaw
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
   .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
@@ -257,15 +261,15 @@ evalTransformRaw
   -> [TransformEx]
   -> Err (TransformEx)
 evalTransformRaw s t h is = do
-  (a :: [Transform var ty sym en fk att gen sk x y gen' sk' x' y']) <- g is
+  (a :: [Transform var ty sym en fk att gen sk x y gen' sk' x' y']) <- doImports is
   r <- evalTransformRaw' s t h a
 --l <- toOptions $ mapraw_options t
   pure $ TransformEx r
   where
-    g [] = return []
-    g ((TransformEx ts):r) = case cast ts of
-      Nothing  -> Left "Bad import"
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
+    doImports [] = return []
+    doImports ((TransformEx ts):r) = case cast ts of
+      Nothing -> Left "Bad import"
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
 evalTransformRaw'
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
@@ -276,62 +280,61 @@ evalTransformRaw'
   -> [Transform var ty sym en fk att gen sk x y gen' sk' x' y']
   -> Err (Transform var ty sym en fk att gen sk x y gen' sk' x' y')
 evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
-  x <- f' gens0
-  y <- f  sks0
-  return $ Transform src' dst' (x' x) (y' y)
+  theseGens <- evalGens gens0
+  theseSks  <- evalSks sks0
+  return $ Transform src' dst' (addImportGens theseGens) $ addImportSks theseSks
   where
-    x' x = foldr Map.union x $ map tGens is
-    y' y = foldr Map.union y $ map tSks is
+    addImportGens x = foldr Map.union x $ map tGens is
+    addImportSks  y = foldr Map.union y $ map tSks is
+
     gens'' = I.gens $ pres src'
     sks''  = I.sks  $ pres src'
-
+    gens'  = I.gens $ pres dst'
+    sks'   = I.sks  $ pres dst'
     gens0  =  filter (\(x,_) -> x `member'` gens'') sec
     sks0   =  filter (\(x,_) -> x `member'` sks'' ) sec
 
-    gens'  = I.gens $ pres dst'
-    sks'   = I.sks  $ pres dst'
-
-    f' []             = pure $ Map.empty
-    f'  ((gen, t):ts) = do
-      t'   <- h t
-      rest <- f' ts
+    evalGens []             = pure $ Map.empty
+    evalGens  ((gen, t):ts) = do
+      t'   <- evalPath t
+      rest <- evalGens ts
       gen' <- note ("Not a generator: " ++ gen) (cast gen)
       pure $ Map.insert gen' t' rest
 
-    f []             = pure $ Map.empty
-    f  ((gen, t):ts) = do
-      t'   <- g t
-      rest <- f ts
+    evalSks []             = pure $ Map.empty
+    evalSks  ((gen, t):ts) = do
+      t'   <- evalTerm t
+      rest <- evalSks ts
       gen' <- note ("Not a null: " ++ gen) (cast gen)
       pure $ Map.insert gen' t' rest
 
-    g ::  RawTerm -> Err (Term Void ty sym en fk att gen' sk')
-    g (RawApp x [])     | x `member'` gens''                     = do
+    evalTerm ::  RawTerm -> Err (Term Void ty sym en fk att gen' sk')
+    evalTerm (RawApp x [])     | x `member'` gens''                     = do
       pure $ Gen $ fromJust $ cast x
-    g (RawApp x [])     | x `member'` sks'                       = do
+    evalTerm (RawApp x [])     | x `member'` sks'                       = do
       pure $ Sk  $ fromJust $ cast x
-    g (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
-      a' <- g a
+    evalTerm (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
+      a' <- evalTerm a
       case cast x of
         Just x'2 -> return $ Fk x'2 a'
         Nothing  -> undefined
-    g (RawApp x (a:[])) | x `member'` (sch_atts $ I.schema dst') = do
-      a' <- g a
+    evalTerm (RawApp x (a:[])) | x `member'` (sch_atts $ I.schema dst') = do
+      a' <- evalTerm a
       case cast x of
         Just x'2 -> return $ Att x'2 a'
-        Nothing  -> undefined
-    g  (RawApp v l)                                              = do
-      l' <- mapM g l
+        Nothing -> undefined
+    evalTerm  (RawApp v l)                                              = do
+      l' <- mapM evalTerm l
       case cast v :: Maybe sym of
         Just x  -> pure $ Sym x l'
         Nothing -> undefined
 
-    h :: RawTerm -> Err (Term Void Void Void en fk Void gen' Void)
-    h (RawApp x [])     | x `member'` gens'                      = do
+    evalPath :: RawTerm -> Err (Term Void Void Void en fk Void gen' Void)
+    evalPath (RawApp x [])     | x `member'` gens'                      = do
       pure $ Gen $ fromJust $ cast x
-    h (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
-      a' <- h a
+    evalPath (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
+      a' <- evalPath a
       case cast x of
         Just x'2 -> return $ Fk x'2 a'
         Nothing  -> undefined
-    h _                                                          = undefined
+    evalPath _                                                          = undefined

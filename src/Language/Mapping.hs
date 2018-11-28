@@ -21,7 +21,7 @@
 module Language.Mapping where
 import           Control.DeepSeq
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+import           Data.Map.Strict as Map
 import           Data.Maybe
 import qualified Data.Set        as Set
 import           Data.Typeable
@@ -81,8 +81,8 @@ getAtts = atts
 
 mapToMor
   :: ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att']
-  => Mapping var ty sym en fk att en' fk' att'
-  -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
+  => Mapping    var  ty  sym  en  fk  att  en'  fk'  att'
+  -> Morphism   var  ty  sym  en  fk  att  Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
@@ -99,23 +99,22 @@ validateMapping
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do
-  _ <- mapM g (Set.toList $ path_eqs src')
-  _ <- mapM f (Set.toList $ obs_eqs src')
-  pure ()
+  mapM_ validatePathEq (Set.toList $ path_eqs src')
+  mapM_ validateObsEq  (Set.toList $ obs_eqs  src')
   where
-    f :: (en, EQ () ty sym en fk att Void Void) -> Err ()
-    f (enx, EQ (l,r)) = let
+    validateObsEq :: (en, EQ () ty sym en fk att Void Void) -> Err ()
+    validateObsEq (enx, EQ (l,r)) = let
       l'  = trans (mapToMor m) l
       r'  = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
-      en' = fromJust $ Map.lookup enx ens'
+      en' = ens' ! enx
       in if eq dst' en' (EQ (l', r'))
          then pure ()
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
-    g :: (en, EQ () Void Void en fk Void Void Void) -> Err ()
-    g (enx, EQ (l,r)) = let
-      l' = trans' (mapToMor m) l
-      r' = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
-      en'= fromJust $ Map.lookup enx ens'
+    validatePathEq :: (en, EQ () Void Void en fk Void Void Void) -> Err ()
+    validatePathEq (enx, EQ (l,r)) = let
+      l'  = trans' (mapToMor m) l
+      r'  = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
+      en' = ens' ! enx
       in if eq dst' en' (EQ (upp l', upp r'))
          then pure ()
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
@@ -146,7 +145,8 @@ instance Deps MappingExp where
 
 data MappingEx :: * where
   MappingEx
-    :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+    :: forall var ty sym en fk att en' fk' att'
+    . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 
@@ -158,18 +158,19 @@ instance NFData MappingEx where
 -----------------------------------------------------------------------------------------------------------------
 -- Operations
 
+-- | Compose two mappings.
 composeMapping
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
   =>      Mapping var ty sym en  fk  att  en'  fk'  att'
   ->      Mapping var ty sym en' fk' att' en'' fk'' att''
   -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
 composeMapping (Mapping s t e f a) (m2@(Mapping s' t' e' _ _)) =
- if t == s'
- then let e'' = Map.fromList [ (k, fromJust $ Map.lookup v e') | (k, v) <- Map.toList e ]
-          f'' = Map.fromList [ (k, trans'  (mapToMor m2) v)    | (k, v) <- Map.toList f ]
-          a'' = Map.fromList [ (k, trans   (mapToMor m2) v)    | (k, v) <- Map.toList a ]
-      in pure $ Mapping s t' e'' f'' a''
- else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
+  if t == s'
+  then let e'' = Map.fromList [ (k, e' ! v)                     | (k, v) <- Map.toList e ]
+           f'' = Map.fromList [ (k, trans'  (mapToMor m2) v)    | (k, v) <- Map.toList f ]
+           a'' = Map.fromList [ (k, trans   (mapToMor m2) v)    | (k, v) <- Map.toList a ]
+       in pure $ Mapping s t' e'' f'' a''
+  else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
 
 -----------------------------------------------------------------------------------------------------------------
 -- Literals
@@ -185,6 +186,7 @@ data MappingExpRaw' =
   , mapraw_imports :: [MappingExp]
 } deriving (Eq, Show)
 
+-- | Does the hard work of @evalMappingRaw@.
 evalMappingRaw'
   :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[en, en'], Typeable sym, Ord fk, Typeable fk, Ord att, Typeable att, Ord fk', Typeable fk', Ord att', Typeable att')
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
@@ -192,86 +194,87 @@ evalMappingRaw'
   -> [Mapping var ty sym en fk att en' fk' att']
   -> Err (Mapping var ty sym en fk att en' fk' att')
 evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
-  ens1 <- conv'' ens0
+  ens1 <- multiCast ens0
   ens2 <- toMapSafely ens1
-  x <- k  fks0
-  y <- f (q ens2) atts0
-  return $ Mapping src' dst' (q ens2) (mergeMaps $ x:(map getFks is)) (mergeMaps $ y:(map getAtts is))
+  theFks  <- evalFks  fks0
+  theAtts <- evalAtts (allEns ens2) atts0
+  return $ Mapping src' dst' (allEns ens2) (mergeMaps $ theFks:(fmap getFks is)) (mergeMaps $ theAtts:(fmap getAtts is))
   where
-    q ensX = Map.fromList $ (Map.toList ensX) ++ (concatMap (Map.toList . getEns) is)
-    keys' = fst . unzip
-    fks' = Map.toList $ Schema.fks dst'
-    ens' = Set.toList $ Schema.ens dst'
-    atts' = Map.toList $ Schema.atts dst'
+    allEns ensX = Map.fromList $ (Map.toList ensX) ++ (concatMap (Map.toList . getEns) is)
+    keys'  = fst . unzip
+    fks'   = Map.toList $ Schema.fks dst'
+    ens'   = Set.toList $ Schema.ens dst'
+    atts'  = Map.toList $ Schema.atts dst'
     transE ens2 en = case (Map.lookup en ens2) of
-                      Just x  -> return x
-                      Nothing -> Left $ "No entity mapping for " ++ (show en)
+      Just x  -> return x
+      Nothing -> Left $ "No entity mapping for " ++ (show en)
 
-    f _ [] = pure $ Map.empty
-    f x ((att, Right l):ts) = do
+    evalAtts _ [] = pure $ Map.empty
+    evalAtts x ((att, Right l):ts) = do
       att' <- note ("Not a src attribute " ++ att) (cast att)
       att2 <- note ("Not a dst attribute " ++ att) (cast $ head $ reverse l)
-      t'x  <- h ens' $ tail $ reverse l
+      t'x  <- inferPath ens' $ tail $ reverse l
       let t'  = Att att2 $ upp t'x
-      rest <- f x ts
+      rest <- evalAtts x ts
       pure $ Map.insert att' t' rest
-
-    f x ((att, Left (v, t2, t)):ts) = do
+    evalAtts x ((att, Left (v, t2, t)):ts) = do
       att' <- note ("Not an attribute " ++ att) (cast att)
-      t'   <- return $ g v (keys' fks') (keys' atts') t
-      rest <- f x ts
+      t'   <- return $ inferTerm v (keys' fks') (keys' atts') t
+      rest <- evalAtts x ts
       let ret = pure $ Map.insert att' t' rest
-          (s,_) = fromJust $ Map.lookup att' $ Schema.atts src'
+          (s,_) = Schema.atts src' ! att'
       s' <- transE x s
       case t2 of
         Nothing -> ret
         Just t3 -> case cast t3 of
           Nothing -> Left $ "Not an entity: " ++ t3
           Just t4 -> if t4 == s'
-                     then ret
-                     else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3
+            then ret
+            else Left $ "Type mismatch: " ++ show s' ++ " and " ++ show t3
 
-    --g' :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
-    g' v _ _ (RawApp x []) | v == x = Var ()
-    g' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
-    g' _ _ _ _ = error "impossible"
-    g :: String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
-    g v _ _ (RawApp x []) | v == x = Var ()
-    g v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ g' v fks'' atts'' a
-    g v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ g' v fks'' atts'' a
-    g u fks'' atts'' (RawApp v l) = let l' = Prelude.map (g u fks'' atts'') l
-                                in case cast v of
-                                    Just x -> Sym x l'
-                                    Nothing -> error "impossible until complex typesides"
+    -- :: String ->[String]-> [String] -> RawTerm-> Term () Void Void en Fk Void  Void Void
+    inferTerm' v _ _ (RawApp x []) | v == x = Var ()
+    inferTerm' v fks'' atts'' (RawApp x (a:[])) | elem' x fks'' = Fk (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
+    inferTerm' _ _ _ _ = error "impossible"
 
-    --h :: [en'] -> [String] -> Err (Term () Void Void en' fk' Void Void Void)
-    h ens'' (s:ex) | elem' s ens'' = h ens'' ex
-    h ens'' (s:ex) | elem' s (keys' fks') = do { h' <- h ens'' ex ; return $ Fk (fromJust $ cast s) h' }
+    --inferTerm :: Typeable sym => String ->[fk']-> [att'] -> RawTerm -> Term () ty sym en' fk' att' Void Void
+    inferTerm v _ _ (RawApp x []) | v == x = Var ()
+    inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x fks''  = Fk  (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
+    inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
+    inferTerm u fks'' atts'' (RawApp v l) = let l' = Prelude.map (inferTerm u fks'' atts'') l in
+      case cast v of
+        Just x -> Sym x l'
+        Nothing -> error "impossible until complex typesides"
+
+    -- :: [en'] -> [String] -> Err (Term () Void Void en' fk' Void Void Void)
+    inferPath ens'' (s:ex) | elem' s ens'' = inferPath ens'' ex
+    inferPath ens'' (s:ex) | elem' s (keys' fks') = do { h' <- inferPath ens'' ex ; return $ Fk (fromJust $ cast s) h' }
                  | otherwise = Left $ "Not a target fk: " ++ s
-    h _ [] = return $ Var ()
-   -- k :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
+    inferPath _ [] = return $ Var ()
 
-    k  [] = pure $ Map.empty
-    k  ((fk,p):eqs') = do
-      p' <- h ens' $ reverse p
-  --    _ <- findEn ens' fks' p
-      rest <- k  eqs'
+    --  :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
+    evalFks  [] = pure $ Map.empty
+    evalFks  ((fk,p):eqs') = do
+      p' <- inferPath ens' $ reverse p
+      --    _ <- findEn ens' fks' p
+      rest <- evalFks eqs'
       fk' <- note ("Not a src fk: " ++ fk) (cast fk)
       pure $ Map.insert fk' p' rest
 
-    conv'' :: forall tyx ty2x
+    multiCast :: forall tyx ty2x
       .  (Typeable tyx, Show tyx, Typeable ty2x, Show ty2x)
       => [(String, String)]
       -> Err [(ty2x, tyx)]
-    conv'' [] = pure []
-    conv'' ((ty2,ty):tl) = case (cast ty :: Maybe tyx) of
+    multiCast [] = pure []
+    multiCast ((ty2,ty):tl) = case (cast ty :: Maybe tyx) of
       Just ty' -> do
-        x <- conv'' tl
+        x <- multiCast tl
         case cast ty2 :: Maybe ty2x of
           Just ty2' -> return $ (ty2', ty'):x
           Nothing   -> Left $ "Not in source schema/typeside: " ++ show ty2
       Nothing       -> Left $ "Not in target schema/typeside: " ++ show ty
 
+-- | Evaluates a literal into a mapping.  Does not typecheck or validate.
 evalMappingRaw
   :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en  fk  att
@@ -280,19 +283,16 @@ evalMappingRaw
   -> [MappingEx]
   -> Err MappingEx
 evalMappingRaw src' dst' t is = do
-  (a :: [Mapping var ty sym en fk att en' fk' att']) <- g is
+  (a :: [Mapping var ty sym en fk att en' fk' att']) <- doImports is
   r <- evalMappingRaw' src' dst' t a
   --l <- toOptions $ mapraw_options t
   pure $ MappingEx r
   where
-    g :: forall var ty sym en fk att en' fk' att'. (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att')
+    doImports :: forall var ty sym en fk att en' fk' att'
+      . (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att')
       => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
-    g [] = return []
-    g ((MappingEx ts):r) = case cast ts of
+    doImports [] = return []
+    doImports ((MappingEx ts):r) = case cast ts of
       Nothing  -> Left "Bad import"
-      Just ts' -> do { r'  <- g r ; return $ ts' : r' }
-
-
-
-
+      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
