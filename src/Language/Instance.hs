@@ -451,12 +451,15 @@ data InstanceExp where
   InstanceCoEval  :: MappingExp -> InstanceExp                       -> InstanceExp
 
   InstanceRaw     :: InstExpRaw'                                     -> InstanceExp
-  deriving (Eq,Show)
+  InstancePivot   :: InstanceExp                                     -> InstanceExp
+
+  deriving (Eq, Show)
 
 instance Deps InstanceExp where
   deps x = case x of
     InstanceVar v                       -> [(v, INSTANCE)]
-    InstanceInitial  t                  -> deps t
+    InstanceInitial  t                  ->  deps t
+    InstancePivot    i                  ->  deps i
     InstanceDelta  f i _                -> (deps f) ++ (deps i)
     InstanceSigma  f i _                -> (deps f) ++ (deps i)
     InstancePi     f i                  -> (deps f) ++ (deps i)
@@ -467,7 +470,8 @@ instance Deps InstanceExp where
 getOptionsInstance :: InstanceExp -> [(String, String)]
 getOptionsInstance x = case x of
   InstanceVar _                       -> []
-  InstanceInitial _                   -> []
+  InstanceInitial  _                  -> []
+  InstancePivot    _                  -> []
   InstanceDelta  _ _ o                -> o
   InstanceSigma  _ _ o                -> o
   InstancePi     _ _                  -> undefined
@@ -490,28 +494,30 @@ data InstExpRaw' =
 } deriving (Eq,Show)
 
 type Gen = String
-type Sk = String
+type Sk  = String
 
 conv' :: (Typeable ty,Show ty) => [(String, String)] -> Err [(String, ty)]
 conv' [] = pure []
 conv' ((att,ty'):tl) = case cast ty' of
-   Just ty'' -> do x <- conv' tl
-                   return $ (att, ty''):x
+   Just ty'' -> do
+    x <- conv' tl
+    return $ (att, ty''):x
    Nothing -> Left $ "Not in schema/typeside: " ++ show ty'
 
 
 split'' :: (Typeable en, Typeable ty, Eq ty, Eq en) => [en] -> [ty] -> [(a, String)] -> Err ([(a, en)], [(a, ty)])
 split'' _     _   []           = return ([],[])
-split'' ens2 tys2 ((w, ei):tl) =
-  do (a,b) <- split'' ens2 tys2 tl
-     if elem' ei ens2
-     then return ((w, fromJust $ cast ei):a, b)
-     else if elem' ei tys2
-          then return (a, (w, fromJust $ cast ei):b)
-          else Left $ "Not an entity or type: " ++ show ei
+split'' ens2 tys2 ((w, ei):tl) = do
+  (a,b) <- split'' ens2 tys2 tl
+  if elem' ei ens2
+  then return ((w, fromJust $ cast ei):a, b)
+  else if elem' ei tys2
+    then return (a, (w, fromJust $ cast ei):b)
+    else Left $ "Not an entity or type: " ++ show ei
 
 evalInstanceRaw'
-  :: forall var ty sym en fk att . (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
+  :: forall var ty sym en fk att
+  .  (Ord ty, Ord sym, Ord en, Ord fk, Ord att, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att)
   => Schema var ty sym en fk att
   -> InstExpRaw'
   -> [Presentation var ty sym en fk att Gen Sk]
@@ -589,13 +595,16 @@ emptyInstance ts'' = Instance ts''
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
 
+-- | Pivots an instance.  The returned schema will not have strings as fks etc,
+-- so it will be impossible to write a literal on it, at least for now.  AQL
+-- java's solution of landing on string is a hack.
 pivot :: forall var ty sym en fk att gen sk x y
   . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Instance  var ty sym     en      fk      att  gen sk x   y
   -> (Schema   var ty sym (x, en) (x, fk) (x, att)
   ,   Instance var ty sym (x, en) (x, fk) (x, att) (x, en) y (x, en)  y
   ,   Mapping  var ty sym (x, en) (x, fk) (x, att)     en  fk att)
-pivot (Instance sch (Presentation _ sks _) idp (Algebra _ ens gens'' fk fn tys nnf rep2'' teqs)) = (sch', inst, mapp)
+pivot (Instance sch (Presentation _ sks _) idp (alg@(Algebra _ ens gens'' fk fn tys nnf rep2'' teqs))) = (sch', inst, mapp)
   where
     sch'_ens  = Set.fromList [  (x, en)                                | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en)]
     sch'_fks  = Map.fromList [ ((x, fk0 ), ((x, en), (fk fk0 x, en'))) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
@@ -613,9 +622,9 @@ pivot (Instance sch (Presentation _ sks _) idp (Algebra _ ens gens'' fk fn tys n
     nnf' (Right ((x, en), (x', att))) | x == x' = nnf $ Right (x', att)
                                       | otherwise = error "anomaly, please report"
     rep2' = Sk
-    gens' = Map.fromList [ ((x, en), (x, en))   | en <- Set.toList (Schema.ens sch),              x <- Set.toList (ens en) ]
-    sks'  = Map.fromList [ ( y, ty)             | ty <- Set.toList (Typeside.tys $ typeside sch), y <- Set.toList (tys ty) ]
-    eqs'  = undefined
+    gens' = Map.fromList [ ((x, en), (x, en)) | en <- Set.toList (Schema.ens sch),              x <- Set.toList (ens en) ]
+    sks'  = Map.fromList [ ( y, ty)           | ty <- Set.toList (Typeside.tys $ typeside sch), y <- Set.toList (tys ty) ]
+    eqs'  = Set.map (\(EQ (x, y)) -> EQ (repr'' alg' x, repr'' alg' y)) teqs
     es'   = teqs
     tys'  = tys
     em    = Map.fromList [ ((x, en)  , en)               | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
@@ -626,7 +635,8 @@ pivot (Instance sch (Presentation _ sks _) idp (Algebra _ ens gens'' fk fn tys n
     dp2 (x, en) (EQ (l, r)) = idp $ EQ (schToInst' x l, schToInst' x r)
 
     sch'  = Schema (typeside sch) sch'_ens sch'_fks sch'_atts sch'_peqs sch'_oeqs dp2
-    inst  = Instance sch' (Presentation gens' sks' eqs') dp' $ Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
+    alg'  = Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
+    inst  = Instance sch' (Presentation gens' sks' eqs') dp' alg'
     mapp  = Mapping sch' sch em fm am
 
     schToInst' :: x -> Term () ty sym (x, en) (x, fk) (x, att) Void Void -> Term Void ty sym en fk att gen sk
@@ -719,11 +729,6 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
   = Algebra src' en'' nf''x1 nf''x2 Gen ty' nf'''' Sk teqs'
  where
   en'' e = Set.map (\x -> (e,x)) $ en' $ ens' ! e
-
-  --nf''x :: Term Void Void Void en fk Void (en, x) Void -> (en, x)
-  --nf''x (Gen g) = g
-  --nf''x (Fk f a) = (snd $ Schema.fks src' ! f, nf''' $ subst (upp $ fks0 ! f) (repr''' $ snd $ nf''x a))
-  --nf''x _ = error "please report, error in eval delta"
 
   nf''x1 g = g
   nf''x2 f a =  (snd $ Schema.fks src' ! f, nf alg $ subst (upp $ fks0 ! f) (repr''' $ snd $ a))

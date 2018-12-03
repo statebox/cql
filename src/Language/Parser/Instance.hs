@@ -97,8 +97,9 @@ instRawParser = do
 
 instExpParser :: Parser InstanceExp
 instExpParser = InstanceRaw <$> instRawParser
-    <|> InstanceVar  <$> identifier
-    <|> sigmaParser  <|> deltaParser
+    <|> InstanceVar   <$> identifier
+    <|> InstancePivot <$> do { _ <- constant "pivot" ; instExpParser }
+    <|> sigmaParser   <|> deltaParser
     <|> do
         _ <- constant "empty"
         _ <- constant ":"

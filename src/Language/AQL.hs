@@ -55,7 +55,7 @@ class Typecheck e e' where
 
 -- | Checks that e.g. in sigma F I that F : S -> T and I : S-Inst.
 -- Checking that S is well-formed is done by @validate@.
-typecheckAqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
+typecheckAqlProgram :: [(String, Kind)] -> Prog -> Types -> Err Types
 typecheckAqlProgram [] _ x = pure x
 typecheckAqlProgram ((v, k):l) prog ts = do
   m <- getKindCtx prog v k
@@ -91,7 +91,7 @@ instance Typecheck QueryExp (SchemaExp, SchemaExp) where
 
 typecheckTransExp :: Types -> TransformExp -> Err (InstanceExp, InstanceExp)
 typecheckTransExp p (TransformVar v) = note ("Undefined transform: " ++ show v) $ Map.lookup v $ transforms p
-typecheckTransExp _ (TransformId s) = pure (s, s)
+typecheckTransExp _ (TransformId  s) = pure (s, s)
 
 typecheckTransExp p (TransformComp f g) = do
   (a, b) <- typecheckTransExp p f
@@ -174,6 +174,7 @@ typecheckInstExp p (InstanceDelta f' i _) = do
   if   t == t'
   then pure s
   else Left "(Delta): Instance not on mapping target."
+typecheckInstExp p (InstancePivot i) = undefined --todo: requires breaking import cycle
 
 typecheckInstExp _ _ = error "todo"
 
@@ -433,7 +434,12 @@ evalSchema _ _ _ = undefined
 
 
 evalInstance :: Prog -> Env -> InstanceExp -> Either [Char] InstanceEx
-evalInstance _ env (InstanceVar v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
+evalInstance _    env (InstanceVar   v) = note ("Could not find " ++ show v ++ " in ctx") $ Map.lookup v $ instances env
+
+evalInstance prog env (InstancePivot i) = do
+  InstanceEx i' <- evalInstance prog env i
+  let (_, i'', _) = pivot i'
+  return $ InstanceEx i''
 
 evalInstance prog env (InstanceInitial s) = do
   SchemaEx ts'' <- evalSchema prog env s
@@ -450,6 +456,7 @@ evalInstance prog env (InstanceSigma f' i o) = do
   o' <- toOptions (other env) o
   r  <- evalSigmaInst f'' (fromJust $ ((cast i') :: Maybe (Instance var ty sym en fk att gen sk x y))) o'
   return $ InstanceEx r
+
 evalInstance prog env (InstanceDelta f' i o) = do
   (MappingEx (f'' :: Mapping var ty sym en fk att en' fk' att')) <- evalMapping prog env f'
   (InstanceEx (i' :: Instance var'' ty'' sym'' en'' fk'' att'' gen sk x y)) <- evalInstance prog env i

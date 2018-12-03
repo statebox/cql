@@ -30,6 +30,7 @@ import           Language.Options
 import           Language.Prover
 import           Language.Term
 import           Language.Typeside
+-- cyclic import           Language.Instance
 import           Prelude           hiding (EQ)
 
 
@@ -126,6 +127,8 @@ data SchemaExp where
   SchemaInitial :: TypesideExp            -> SchemaExp
   SchemaCoProd  :: SchemaExp -> SchemaExp -> SchemaExp
   SchemaRaw     :: SchemaExpRaw'          -> SchemaExp
+  -- hold off for now, causes cyclic import
+  -- SchemaPivot   :: InstanceExp            -> SchemaExp
   deriving (Eq,Show)
 
 getOptionsSchema :: SchemaExp -> [(String, String)]
