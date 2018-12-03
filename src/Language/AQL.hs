@@ -174,7 +174,7 @@ typecheckInstExp p (InstanceDelta f' i _) = do
   if   t == t'
   then pure s
   else Left "(Delta): Instance not on mapping target."
-typecheckInstExp p (InstancePivot i) = undefined --todo: requires breaking import cycle
+typecheckInstExp _ (InstancePivot _) = undefined --todo: requires breaking import cycle
 
 typecheckInstExp _ _ = error "todo"
 
