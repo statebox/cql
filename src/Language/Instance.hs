@@ -604,7 +604,7 @@ pivot :: forall var ty sym en fk att gen sk x y
   -> (Schema   var ty sym (x, en) (x, fk) (x, att)
   ,   Instance var ty sym (x, en) (x, fk) (x, att) (x, en) y (x, en)  y
   ,   Mapping  var ty sym (x, en) (x, fk) (x, att)     en  fk att)
-pivot (Instance sch (Presentation _ sks _) idp (alg@(Algebra _ ens gens'' fk fn tys nnf rep2'' teqs))) = (sch', inst, mapp)
+pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) = (sch', inst, mapp)
   where
     sch'_ens  = Set.fromList [  (x, en)                                | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en)]
     sch'_fks  = Map.fromList [ ((x, fk0 ), ((x, en), (fk fk0 x, en'))) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
@@ -615,12 +615,12 @@ pivot (Instance sch (Presentation _ sks _) idp (alg@(Algebra _ ens gens'' fk fn 
     dp' (EQ (l, r)) = idp $ EQ (instToInst l, instToInst r)
     ens' = Set.singleton
     gen'  = id
-    fk' (x, f) (x', en) | x == x' = (fk f x', snd $ Schema.sch_fks sch ! f)
-                        | otherwise = error "anomaly, please report"
+    fk' (x, f) (x', _) | x == x' = (fk f x', snd $ Schema.sch_fks sch ! f)
+                       | otherwise = error "anomaly, please report"
     rep'  = Gen
     nnf' (Left sk) = Sk sk
-    nnf' (Right ((x, en), (x', att))) | x == x' = nnf $ Right (x', att)
-                                      | otherwise = error "anomaly, please report"
+    nnf' (Right ((x, _), (x', att))) | x == x' = nnf $ Right (x', att)
+                                     | otherwise = error "anomaly, please report"
     rep2' = Sk
     gens' = Map.fromList [ ((x, en), (x, en)) | en <- Set.toList (Schema.ens sch),              x <- Set.toList (ens en) ]
     sks'  = Map.fromList [ ( y, ty)           | ty <- Set.toList (Typeside.tys $ typeside sch), y <- Set.toList (tys ty) ]
@@ -632,7 +632,7 @@ pivot (Instance sch (Presentation _ sks _) idp (alg@(Algebra _ ens gens'' fk fn 
     am    = Map.fromList [ ((x, att) , Att att $ Var ()) | (x, att) <- Map.keys sch'_atts ]
 
     dp2 :: (x, en) -> EQ () ty sym (x, en) (x, fk) (x, att) Void Void -> Bool
-    dp2 (x, en) (EQ (l, r)) = idp $ EQ (schToInst' x l, schToInst' x r)
+    dp2 (x, _) (EQ (l, r)) = idp $ EQ (schToInst' x l, schToInst' x r)
 
     sch'  = Schema (typeside sch) sch'_ens sch'_fks sch'_atts sch'_peqs sch'_oeqs dp2
     alg'  = Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
@@ -642,19 +642,19 @@ pivot (Instance sch (Presentation _ sks _) idp (alg@(Algebra _ ens gens'' fk fn 
     schToInst' :: x -> Term () ty sym (x, en) (x, fk) (x, att) Void Void -> Term Void ty sym en fk att gen sk
     schToInst' x z = case z of
       Sym f as -> Sym f $ fmap (schToInst' x) as
-      Att (x', f) a -> Att f $ schToInst' x a
+      Att (_, f) a -> Att f $ schToInst' x a
       Sk x0 -> absurd x0
       Var () -> upp $ fn x
-      Fk (x', f) a -> Fk f $ schToInst' x a
+      Fk (_, f) a -> Fk f $ schToInst' x a
       Gen x0 ->  absurd x0
 
     instToInst :: Term Void ty sym (x, en) (x, fk) (x, att) (x, en) y -> Term Void ty sym en fk att gen sk
     instToInst z = case z of
       Sym f as -> Sym f $ fmap instToInst as
-      Att (x', f) a -> Att f $ instToInst a
+      Att (_, f) a -> Att f $ instToInst a
       Sk y -> rep2'' y
       Var x -> absurd x
-      Fk (x', f) a -> Fk f $ instToInst a
+      Fk (_, f) a -> Fk f $ instToInst a
       Gen (x, _) -> upp $ fn x
 
 -- coproducts, etc
