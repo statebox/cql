@@ -589,42 +589,63 @@ emptyInstance ts'' = Instance ts''
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
 
-pivot
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
-  => Instance  var ty sym en        fk        att  gen sk x   y
-  -> (Schema   var ty sym x (x, fk) (x, att)
-  ,   Instance var ty sym x (x, fk) (x, att) x sk x  y
-  ,   Mapping  var ty sym x (x, fk) (x, att) en fk att)
-pivot (Instance sch (Presentation _ sks _) _ (Algebra _ ens _ fk _ tys nnf _ teqs)) = (sch', inst, mapp)
+pivot :: forall var ty sym en fk att gen sk x y
+  . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y])
+  => Instance  var ty sym     en      fk      att  gen sk x   y
+  -> (Schema   var ty sym (x, en) (x, fk) (x, att)
+  ,   Instance var ty sym (x, en) (x, fk) (x, att) (x, en) y (x, en)  y
+  ,   Mapping  var ty sym (x, en) (x, fk) (x, att)     en  fk att)
+pivot (Instance sch (Presentation _ sks _) idp (Algebra _ ens gens'' fk fn tys nnf rep2'' teqs)) = (sch', inst, mapp)
   where
-    sch'_ens  = Set.fromList $ concat [ Set.toList (ens en                    ) | en <- Set.toList (Schema.ens sch) ]
-    sch'_fks  = Map.fromList          [            ((x, fk0 ), (x, fk  fk0  x)) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  _  ) <- fksFrom'  sch en ]
-    sch'_atts = Map.fromList          [            ((x, att0), (x, ty'       )) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (att0, ty') <- attsFrom' sch en ]
+    sch'_ens  = Set.fromList [  (x, en)                                | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en)]
+    sch'_fks  = Map.fromList [ ((x, fk0 ), ((x, en), (fk fk0 x, en'))) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
+    sch'_atts = Map.fromList [ ((x, att0), ((x, en),  ty'           )) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (att0, ty') <- attsFrom' sch en ]
     sch'_peqs = Set.empty
     sch'_oeqs = Set.empty
-    dp' = undefined
-    ens'  = Set.singleton
+    dp' :: EQ Void ty sym (x, en) (x, fk) (x, att) (x, en) y -> Bool
+    dp' (EQ (l, r)) = idp $ EQ (instToInst l, instToInst r)
+    ens' = Set.singleton
     gen'  = id
-    fk' (x, f) x' | x == x' = fk f x
-                  | otherwise = error "pivot anomaly, please report"
+    fk' (x, f) (x', en) | x == x' = (fk f x', snd $ Schema.sch_fks sch ! f)
+                        | otherwise = error "anomaly, please report"
     rep'  = Gen
-    nnf' (Left sk) = nnf (Left sk)
-    nnf' (Right (x, (x', att))) | x == x' = nnf $ Right (x, att)
-                                | otherwise = error "pivot anomaly 2, please report"
-    rep2' = undefined
-    gens' = Map.fromList [  (x, x)   | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
-    sks'  = sks
+    nnf' (Left sk) = Sk sk
+    nnf' (Right ((x, en), (x', att))) | x == x' = nnf $ Right (x', att)
+                                      | otherwise = error "anomaly, please report"
+    rep2' = Sk
+    gens' = Map.fromList [ ((x, en), (x, en))   | en <- Set.toList (Schema.ens sch),              x <- Set.toList (ens en) ]
+    sks'  = Map.fromList [ ( y, ty)             | ty <- Set.toList (Typeside.tys $ typeside sch), y <- Set.toList (tys ty) ]
     eqs'  = undefined
     es'   = teqs
     tys'  = tys
-    em    = Map.fromList [  (x, en ) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
+    em    = Map.fromList [ ((x, en)  , en)               | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
     fm    = Map.fromList [ ((x, fk ) , Fk  fk  $ Var ()) | (x, fk ) <- Map.keys sch'_fks  ]
     am    = Map.fromList [ ((x, att) , Att att $ Var ()) | (x, att) <- Map.keys sch'_atts ]
-    dp2 _ (EQ (l, r)) = l == r -- todo: stopping for now, this definition is wrong and AQL java should change too
+
+    dp2 :: (x, en) -> EQ () ty sym (x, en) (x, fk) (x, att) Void Void -> Bool
+    dp2 (x, en) (EQ (l, r)) = idp $ EQ (schToInst' x l, schToInst' x r)
+
     sch'  = Schema (typeside sch) sch'_ens sch'_fks sch'_atts sch'_peqs sch'_oeqs dp2
     inst  = Instance sch' (Presentation gens' sks' eqs') dp' $ Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
     mapp  = Mapping sch' sch em fm am
 
+    schToInst' :: x -> Term () ty sym (x, en) (x, fk) (x, att) Void Void -> Term Void ty sym en fk att gen sk
+    schToInst' x z = case z of
+      Sym f as -> Sym f $ fmap (schToInst' x) as
+      Att (x', f) a -> Att f $ schToInst' x a
+      Sk x0 -> absurd x0
+      Var () -> upp $ fn x
+      Fk (x', f) a -> Fk f $ schToInst' x a
+      Gen x0 ->  absurd x0
+
+    instToInst :: Term Void ty sym (x, en) (x, fk) (x, att) (x, en) y -> Term Void ty sym en fk att gen sk
+    instToInst z = case z of
+      Sym f as -> Sym f $ fmap instToInst as
+      Att (x', f) a -> Att f $ instToInst a
+      Sk y -> rep2'' y
+      Var x -> absurd x
+      Fk (x', f) a -> Fk f $ instToInst a
+      Gen (x, _) -> upp $ fn x
 
 -- coproducts, etc
 
