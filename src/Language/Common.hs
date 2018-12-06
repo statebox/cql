@@ -1,16 +1,33 @@
-{-# LANGUAGE ExplicitForAll, StandaloneDeriving, DuplicateRecordFields, ScopedTypeVariables, InstanceSigs, KindSignatures, GADTs, FlexibleContexts, RankNTypes, TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses, AllowAmbiguousTypes, TypeOperators
-,LiberalTypeSynonyms, ImpredicativeTypes, UndecidableInstances, FunctionalDependencies, ConstraintKinds, TypeFamilies, DataKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Common where
-import Data.Map.Strict as Map hiding (foldl)
-import Data.Foldable as Foldable (foldl, toList)
-import Data.Kind
-import Data.Typeable
-import Control.DeepSeq
-import Control.Arrow (left)
-import Data.Maybe
-import Data.Set as Set (Set, empty, member, insert, singleton)
-import Data.Char
+
+import           Control.Arrow   (left)
+import           Data.Char
+import           Data.Foldable   as Foldable (foldl, toList)
+import           Data.Kind
+import           Data.Map.Strict as Map hiding (foldl)
+import           Data.Maybe
+import           Data.Set        as Set (Set, empty, insert, member, singleton)
+import           Data.Typeable
 
 split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
 split' []           = ([],[])
@@ -101,14 +118,21 @@ member' k m = elem' k (Map.keys m)
 mergeMaps :: Ord k => [Map k v] -> Map k v
 mergeMaps = foldl Map.union Map.empty
 
+-- | Allows to set a constraint for multiple type variables at the same time.
+-- For example you could use `TyMap Show '[a, b, c]` instead of
+-- `(Show a, Show b, Show c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
 type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
-type family ShowOrdN (xs :: [*]) :: Constraint
-type instance ShowOrdN '[] = ()
-type instance ShowOrdN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdN ts)
-
-type family ShowOrdTypeableN (xs :: [*]) :: Constraint
-type instance ShowOrdTypeableN '[] = ()
-type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableN ts)
+-- | Allows to set multiple contraints for multiple type variables at the same
+-- time.
+-- For example you could use `MultiTyMap '[Show, Ord] '[a, b, c]` insted of
+-- `(Show a, Ord a, Show b, Ord b, Show c, Ord c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
+type family MultiTyMap (fs :: [* -> Constraint]) (xs :: [*]) :: Constraint
+type instance MultiTyMap '[] _ = ()
+type instance MultiTyMap (f : fs) xs = (TyMap f xs, MultiTyMap fs xs)

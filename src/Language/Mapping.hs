@@ -16,7 +16,6 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
---{-# LANGUAGE DisambiguateRecordFields #-}
 
 module Language.Mapping where
 import           Control.DeepSeq
@@ -42,11 +41,11 @@ data Mapping var ty sym en fk att en' fk' att'
   , atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
   }
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData en', NFData fk', NFData att')
+instance TyMap NFData '[var, ty, sym, en, fk, att, en', fk', att']
   => NFData (Mapping var ty sym en fk att en' fk' att') where
   rnf (Mapping s t e f a) = deepseq s $ deepseq t $ deepseq e $ deepseq f $ rnf a
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
+instance TyMap Show '[var, ty, sym, en, fk, att, en', fk', att']
   => Show (Mapping var ty sym en fk att en' fk' att') where
   show (Mapping _ _ ens' fks' atts') =
     "mapping {" ++ "\n" ++
@@ -62,7 +61,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Sho
       fks''  = (\(k,s) -> show k ++ " -> " ++ show s) <$> Map.toList fks'
       atts'' = (\(k,s) -> show k ++ " -> " ++ show s) <$> Map.toList atts'
 
-instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
+instance TyMap Eq '[var, ty, sym, en, fk, att, en', fk', att']
   => Eq (Mapping var ty sym en fk att en' fk' att') where
   (Mapping s1' s2' ens' fks' atts') == (Mapping s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
@@ -80,14 +79,14 @@ getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sy
 getAtts = atts
 
 mapToMor
-  :: ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att']
-  => Mapping    var  ty  sym  en  fk  att  en'  fk'  att'
-  -> Morphism   var  ty  sym  en  fk  att  Void Void en' fk' att' Void Void
+  :: MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, en', fk', att']
+  => Mapping var ty sym en fk att en' fk' att'
+  -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
 mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
 typecheckMapping
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att'])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty], MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 typecheckMapping m =  typeOfMor $ mapToMor m
@@ -95,7 +94,7 @@ typecheckMapping m =  typeOfMor $ mapToMor m
 -- | Given @F@ checks that each @S |- p = q  ->  T |- F p = F q@.
 validateMapping
   :: forall  var ty sym en fk att en' fk' att'
-  . (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att'])
+  . (MultiTyMap '[Show, Ord, NFData] '[var, ty], MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
 validateMapping (m@(Mapping src' dst' ens' _ _)) = do
@@ -145,8 +144,7 @@ instance Deps MappingExp where
 
 data MappingEx :: * where
   MappingEx
-    :: forall var ty sym en fk att en' fk' att'
-    . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+    :: forall var ty sym en fk att en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 
@@ -160,7 +158,7 @@ instance NFData MappingEx where
 
 -- | Compose two mappings.
 composeMapping
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att', en', fk', att', en'', fk'', att''])
   =>      Mapping var ty sym en  fk  att  en'  fk'  att'
   ->      Mapping var ty sym en' fk' att' en'' fk'' att''
   -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
@@ -188,7 +186,7 @@ data MappingExpRaw' =
 
 -- | Does the hard work of @evalMappingRaw@.
 evalMappingRaw'
-  :: forall var ty sym en fk att en' fk' att' . (ShowOrdTypeableN '[en, en'], Typeable sym, Ord fk, Typeable fk, Ord att, Typeable att, Ord fk', Typeable fk', Ord att', Typeable att')
+  :: forall var ty sym en fk att en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en fk att -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'
   -> [Mapping var ty sym en fk att en' fk' att']
@@ -243,7 +241,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
     inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
     inferTerm u fks'' atts'' (RawApp v l) = let l' = Prelude.map (inferTerm u fks'' atts'') l in
       case cast v of
-        Just x -> Sym x l'
+        Just x  -> Sym x l'
         Nothing -> error "impossible until complex typesides"
 
     -- :: [en'] -> [String] -> Err (Term () Void Void en' fk' Void Void Void)
@@ -276,7 +274,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
 
 -- | Evaluates a literal into a mapping.  Does not typecheck or validate.
 evalMappingRaw
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
   => Schema var ty sym en  fk  att
   -> Schema var ty sym en' fk' att'
   -> MappingExpRaw'
@@ -288,9 +286,8 @@ evalMappingRaw src' dst' t is = do
   --l <- toOptions $ mapraw_options t
   pure $ MappingEx r
   where
-    doImports :: forall var ty sym en fk att en' fk' att'
-      . (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att')
-      => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
+    -- g :: forall var ty sym en fk att en' fk' att'. TyMap Typeable '[var, ty, sym, en, fk, att, fk', en', att']
+    --   => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
     doImports [] = return []
     doImports ((MappingEx ts):r) = case cast ts of
       Nothing  -> Left "Bad import"

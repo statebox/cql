@@ -44,10 +44,10 @@ data Schema var ty sym en fk att
   , eq       :: en -> EQ () ty sym en fk att Void Void -> Bool
   }
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att) => NFData (Schema var ty sym en fk att) where
+instance TyMap NFData '[var, ty, sym, en, fk, att] => NFData (Schema var ty sym en fk att) where
   rnf (Schema tys0 ens0 fks0 atts0 p0 o0 e0) = deepseq tys0 $ deepseq ens0 $ deepseq fks0 $ deepseq atts0 $ deepseq p0 $ deepseq o0 $ rnf e0
 
-instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att)
+instance TyMap Eq '[var, ty, sym, en, fk, att]
   => Eq (Schema var ty sym en fk att) where
   (==) (Schema ts'  ens'  fks'  atts'  path_eqs'  obs_eqs'  _)
        (Schema ts'' ens'' fks''  atts'' path_eqs'' obs_eqs'' _)
@@ -55,7 +55,7 @@ instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att)
     && (path_eqs' == path_eqs'') && (obs_eqs' == obs_eqs'')
     && (ts' == ts'')
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
+instance TyMap Show '[var, ty, sym, en, fk, att]
   => Show (Schema var ty sym en fk att) where
   show (Schema _ ens' fks' atts' path_eqs' obs_eqs' _) = "schema {\n" ++
     "entities\n\t"  ++ intercalate "\n\t" (Prelude.map show $ Set.toList ens') ++
@@ -71,14 +71,14 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att)
 -- | Checks that the underlying theory is well-sorted.
 -- I.e. rule out "1" = one kind of errors.
 typecheckSchema
-  :: (ShowOrdN '[var, ty, sym, en, fk, att])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Err ()
 typecheckSchema t = typeOfCol $ schToCol  t
 
 -- | Converts a schema to a collage.
 schToCol
-  :: (ShowOrdN '[var, ty, sym], Ord en, Ord fk, Ord att)
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
 schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
@@ -144,7 +144,7 @@ instance Deps SchemaExp where
 
 data SchemaEx :: * where
   SchemaEx
-    :: forall var ty sym en fk att . (ShowOrdTypeableN '[var, ty, sym, en, fk, att])
+    :: forall var ty sym en fk att . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att])
     => Schema var ty sym en fk att
     -> SchemaEx
 
@@ -268,7 +268,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
 
 -- | Evaluate a typeside into a theory.  Does not validate.
 evalSchemaRaw
-  :: (ShowOrdTypeableN '[var, ty, sym])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym])
   => Options
   -> Typeside var ty sym
   -> SchemaExpRaw'
