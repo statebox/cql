@@ -83,9 +83,8 @@ validateTransform
   . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, gen', sk'])
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
-validateTransform (m@(Transform src' dst' _ _)) = do
-  _ <- mapM_ f (Set.toList $ eqs $ pres src')
-  pure ()
+validateTransform m@(Transform src' dst' _ _) =
+  mapM_ f (Set.toList $ eqs $ pres src')
   where
     f :: (EQ Void ty sym en fk att gen sk) -> Err () -- need type signature
     f (EQ (l, r)) = let
@@ -104,7 +103,7 @@ transToMor (Transform src' dst' gens' sks') =
            (presToCol (I.schema src') (pres dst'))
            ens0 fks0 atts0 gens' sks'
   where
-    ens0  = Map.fromSet (\en0   -> en0            ) (S.ens  $ I.schema src')
+    ens0  = Map.fromSet id                          (S.ens  $ I.schema src')
     fks0  = mapWithKey  (\fk  _ -> Fk  fk (Var ())) (S.fks  $ I.schema src')
     atts0 = mapWithKey  (\fk  _ -> Att fk (Var ())) (S.atts $ I.schema src')
 
@@ -259,7 +258,7 @@ evalTransformRaw
   -> Instance var ty sym en fk att gen' sk' x' y'
   -> TransExpRaw'
   -> [TransformEx]
-  -> Err (TransformEx)
+  -> Err TransformEx
 evalTransformRaw s t h is = do
   (a :: [Transform var ty sym en fk att gen sk x y gen' sk' x' y']) <- doImports is
   r <- evalTransformRaw' s t h a
@@ -267,8 +266,8 @@ evalTransformRaw s t h is = do
   pure $ TransformEx r
   where
     doImports [] = return []
-    doImports ((TransformEx ts):r) = case cast ts of
-      Nothing -> Left "Bad import"
+    doImports (TransformEx ts : r) = case cast ts of
+      Nothing  -> Left "Bad import"
       Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
 evalTransformRaw'
@@ -284,8 +283,8 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
   theseSks  <- evalSks sks0
   return $ Transform src' dst' (addImportGens theseGens) $ addImportSks theseSks
   where
-    addImportGens x = foldr Map.union x $ map tGens is
-    addImportSks  y = foldr Map.union y $ map tSks is
+    addImportGens x = foldr (Map.union . tGens) x is
+    addImportSks  y = foldr (Map.union . tSks)  y is
 
     gens'' = I.gens $ pres src'
     sks''  = I.sks  $ pres src'
@@ -294,7 +293,7 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
     gens0  =  filter (\(x,_) -> x `member'` gens'') sec
     sks0   =  filter (\(x,_) -> x `member'` sks'' ) sec
 
-    evalGens []             = pure $ Map.empty
+    evalGens []             = pure Map.empty
     evalGens  ((gen, t):ts) = do
       t'   <- evalPath t
       rest <- evalGens ts
@@ -309,9 +308,9 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
       pure $ Map.insert gen' t' rest
 
     evalTerm ::  RawTerm -> Err (Term Void ty sym en fk att gen' sk')
-    evalTerm (RawApp x [])     | x `member'` gens''                     = do
+    evalTerm (RawApp x [])     | x `member'` gens''                     =
       pure $ Gen $ fromJust $ cast x
-    evalTerm (RawApp x [])     | x `member'` sks'                       = do
+    evalTerm (RawApp x [])     | x `member'` sks'                       =
       pure $ Sk  $ fromJust $ cast x
     evalTerm (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
       a' <- evalTerm a
@@ -322,7 +321,7 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
       a' <- evalTerm a
       case cast x of
         Just x'2 -> return $ Att x'2 a'
-        Nothing -> undefined
+        Nothing  -> undefined
     evalTerm  (RawApp v l)                                              = do
       l' <- mapM evalTerm l
       case cast v :: Maybe sym of
@@ -330,7 +329,7 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
         Nothing -> undefined
 
     evalPath :: RawTerm -> Err (Term Void Void Void en fk Void gen' Void)
-    evalPath (RawApp x [])     | x `member'` gens'                      = do
+    evalPath (RawApp x [])     | x `member'` gens'                      =
       pure $ Gen $ fromJust $ cast x
     evalPath (RawApp x (a:[])) | x `member'` (sch_fks $ I.schema dst')  = do
       a' <- evalPath a

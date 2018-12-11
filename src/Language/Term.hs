@@ -1,34 +1,32 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE DataKinds              #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE ExplicitForAll         #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE ImpredicativeTypes     #-}
-{-# LANGUAGE IncoherentInstances    #-}
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE LiberalTypeSynonyms    #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE TypeSynonymInstances   #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE IncoherentInstances   #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Term where
 
 import           Control.DeepSeq
-import           Data.Map.Strict as Map hiding (foldr, size)
+import           Data.Map.Merge.Strict
+import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Maybe
-import           Data.Set        as Set hiding (foldr, size)
+import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.Common
-import           Prelude         hiding (EQ)
-import           Data.Map.Merge.Strict
+import           Prelude               hiding (EQ)
 
 data RawTerm = RawApp String [RawTerm]
   deriving Eq
@@ -127,7 +125,7 @@ mapTerm v t r e f a g s x = case x of
     mt = mapTerm v t r e f a g s
 
 mapVar :: var -> Term () ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
-mapVar v t = mapTerm (\_ -> v) id id id id id id id t
+mapVar v = mapTerm (const v) id id id id id id id
 
 -- | The number of variable and symbol occurances in a term.
 size :: Term var ty sym en fk att gen sk -> Integer
@@ -137,7 +135,7 @@ size x = case x of
   Sk  _    -> 1
   Att _ a  -> 1 + size a
   Fk  _ a  -> 1 + size a
-  Sym _ as -> 1 + (foldr (\a y -> (size a) + y) 0 as)
+  Sym _ as -> 1 + foldr (\a y -> size a + y) 0 as
 
 -- | All the variables in a term
 vars :: Term var ty sym en fk att gen sk -> [var]
@@ -205,12 +203,12 @@ subst2
   -> Term var3 ty3 sym3 en3 fk3 att3 gen3 sk3
   -> Term var  ty2 sym en fk att gen sk
 subst2 x t = case x of
-  Var ()    -> upp t
-  Sym f as  -> Sym (upgr f) $ (\a -> subst2 a t) <$> as
-  Fk  f a   -> Fk  (upgr f) $ subst2 a t
-  Att f a   -> Att (upgr f) $ subst2 a t
-  Gen g     -> Gen $ upgr g
-  Sk  g     -> Sk  $ upgr g
+  Var ()   -> upp t
+  Sym f as -> Sym (upgr f) $ (\a -> subst2 a t) <$> as
+  Fk  f a  -> Fk  (upgr f) $ subst2 a t
+  Att f a  -> Att (upgr f) $ subst2 a t
+  Gen g    -> Gen $ upgr g
+  Sk  g    -> Sk  $ upgr g
 
 -- | Given a term with one variable, substitutes the variable with another term.
 subst
@@ -220,7 +218,7 @@ subst
   -> Term var ty sym en fk att gen sk
 subst x t = case x of
   Var ()   -> t
-  Sym f as -> Sym f $ (\a -> subst a t) <$> as
+  Sym f as -> Sym f $ (`subst` t) <$> as
   Fk  f a  -> Fk  f $ subst a t
   Att f a  -> Att f $ subst a t
   Gen g    -> Gen g
@@ -232,7 +230,7 @@ subst'
   -> Term Void ty   sym  en fk att  gen  sk
 subst' s t = case s of
   Var ()   -> upp t
-  Sym f as -> Sym f $ (\a -> subst' a t) <$> as
+  Sym f as -> Sym f $ (`subst'` t) <$> as
   Fk  f  a -> Fk  f $ subst' a t
   Att f  a -> Att f $ subst' a t
   Gen f    -> absurd f
@@ -251,7 +249,7 @@ occurs h x = case x of
   Gen h'    -> h == HGen h'
   Fk  h' a  -> h == HFk  h' || occurs h a
   Att h' a  -> h == HAtt h' || occurs h a
-  Sym h' as -> h == HSym h' || or (Prelude.map (occurs h) as)
+  Sym h' as -> h == HSym h' || any (occurs h) as
 
 -- |  If there is one, finds an equation of the form empty |- @gen/sk = term@,
 -- where @gen@ does not occur in @term@.
@@ -265,13 +263,13 @@ findSimplifiable = procEqs . Set.toList
     g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
     g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
     g (Sym _ []) _ = Nothing
-    g _ _ = Nothing
+    g _ _          = Nothing
     procEqs []  = Nothing
     procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
     procEqs ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
       Nothing -> case g rhs lhs of
-        Nothing     -> procEqs tl
-        Just y -> Just y
+        Nothing -> procEqs tl
+        Just y  -> Just y
       Just   y -> Just y
 
 -- | Replaces a symbol by a term in a term.
@@ -310,8 +308,8 @@ simplifyCol (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
   =         (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
   where
     (ceqs'', f) = simplifyFix ceqs' []
-    cgens''     = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HGen x) $ fst $ unzip f) $ Map.toList cgens'
-    csks''      = Map.fromList $ Prelude.filter (\(x,_) -> not $ Prelude.elem (HSk  x) $ fst $ unzip f) $ Map.toList csks'
+    cgens''     = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HGen x) $ fmap fst f) $ Map.toList cgens'
+    csks''      = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HSk  x) $ fmap fst f) $ Map.toList csks'
 
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
 simplifyFix
@@ -423,14 +421,13 @@ checkDoms
   => Collage var ty sym en fk att gen sk
   -> Err ()
 checkDoms col = do
-  _ <- mapM f    $ Map.elems $ csyms col
-  _ <- mapM g    $ Map.elems $ cfks  col
-  _ <- mapM h    $ Map.elems $ catts col
-  _ <- mapM isEn $ Map.elems $ cgens col
-  _ <- mapM isTy $ Map.elems $ csks  col
-  pure ()
+  mapM_ f    $ Map.elems $ csyms col
+  mapM_ g    $ Map.elems $ cfks  col
+  mapM_ h    $ Map.elems $ catts col
+  mapM_ isEn $ Map.elems $ cgens col
+  mapM_ isTy $ Map.elems $ csks  col
   where
-    f (t1,t2) = do { _ <- mapM isTy t1 ; isTy t2 }
+    f (t1,t2) = do { mapM_ isTy t1 ; isTy t2 }
     g (e1,e2) = do { isEn e1 ; isEn e2 }
     h (e ,t ) = do { isEn e ; isTy t }
     isEn x  = if Set.member x $ cens col
@@ -466,8 +463,8 @@ closeGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map e
 closeGround col (me, mt) = (me', mt'')
   where
     mt''= Prelude.foldr (\(_, (tys,ty)) m -> if and ((!) mt' <$> tys) then Map.insert ty True m else m) mt' $ Map.toList $ csyms col
-    mt' = Prelude.foldr (\(_, (en, ty)) m -> if (!) me' en then Map.insert ty True m else m)                   mt  $ Map.toList $ catts col
-    me' = Prelude.foldr (\(_, (en, _ )) m -> if (!) me  en then Map.insert en True m else m)                   me  $ Map.toList $ cfks  col
+    mt' = Prelude.foldr (\(_, (en, ty)) m -> if (!) me' en then Map.insert ty True m else m)            mt  $ Map.toList $ catts col
+    me' = Prelude.foldr (\(_, (en, _ )) m -> if (!) me  en then Map.insert en True m else m)            me  $ Map.toList $ cfks  col
 
 -- | Does a fixed point of closeGround.
 iterGround :: (ShowOrdN '[ty, en]) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool) -> (Map en Bool, Map ty Bool)
@@ -505,12 +502,11 @@ checkDoms'
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
 checkDoms' mor = do
-  _ <- mapM e $ Set.toList $ cens  $ m_src mor
-  _ <- mapM f $ Map.keys   $ cfks  $ m_src mor
-  _ <- mapM a $ Map.keys   $ catts $ m_src mor
-  _ <- mapM g $ Map.keys   $ cgens $ m_src mor
-  _ <- mapM s $ Map.keys   $ csks  $ m_src mor
-  pure ()
+  mapM_ e $ Set.toList $ cens  $ m_src mor
+  mapM_ f $ Map.keys   $ cfks  $ m_src mor
+  mapM_ a $ Map.keys   $ catts $ m_src mor
+  mapM_ g $ Map.keys   $ cgens $ m_src mor
+  mapM_ s $ Map.keys   $ csks  $ m_src mor
   where
     e en = if Map.member en $ m_ens  mor then pure () else Left $ "No entity mapping for " ++ show en
     f fk = if Map.member fk $ m_fks  mor then pure () else Left $ "No fk mapping for "     ++ show fk
@@ -561,12 +557,11 @@ typeOfMor
   -> Err ()
 typeOfMor mor  = do
   checkDoms' mor
-  _ <- mapM typeOfMorEns $ Map.toList $ m_ens mor
-  _ <- mapM typeOfMorFks $ Map.toList $ m_fks mor
-  _ <- mapM typeOfMorAtts $ Map.toList $ m_atts mor
-  _ <- mapM typeOfMorGens $ Map.toList $ m_gens mor
-  _ <- mapM typeOfMorSks $ Map.toList $ m_sks mor
-  pure ()
+  mapM_ typeOfMorEns $ Map.toList $ m_ens mor
+  mapM_ typeOfMorFks $ Map.toList $ m_fks mor
+  mapM_ typeOfMorAtts $ Map.toList $ m_atts mor
+  mapM_ typeOfMorGens $ Map.toList $ m_gens mor
+  mapM_ typeOfMorSks $ Map.toList $ m_sks mor
   where
     transE en = case (Map.lookup en (m_ens mor)) of
       Just x  -> x
@@ -614,17 +609,17 @@ typeOf' col _ (Gen g) = case Map.lookup g $ cgens col of
 typeOf' col _ (Sk s) = case Map.lookup s $ csks col of
   Nothing -> Left  $ "Unknown labelled null: " ++ show s
   Just t  -> Right $ Left t
-typeOf' col ctx (xx@(Fk f a)) = case Map.lookup f $ cfks col of
+typeOf' col ctx xx@(Fk f a) = case Map.lookup f $ cfks col of
   Nothing     -> Left $ "Unknown foreign key: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx a
                     if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
-typeOf' col ctx (xx@(Att f a)) = case Map.lookup f $ catts col of
+typeOf' col ctx xx@(Att f a) = case Map.lookup f $ catts col of
   Nothing -> Left $ "Unknown attribute: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx a
                     if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
                      show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
-typeOf' col ctx (xx@(Sym f a)) = case Map.lookup f $ csyms col of
+typeOf' col ctx xx@(Sym f a) = case Map.lookup f $ csyms col of
   Nothing -> Left $ "Unknown function symbol: " ++ show f
   Just (s, t) -> do s' <- mapM (typeOf' col ctx) a
                     if length s' == length s
@@ -644,7 +639,7 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
   lhs' <- typeOf' col ctx lhs
   rhs' <- typeOf' col ctx rhs
   if lhs' == rhs'
-  then Right $ lhs'
+  then Right lhs'
   else Left  $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
 
 

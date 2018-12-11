@@ -1,6 +1,8 @@
 module Language.Parser where
 
+import           Data.List
 import           Data.Map                   as Map hiding ((\\))
+import           Data.Maybe
 import           Language.Common            as C
 import           Language.Parser.Instance   as I
 import           Language.Parser.LexerRules
@@ -11,8 +13,6 @@ import           Language.Parser.Transform  as TT
 import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
-import           Data.Maybe
-import           Data.List
 
 parseAqlProgram' :: Parser (String, Exp)
 parseAqlProgram' = do
@@ -20,35 +20,35 @@ parseAqlProgram' = do
   x <- identifier
   _ <- constant "="
   y <- typesideExpParser
-  return $ (x, ExpTy y)
+  return (x, ExpTy y)
   <|>
   do
     _ <- constant "schema"
     x <- identifier
     _ <- constant "="
     y <- schemaExpParser
-    return $ (x, ExpS y)
+    return (x, ExpS y)
   <|>
   do
     _ <- constant "instance"
     x <- identifier
     _ <- constant "="
     y <- instExpParser
-    return $ (x, ExpI y)
+    return (x, ExpI y)
   <|>
   do
     _ <- constant "mapping"
     x <- identifier
     _ <- constant "="
     y <- mapExpParser
-    return $ (x, ExpM y)
+    return (x, ExpM y)
   <|>
   do
     _ <- constant "transform"
     x <- identifier
     _ <- constant "="
     y <- transExpParser
-    return $ (x, ExpT y)
+    return (x, ExpT y)
 
 parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
 parseAqlProgram'' = between spaceConsumer eof g
@@ -75,7 +75,7 @@ toProg' o ((v,e):p) = case e of
 
 parseAqlProgram :: String -> Err Prog
 parseAqlProgram s = case runParser parseAqlProgram'' "" s of
-  Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
-  Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
+  Left err -> Left $ "Parse error: " ++ parseErrorPretty err
+  Right (o, x) -> if length (fmap fst x) == length (nub $ fmap fst x)
     then pure $ toProg' o x
-    else Left $ "Duplicate definition: " ++ show (nub ((fst $ unzip x) \\ (nub $ fst $ unzip x)))
+    else Left $ "Duplicate definition: " ++ show (nub (fmap fst x \\ nub (fmap fst x)))

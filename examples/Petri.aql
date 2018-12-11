@@ -7,7 +7,7 @@ schema Net = literal : empty {
 	    trans : Input -> Trans
 	    place : Output -> Place
 	    trans : Output -> Trans
-} 
+}
 
 /*
  * p1 ->t1-> p2 ->t2-> p3
@@ -28,9 +28,9 @@ instance N = literal : Net {
 		i2.trans = t2
 		o2.trans = t2
 		o2.place = p3
-		
+
 	options
-		interpret_as_algebra = true	
+		interpret_as_algebra = true
 }
 
 /*
@@ -45,8 +45,8 @@ foreign_keys
 	place : i2 -> p2
 	place : i1 -> p1
 	trans : i1 -> t1
-*/	
-//schema intN = pivot N 
+*/
+//schema intN = pivot N
 
 //mapping proj = pivot N // intN -> Net
 

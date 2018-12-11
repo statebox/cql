@@ -1,21 +1,19 @@
-{-# LANGUAGE AllowAmbiguousTypes    #-}
-{-# LANGUAGE DuplicateRecordFields  #-}
-{-# LANGUAGE ExplicitForAll         #-}
-{-# LANGUAGE FlexibleContexts       #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GADTs                  #-}
-{-# LANGUAGE ImpredicativeTypes     #-}
-{-# LANGUAGE InstanceSigs           #-}
-{-# LANGUAGE KindSignatures         #-}
-{-# LANGUAGE LiberalTypeSynonyms    #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TypeOperators          #-}
-{-# LANGUAGE TypeSynonymInstances   #-}
-{-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE LiberalTypeSynonyms   #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Program where
 
@@ -84,7 +82,7 @@ newTypes :: KindCtx ts s i m q t ()
 newTypes = newEnv ()
 
 newEnv :: o -> KindCtx ts s i m q t o
-newEnv o = KindCtx m m m m m m o
+newEnv = KindCtx m m m m m m
   where m = Map.empty
 
 instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (KindCtx ts s i m q t o) where
@@ -99,10 +97,9 @@ instance (Show ts, Show s, Show i, Show m, Show q, Show t, Show o) => Show (Kind
 
 allVars :: KindCtx ts s i m q t o -> [(String, Kind)]
 allVars x =
-  (fmap (\x'->(x', TYPESIDE )) $ keys $ typesides  x) ++
-  (fmap (\x'->(x', SCHEMA   )) $ keys $ schemas    x) ++
-  (fmap (\x'->(x', INSTANCE )) $ keys $ instances  x) ++
-  (fmap (\x'->(x', MAPPING  )) $ keys $ mappings   x) ++
-  (fmap (\x'->(x', QUERY    )) $ keys $ queries    x) ++
-  (fmap (\x'->(x', TRANSFORM)) $ keys $ transforms x)
-
+  fmap (, TYPESIDE ) (keys $ typesides  x) ++
+  fmap (, SCHEMA   ) (keys $ schemas    x) ++
+  fmap (, INSTANCE ) (keys $ instances  x) ++
+  fmap (, MAPPING  ) (keys $ mappings   x) ++
+  fmap (, QUERY    ) (keys $ queries    x) ++
+  fmap (, TRANSFORM) (keys $ transforms x)

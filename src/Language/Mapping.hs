@@ -98,7 +98,7 @@ validateMapping
   . (ShowOrdN '[var, ty, sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
-validateMapping (m@(Mapping src' dst' ens' _ _)) = do
+validateMapping m@(Mapping src' dst' ens' _ _) = do
   mapM_ validatePathEq (Set.toList $ path_eqs src')
   mapM_ validateObsEq  (Set.toList $ obs_eqs  src')
   where
@@ -164,7 +164,7 @@ composeMapping
   =>      Mapping var ty sym en  fk  att  en'  fk'  att'
   ->      Mapping var ty sym en' fk' att' en'' fk'' att''
   -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
-composeMapping (Mapping s t e f a) (m2@(Mapping s' t' e' _ _)) =
+composeMapping (Mapping s t e f a) m2@(Mapping s' t' e' _ _) =
   if t == s'
   then let e'' = Map.fromList [ (k, e' ! v)                     | (k, v) <- Map.toList e ]
            f'' = Map.fromList [ (k, trans'  (mapToMor m2) v)    | (k, v) <- Map.toList f ]
@@ -198,28 +198,28 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
   ens2 <- toMapSafely ens1
   theFks  <- evalFks  fks0
   theAtts <- evalAtts (allEns ens2) atts0
-  return $ Mapping src' dst' (allEns ens2) (mergeMaps $ theFks:(fmap getFks is)) (mergeMaps $ theAtts:(fmap getAtts is))
+  return $ Mapping src' dst' (allEns ens2) (mergeMaps $ theFks : fmap getFks is) (mergeMaps $ theAtts : fmap getAtts is)
   where
-    allEns ensX = Map.fromList $ (Map.toList ensX) ++ (concatMap (Map.toList . getEns) is)
-    keys'  = fst . unzip
+    allEns ensX = Map.fromList $ Map.toList ensX ++ concatMap (Map.toList . getEns) is
+    keys'  = fmap fst
     fks'   = Map.toList $ Schema.fks dst'
     ens'   = Set.toList $ Schema.ens dst'
     atts'  = Map.toList $ Schema.atts dst'
-    transE ens2 en = case (Map.lookup en ens2) of
+    transE ens2 en = case Map.lookup en ens2 of
       Just x  -> return x
-      Nothing -> Left $ "No entity mapping for " ++ (show en)
+      Nothing -> Left $ "No entity mapping for " ++ show en
 
     evalAtts _ [] = pure $ Map.empty
     evalAtts x ((att, Right l):ts) = do
       att' <- note ("Not a src attribute " ++ att) (cast att)
-      att2 <- note ("Not a dst attribute " ++ att) (cast $ head $ reverse l)
+      att2 <- note ("Not a dst attribute " ++ att) (cast $ last l)
       t'x  <- inferPath ens' $ tail $ reverse l
       let t'  = Att att2 $ upp t'x
       rest <- evalAtts x ts
       pure $ Map.insert att' t' rest
     evalAtts x ((att, Left (v, t2, t)):ts) = do
       att' <- note ("Not an attribute " ++ att) (cast att)
-      t'   <- return $ inferTerm v (keys' fks') (keys' atts') t
+      let t' = inferTerm v (keys' fks') (keys' atts') t
       rest <- evalAtts x ts
       let ret = pure $ Map.insert att' t' rest
           (s,_) = Schema.atts src' ! att'
@@ -243,7 +243,7 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
     inferTerm v fks'' atts'' (RawApp x (a:[])) | elem' x atts'' = Att (fromJust $ cast x) $ inferTerm' v fks'' atts'' a
     inferTerm u fks'' atts'' (RawApp v l) = let l' = Prelude.map (inferTerm u fks'' atts'') l in
       case cast v of
-        Just x -> Sym x l'
+        Just x  -> Sym x l'
         Nothing -> error "impossible until complex typesides"
 
     -- :: [en'] -> [String] -> Err (Term () Void Void en' fk' Void Void Void)
@@ -253,8 +253,8 @@ evalMappingRaw' src' dst' (MappingExpRaw' _ _ ens0 fks0 atts0 _ _) is = do
     inferPath _ [] = return $ Var ()
 
     --  :: [(String, [String])] -> Err (Map fk (Term () Void Void en' fk' Void Void Void))
-    evalFks  [] = pure $ Map.empty
-    evalFks  ((fk,p):eqs') = do
+    evalFks []            = pure Map.empty
+    evalFks ((fk,p):eqs') = do
       p' <- inferPath ens' $ reverse p
       --    _ <- findEn ens' fks' p
       rest <- evalFks eqs'
@@ -292,7 +292,6 @@ evalMappingRaw src' dst' t is = do
       . (Typeable var, Typeable ty, Typeable sym, Typeable en, Typeable fk, Typeable att, Typeable fk', Typeable en', Typeable att')
       => [MappingEx] -> Err [Mapping var ty sym en fk att en' fk' att']
     doImports [] = return []
-    doImports ((MappingEx ts):r) = case cast ts of
+    doImports (MappingEx ts : r) = case cast ts of
       Nothing  -> Left "Bad import"
       Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
-

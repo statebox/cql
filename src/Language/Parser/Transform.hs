@@ -1,12 +1,18 @@
 module Language.Parser.Transform (transExpParser) where
 
-import           Data.Maybe
+import           Language.Instance
+import           Language.Mapping
 import           Language.Parser.Instance
 import           Language.Parser.LexerRules
 import           Language.Parser.Mapping
 import           Language.Parser.Parser
 import           Language.Term
 import           Language.Transform
+
+-- prelude
+import           Data.Maybe
+
+-- megaparsec
 import           Text.Megaparsec
 
 
@@ -24,8 +30,7 @@ transformRawParser = do
   s <- instExpParser
   _ <- constant "->"
   t <- instExpParser
-  m <- braces $ p s t
-  pure m
+  braces $ p s t
   where
     p s t = do
       i <- optional $ do
@@ -33,8 +38,7 @@ transformRawParser = do
         many transExpParser
       e <- optional $ do
         _ <- constant "generators"
-        y <- many gParser
-        return y
+        many gParser
       x <- optional $ do
         _ <- constant "options"
         many optionParser
@@ -43,37 +47,33 @@ transformRawParser = do
         (fromMaybe [] x)
         (fromMaybe [] i)
 
-sigmaParser' :: Parser TransformExp
-sigmaParser' = do
-  _ <- constant "sigma"
+mapTransParser :: String -> (MappingExp -> TransformExp -> [(String, String)] -> TransformExp) -> Parser TransformExp
+mapTransParser s constructor = do
+  _ <- constant s
   f <- mapExpParser
   i <- transExpParser
   o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ TransformSigma f i $ fromMaybe [] o
+  return $ constructor f i $ fromMaybe [] o
+
+mapInstTransParser :: String -> (MappingExp -> InstanceExp -> [(String, String)] -> TransformExp) -> Parser TransformExp
+mapInstTransParser s constructor = do
+  _ <- constant s
+  f <- mapExpParser
+  i <- instExpParser
+  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+  return $ constructor f i $ fromMaybe [] o
+
+sigmaParser' :: Parser TransformExp
+sigmaParser' = mapTransParser "sigma" TransformSigma
 
 sigmaDeltaUnitParser' :: Parser TransformExp
-sigmaDeltaUnitParser' = do
-  _ <- constant "unit"
-  f <- mapExpParser
-  i <- instExpParser
-  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ TransformSigmaDeltaUnit f i $ fromMaybe [] o
+sigmaDeltaUnitParser' = mapInstTransParser "unit" TransformSigmaDeltaUnit
 
 sigmaDeltaCoUnitParser' :: Parser TransformExp
-sigmaDeltaCoUnitParser' = do
-  _ <- constant "counit"
-  f <- mapExpParser
-  i <- instExpParser
-  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ TransformSigmaDeltaCoUnit f i $ fromMaybe [] o
+sigmaDeltaCoUnitParser' = mapInstTransParser "counit" TransformSigmaDeltaCoUnit
 
 deltaParser' :: Parser TransformExp
-deltaParser' = do
-  _ <- constant "delta"
-  f <- mapExpParser
-  i <- transExpParser
-  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ TransformDelta f i $ fromMaybe [] o
+deltaParser' = mapTransParser "delta" TransformDelta
 
 transCompParser :: Parser TransformExp
 transCompParser = do
@@ -95,6 +95,5 @@ transExpParser = transCompParser
   <|> parens transExpParser
   <|> do
     _ <- constant "identity"
-    x <- instExpParser
-    return $ TransformId x
+    TransformId <$> instExpParser
 

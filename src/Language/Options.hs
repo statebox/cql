@@ -1,6 +1,7 @@
 {-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Options where
+
 import           Data.Void
 import           Language.Common
 import           Text.Read
@@ -161,4 +162,3 @@ type CharOption = Void
  --  Csv_Escape_Char
  --  Csv_Quote_Char
  --  deriving (Eq, Ord, Show, Enum)
-

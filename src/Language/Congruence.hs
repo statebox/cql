@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleContexts, OverloadedLists, OverloadedStrings, TupleSections #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedLists  #-}
+
 module Language.Congruence (decide, Term(Function)) where
 
 import           Prelude hiding (any)
@@ -21,7 +23,7 @@ import           Language.Internal
 decide :: Ord t => [(Term t, Term t)] -> Term t -> Term t -> Bool
 decide theory lhs rhs = not result
   where
-    conjunctions = fmap (\(l, r) -> Equal l r) theory
+    conjunctions = fmap (uncurry Equal) theory
     Identity result = hasModel (Conjunction $ NotEqual lhs rhs : conjunctions)
 
 
@@ -36,11 +38,11 @@ hasModel (Conjunction conjunctions) = runUnionFind $ do
 
 
 merge :: Monad m => Graph t -> (Vert t, Vert t) -> UnionFindT (LNode t) m ()
-merge gr (u,v) = do
+merge gr (u,v) =
   unless (equivalent u v) $ do
     pu <- predOfAllVertEquivTo u
     pv <- predOfAllVertEquivTo v
-    union u v
+    u `union` v
     needMerging <- filterM (notEquivalentButCongruent gr)
                            [ (x,y) | x <- pu, y <- pv ]
     traverse_ (merge gr) needMerging
@@ -56,12 +58,10 @@ notEquivalentButCongruent gr (x,y) = do
 
 -- testing
 congruent :: (Monad m) => Graph t -> Vert t -> Vert t -> UnionFindT (LNode t) m Bool
-congruent gr x y = do
+congruent gr x y =
   if outDegree gr x /= outDegree gr y
-    then return False
-    else and <$> zipWithM equivalent
-                   (successors gr x)
-                   (successors gr y)
+  then return False
+  else and <$> zipWithM equivalent (successors gr x) (successors gr y)
 
 {--
 constructModel :: Monad m => Graph -> UnionFindT (LNode Text) m Satisfiability

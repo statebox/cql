@@ -5,6 +5,7 @@ import           Language.Parser.ReservedWords
 
 -- base
 import           Data.Char
+import           Data.Functor                  (($>), (<$))
 
 -- megaparsec
 import           Text.Megaparsec
@@ -17,31 +18,32 @@ import           Language.Term
 
 rawTermParser :: Parser RawTerm
 rawTermParser =
-  try (do f <- identifier
-          _ <- constant "("
-          a <- sepBy rawTermParser $ constant ","
-          _ <- constant ")"
-          return $ RawApp f a)
-  <|>
-  try (do t <- sepBy1 identifier $ constant "."
-          return $ Prelude.foldl (\y x -> RawApp x [y]) (RawApp (head t) []) $ tail t)
-  <|>
-  try (do i <- identifier
-          return $ RawApp i [])
-  <|>
-  try (do _ <- constant "("
-          a <- rawTermParser
-          f <- identifier
-          b <- rawTermParser
-          _ <- constant ")"
-          return $ RawApp f [a, b])
+  try (do
+    f <- identifier
+    _ <- constant "("
+    a <- sepBy rawTermParser $ constant ","
+    _ <- constant ")"
+    return $ RawApp f a)
+  <|> try (do
+    t <- sepBy1 identifier $ constant "."
+    return $ Prelude.foldl (\y x -> RawApp x [y]) (RawApp (head t) []) $ tail t)
+  <|> try (do
+    i <- identifier
+    return $ RawApp i [])
+  <|> try (do
+    _ <- constant "("
+    a <- rawTermParser
+    f <- identifier
+    b <- rawTermParser
+    _ <- constant ")"
+    return $ RawApp f [a, b])
 
 optionParser :: Parser (String, String)
-optionParser =
-  do i <- identifier
-     _ <- constant "="
-     j <- identifier
-     return (i, j)
+optionParser = do
+  i <- identifier
+  _ <- constant "="
+  j <- identifier
+  return (i, j)
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)
@@ -63,44 +65,42 @@ braces = between (constant "{") (constant "}")
 parens :: Parser a -> Parser a
 parens = between (constant "(") (constant ")")
 
-integerParser :: Parser Integer -- TODO: write tests
+integerParser :: Parser Integer
 integerParser = lexeme L.decimal
 
-scientificParser :: Parser Scientific -- TODO: write tests
+scientificParser :: Parser Scientific
 scientificParser = lexeme L.scientific
 
-boolParser :: Parser Bool -- TODO: write tests
+boolParser :: Parser Bool
 boolParser
-  = pure True <* constant "true"
-  <|> pure False <* constant "false"
+  = True <$ constant "true"
+  <|> False <$ constant "false"
 
-textParser :: Parser String -- TODO: write tests
+textParser :: Parser String
 textParser = do
   _ <- constant "\""
   text <- many (escapeSeq <|> show <$> noneOf ['"', '\r', '\n', '\\']) -- TODO: check if the escping is correct
   _ <- constant "\""
   pure $ unwords text
 
-escapeSeq :: Parser String -- TODO: write tests
+escapeSeq :: Parser String
 escapeSeq = do
   _ <- char '\\'
-  escaped
-    <- show <$> oneOf ['b', 't', 'n', 'f', 'r', '"', '\'', '\\', '.']
-    <|> unicodeEsc
-    <|> eof *> pure ""
-  pure escaped
+  show <$> oneOf ['b', 't', 'n', 'f', 'r', '"', '\'', '\\', '.']
+  <|> unicodeEsc
+  <|> eof $> ""
 
 unicodeEsc :: Parser String -- TODO: write tests
 unicodeEsc
-  = char 'u' *> pure "u"
+  = char 'u' $> "u"
   <|> (:)
-    <$> (char 'u')
+    <$> char 'u'
     <*> (show <$> hexDigitChar)
   <|> (:)
-    <$> (char 'u')
+    <$> char 'u'
     <*> ((:) <$> hexDigitChar <*> (show <$> hexDigitChar))
   <|> (:)
-    <$> (char 'u')
-    <*>((:)
+    <$> char 'u'
+    <*> ((:)
       <$> hexDigitChar
       <*> ((:) <$> hexDigitChar <*> (show <$> hexDigitChar)))
