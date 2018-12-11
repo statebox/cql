@@ -102,7 +102,7 @@ evalTypesideRaw ops t a' = do
     f p ctx = prove p (Map.map Left ctx)
     doImports :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
     doImports [] = return []
-    doImports ((TypesideEx ts):r) = case cast ts of
+    doImports (TypesideEx ts : r) = case cast ts of
       Nothing  -> Left "Bad import"
       Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
@@ -116,7 +116,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
     imported_tys' = foldr Set.union Set.empty $ fmap tys is
     addImportedSyms syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
     imported_eqs = foldr Set.union Set.empty $ fmap eqs is
-    evalEqs _ [] = pure $ Set.empty
+    evalEqs _ [] = pure Set.empty
     evalEqs syms' ((ctx, lhs, rhs):eqs') = do
       ctx' <- check syms' ctx lhs rhs
       lhs' <- evalTerm syms' ctx' lhs
@@ -129,12 +129,12 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
     check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
     infer _ (Just t) _ _ _  = return t
     infer v _ syms' lhs rhs = case (t1s, t2s) of
-      (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
-      (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
-      (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
-      ([], t : []) -> return t
-      (t : [], []) -> return t
-      ([], []) -> Left $ "Ambiguous variable: " ++ show v
+      ([t1]       , [t2]       ) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+      (t1 : t2 : _, _          ) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+      (_          , t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+      ([]         , [t]        ) -> return t
+      ([t]        , []         ) -> return t
+      ([]         , []         ) -> Left $ "Ambiguous variable: " ++ show v
       where
         t1s = nub $ typesOf v syms' lhs
         t2s = nub $ typesOf v syms' rhs
@@ -142,7 +142,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
     typesOf v syms' (RawApp f' as) = concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
       where
         fn (a',t) = case a' of
-          RawApp v' [] -> if v == v' then [t] else []
+          RawApp v' [] -> [t | v == v']
           RawApp _ _   -> typesOf v syms' a'
 
 -----------------------------------------------------------------------------------------------------------

@@ -16,6 +16,10 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.Prover where
+
+import           Data.List
+import           Data.Map
+import           Data.Maybe
 import           Data.Rewriting.CriticalPair as CP
 import           Data.Rewriting.Rule         as R
 import           Data.Rewriting.Rules        as Rs
@@ -25,20 +29,16 @@ import           Language.Common
 import           Language.Options            as O hiding (Prover)
 import           Language.Term               as S
 import           Prelude                     hiding (EQ)
-import           Twee.Term                   as TweeTerm
+import           Twee
 import           Twee.Base                   as TweeBase
-import           Twee                        as Twee
-import           Data.Maybe
-import           Data.Map
-import           Data.List
-import           Twee.Proof                  as TweeProof hiding (defaultConfig)
 import           Twee.Equation               as TweeEq
-import qualified Twee.KBO as KBO
+import qualified Twee.KBO                    as KBO
+import           Twee.Proof                  as TweeProof hiding (defaultConfig)
 --import Debug.Trace
-import Language.Congruence as Cong
-import Language.Internal (Term)
-import Data.Map.Strict as Map
-import Data.Typeable
+import           Data.Map.Strict             as Map
+import           Data.Typeable
+import           Language.Congruence         as Cong
+import           Language.Internal           (Term)
 
 
 
@@ -58,7 +58,7 @@ proverStringToName m = case sOps m prover_name of
 -- | A decision procedure for equality of terms in a collage.
 data Prover var ty sym en fk att gen sk = Prover
   { collage :: Collage var ty sym en fk att gen sk
-  , prove :: Ctx var (ty+en) -> EQ var ty sym en fk att gen sk -> Bool
+  , prove   :: Ctx var (ty+en) -> EQ var ty sym en fk att gen sk -> Bool
   }
 
 -- | Create a prover from a collage and user-provided options.
@@ -72,10 +72,8 @@ createProver col ops = do
   case p of
     Free       -> freeProver col
     Orthogonal -> orthProver col ops
-    Auto       -> if Set.null (ceqs col)
-      then if eqsAreGround col
-           then congProver col
-           else orthProver col ops
+    Auto       -> if Set.null (ceqs col) && eqsAreGround col
+      then congProver col
       else orthProver col ops
     Completion -> kbProver col ops
     Congruence -> congProver col
@@ -135,14 +133,14 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
         g q = not $ (CP.left q) == (CP.right q)
 
     noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
-    noOverlaps x = (and $ Prelude.map R.isLeftLinear x) && (Prelude.null $ findCps x)
+    noOverlaps x = all R.isLeftLinear x && Prelude.null (findCps x)
 
     isDecreasing :: Eq var => [EQ var ty sym en fk att gen sk] -> Bool
     isDecreasing [] = True
     isDecreasing (EQ (lhs', rhs') : tl) = S.size lhs' > S.size rhs' && isDecreasing tl && moreOnLhs (S.vars lhs') (S.vars rhs')
       where
         moreOnLhs lvars rvars = and $ fmap (\r -> count lvars r >= count rvars r) rvars
-        count [] _ = 0
+        count [] _    = 0
         count (a:b) x = count b x + if a == x then 1 else 0 :: Integer
 
     convert' :: S.Term var ty sym en fk att gen sk -> T.Term (Head ty sym en fk att gen sk) var
@@ -177,12 +175,12 @@ instance Show x => Pretty (Constant x) where
 instance Show x => PrettyTerm (Constant x) where
 
 instance (Show x, Ord x, Typeable x) => Ordered (Extended (Constant x)) where
-  lessEq t u = KBO.lessEq t u
-  lessIn model t u = KBO.lessIn model t u
+  lessEq = KBO.lessEq
+  lessIn = KBO.lessIn
 
 instance EqualsBonus (Constant x) where
   hasEqualsBonus = isJust . con_bonus
-  isEquals = not . isJust . fromJust . con_bonus
+  isEquals = isNothing . fromJust . con_bonus
   isTrue = fromJust . fromJust . con_bonus
   isFalse = fromJust . fromJust . con_bonus
 
@@ -292,5 +290,3 @@ convertCong x = case x of
   S.Att g a  -> Cong.Function (HAtt g) [convertCong a]
   S.Fk  g a  -> Cong.Function (HFk  g) [convertCong a]
   S.Sym g as -> Cong.Function (HSym g) $ fmap convertCong as
-
-

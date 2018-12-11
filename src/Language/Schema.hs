@@ -103,13 +103,13 @@ fksFrom' :: (Eq en) => Schema var ty sym en fk att  -> en -> [(fk,en)]
 fksFrom' sch en' = f $ Map.assocs $ fks sch
   where
     f []                 = []
-    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : f l else f l
 
 attsFrom' :: Eq en => Schema var ty sym en fk att -> en -> [(att,ty)]
 attsFrom' sch en' = f $ Map.assocs $ atts sch
   where
     f []                 = []
-    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+    f ((fk, (en1, t)):l) = if en1 == en' then (fk,t) : f l else f l
 
 -- | Accessor due to namespace conflicts.
 sch_fks :: Schema var ty sym en fk att -> Map fk (en, en)
@@ -151,7 +151,7 @@ data SchemaEx :: * where
     => Schema var ty sym en fk att
     -> SchemaEx
 
-deriving instance Show (SchemaEx)
+deriving instance Show SchemaEx
 
 instance NFData SchemaEx where
   rnf (SchemaEx x) = rnf x
@@ -198,14 +198,14 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
     ip = Set.fromList $ concatMap (Set.toList . path_eqs) is
     io = Set.fromList $ concatMap (Set.toList . obs_eqs ) is
 
-    keys' = fst . unzip
+    keys' = fmap fst
 
     procOeqs _ _ [] = pure $ Set.empty
     procOeqs fks' atts' ((v, en', lhs, rhs):eqs') = do
       en   <- infer v en' (Map.fromList fks') (Map.fromList atts') lhs rhs
       _    <- return $ Map.fromList [((),en)]
-      lhs' <- return $ procTerm v (keys' fks') (keys' atts') lhs
-      rhs' <- return $ procTerm v (keys' fks') (keys' atts') rhs
+      let lhs' = procTerm v (keys' fks') (keys' atts') lhs
+      let rhs' = procTerm v (keys' fks') (keys' atts') rhs
       rest <- procOeqs fks' atts' eqs'
       if not $ hasTypeType'' lhs'
         then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
@@ -216,15 +216,15 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
       t1s = nub $ typesOf v fks' atts' lhs
       t2s = nub $ typesOf v fks' atts' rhs
       in case (t1s, t2s) of
-        (t1 : [], t2 : []) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
-        (t1 : t2 : _, _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
-        (_, t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
-        ([], t : []) -> return t
-        (t : [], []) -> return t
-        ([], []) -> Left $ "Untypeable variable: " ++ show v
+        ([t1]       , [t2]       ) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
+        (t1 : t2 : _, _          ) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show lhs ++ ": " ++ show t1 ++ " and " ++ show t2
+        (_          , t1 : t2 : _) -> Left $ "Conflicting types for " ++ show v ++ " in " ++ show rhs ++ ": " ++ show t1 ++ " and " ++ show t2
+        ([]         , [t]        ) -> return t
+        ([t]        , []         ) -> return t
+        ([]         , []         ) -> Left $ "Untypeable variable: " ++ show v
 
     typesOf _ _ _ (RawApp _ []) = []
-    typesOf v fks' atts' (RawApp f' ((RawApp a []) : [])) | a == v = case Map.lookup f' fks' of
+    typesOf v fks' atts' (RawApp f' [RawApp a []]) | a == v = case Map.lookup f' fks' of
       Nothing      -> case Map.lookup f' atts' of
         Nothing    -> []
         Just (s,_) -> [s]
@@ -233,22 +233,22 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
 
     procTerm :: Typeable sym => String -> [String] -> [String] -> RawTerm -> Term () ty sym en Fk Att  Void Void
     procTerm v _ _ (RawApp x' []) | v == x' = Var ()
-    procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' fks'''  = Fk  x' $ procTerm v fks''' atts''' a
-    procTerm v fks''' atts''' (RawApp x' (a:[])) | elem x' atts''' = Att x' $ procTerm v fks''' atts''' a
-    procTerm u fks''' atts''' (RawApp v l)                         = let l' = Prelude.map (procTerm u fks''' atts''') l
+    procTerm v fks''' atts''' (RawApp x' [a]) | x' `elem` fks'''  = Fk  x' $ procTerm v fks''' atts''' a
+    procTerm v fks''' atts''' (RawApp x' [a]) | x' `elem` atts''' = Att x' $ procTerm v fks''' atts''' a
+    procTerm u fks''' atts''' (RawApp v l)                        = let l' = Prelude.map (procTerm u fks''' atts''') l
       in case cast v of
           Just x'' -> Sym x'' l'
           Nothing  -> error "impossible until complex typesides"
 
     procPath :: [String] -> [String] -> Term () Void Void En Fk Void Void Void
-    procPath ens'' (s:ex) | elem s ens'' = procPath ens'' ex
-    procPath ens'' (s:ex) | otherwise    = Fk s $ procPath ens'' ex
-    procPath _ []                        = Var ()
+    procPath ens'' (s:ex) | s `elem` ens'' = procPath ens'' ex
+    procPath ens'' (s:ex) | otherwise      = Fk s $ procPath ens'' ex
+    procPath _ []         = Var ()
 
-    procPeqs _ _ [] = pure $ Set.empty
+    procPeqs _ _ [] = pure Set.empty
     procPeqs ens' fks' ((l,r):eqs') = do
-      lhs' <- return $ procPath ens' $ reverse l
-      rhs' <- return $ procPath ens' $ reverse r
+      let lhs' = procPath ens' $ reverse l
+      let rhs' = procPath ens' $ reverse r
       en   <- findEn ens' fks' l
       _    <- return $ Map.fromList [((),en)]
       rest <- procPeqs ens' fks' eqs'
@@ -257,7 +257,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
               else pure $ Set.insert (en, EQ (lhs', rhs')) rest
       pure $ Set.insert (en, EQ (lhs', rhs')) rest
 
-    findEn ens'' _     (s:_ ) | elem s ens'' = return s
+    findEn ens'' _     (s:_ ) | s `elem` ens'' = return s
     findEn _     fks'' (s:_ ) | Map.member s (Map.fromList fks'') = return $ fst $ fromJust $ Prelude.lookup s fks''
     findEn ens'' fks'' (_:ex) | otherwise = findEn ens'' fks'' ex
     findEn _     _     []                 = Left "Path equation cannot be typed"
@@ -287,5 +287,5 @@ evalSchemaRaw ops ty t a' = do
     mkProver p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
     doImports [] = return []
     doImports ((SchemaEx ts):r) = case cast ts of
-      Nothing -> Left $ "Bad import" ++ show ts
+      Nothing  -> Left $ "Bad import" ++ show ts
       Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
