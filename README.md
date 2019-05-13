@@ -1,13 +1,12 @@
 [![Build Status](https://travis-ci.com/statebox/aql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/aql)
 
-# AQL
+# CQL
 
-Algebraic Query Language implementation in Haskell.
+Categorical Query Language (CQL) implementation in Haskell.
 
 ## Documentation
 
-Paper describing how AQL is implemented: https://arxiv.org/abs/1503.03571
-AQL user manual: https://categoricaldata.net/aqlmanual.pdf
+Community site: https://categoricaldata.net
 Java version: https://github.com/CategoricalData/fql
 
 ## Building
