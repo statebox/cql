@@ -1,11 +1,9 @@
-[![Build Status](https://travis-ci.com/statebox/aql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/aql) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-
-> Note: AQL has been renamed to CQL.
-> We still need to fix this in the code [#140](https://github.com/statebox/cql/issues/140)
+[![Build Status](https://travis-ci.com/statebox/aql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/aql)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 # CQL
 
-Categorical Query Language implementation in Haskell.
+Categorical Query Language (CQL) implementation in Haskell.
 
 ## Example
 
@@ -97,8 +95,7 @@ instance J = literal : S {
 
 ## Documentation
 
-Paper describing how CQL (then still called AQL) is implemented: https://arxiv.org/abs/1503.03571
-AQL user manual: https://categoricaldata.net/aqlmanual.pdf
+Community site: https://categoricaldata.net
 Java version: https://github.com/CategoricalData/fql
 
 ## Building
