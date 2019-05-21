@@ -1,7 +1,7 @@
+# CQL
+
 [![Build Status](https://travis-ci.com/statebox/cql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/cql)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-
-# CQL
 
 Categorical Query Language (CQL) implementation in Haskell.
 
