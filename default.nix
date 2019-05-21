@@ -37,7 +37,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 # To launch a shell with all dependencies installed in the environment:
 #
-# $ nix-shell -A aql
+# $ nix-shell -A cql
 #
 # After entering nix-shell, build it:
 #
@@ -82,5 +82,5 @@ let
   stdenv = usepkgs.stdenvAdapters.keepDebugInfo usepkgs.stdenv;
 
 in {
-  aql = usepkgs.haskellPackages.callPackage ./aql.nix { };
+  cql = usepkgs.haskellPackages.callPackage ./cql.nix { };
 }

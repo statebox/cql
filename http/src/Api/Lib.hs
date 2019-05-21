@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 module Api.Lib where
 
-import           Api.Api                  (API, aqlApi)
+import           Api.Api                  (API, cqlApi)
 import           Api.Config.Config        (Config (..))
 import           Api.Config.Environment   (logger)
 
@@ -37,7 +37,7 @@ startApp config = runSettings
   (app config)
 
 app :: Config -> Application
-app config = logger (environment config) $ serve api aqlApi
+app config = logger (environment config) $ serve api cqlApi
 
 api :: Proxy API
 api = Proxy

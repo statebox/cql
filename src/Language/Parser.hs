@@ -20,7 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 module Language.Parser where
 
+import           Data.List
 import           Data.Map                   as Map hiding ((\\))
+import           Data.Maybe
 import           Language.Common            as C
 import           Language.Parser.Instance   as I
 import           Language.Parser.LexerRules
@@ -31,11 +33,9 @@ import           Language.Parser.Transform  as TT
 import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
-import           Data.Maybe
-import           Data.List
 
-parseAqlProgram' :: Parser (String, Exp)
-parseAqlProgram' = do
+parseCqlProgram' :: Parser (String, Exp)
+parseCqlProgram' = do
   _ <- constant "typeside"
   x <- identifier
   _ <- constant "="
@@ -70,15 +70,15 @@ parseAqlProgram' = do
     y <- transExpParser
     return $ (x, ExpT y)
 
-parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
-parseAqlProgram'' = between spaceConsumer eof g
+parseCqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
+parseCqlProgram'' = between spaceConsumer eof g
   where
     f = do
       _ <- constant "options"
       many optionParser
     g = do
       x <- optional f
-      y <- many parseAqlProgram'
+      y <- many parseCqlProgram'
       return (fromMaybe [] x, y)
 
 
@@ -93,8 +93,8 @@ toProg' o ((v,e):p) = case e of
    ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr) o
   where KindCtx t s i m q tr _ = toProg' o p
 
-parseAqlProgram :: String -> Err Prog
-parseAqlProgram s = case runParser parseAqlProgram'' "" s of
+parseCqlProgram :: String -> Err Prog
+parseCqlProgram s = case runParser parseCqlProgram'' "" s of
   Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
   Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
     then pure $ toProg' o x
