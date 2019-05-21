@@ -36,7 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE UndecidableInstances   #-}
 
-module Language.AQL where
+module Language.CQL where
 
 import           Control.Concurrent
 import           Control.DeepSeq
@@ -50,7 +50,7 @@ import           Language.Graph
 import           Language.Instance  as I
 import           Language.Mapping   as M
 import           Language.Options
-import           Language.Parser    (parseAqlProgram)
+import           Language.Parser    (parseCqlProgram)
 import           Language.Program   as P
 import           Language.Query     as Q
 import           Language.Schema    as S
@@ -90,12 +90,12 @@ class Typecheck e e' where
 
 -- | Checks that e.g. in sigma F I that F : S -> T and I : S-Inst.
 -- Checking that S is well-formed is done by @validate@.
-typecheckAqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
-typecheckAqlProgram [] _ x = pure x
-typecheckAqlProgram ((v, k):l) prog ts = do
+typecheckCqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
+typecheckCqlProgram [] _ x = pure x
+typecheckCqlProgram ((v, k):l) prog ts = do
   m <- getKindCtx prog v k
   t <- wrapError ("Type Error in " ++ v ++ ": ") $ typecheck' v ts m
-  typecheckAqlProgram l prog t
+  typecheckCqlProgram l prog t
 
 typecheck' :: String -> Types -> Exp -> Err Types
 typecheck' v ts e = case e of
@@ -236,26 +236,26 @@ typecheckSchemaExp p x = case x of
 ------------------------------------------------------------------------------------------------------------
 -- evaluation
 
--- | The result of evaluating an AQL program.
+-- | The result of evaluating an CQL program.
 type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
 
 -- | Simple three phase evaluation and reporting.
 runProg :: String -> Err (Prog, Types, Env)
 runProg p = do
-  p1  <- parseAqlProgram p
+  p1  <- parseCqlProgram p
   ops <- toOptions defaultOptions $ other p1
   o   <- findOrder p1
-  p2  <- typecheckAqlProgram o p1 newTypes
-  p3  <- evalAqlProgram      o p1 $ newEnv ops
+  p2  <- typecheckCqlProgram o p1 newTypes
+  p3  <- evalCqlProgram      o p1 $ newEnv ops
   return (p1, p2, p3)
 
-evalAqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
-evalAqlProgram [] _ env = pure env
-evalAqlProgram ((v,k):l) prog env = do
+evalCqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
+evalCqlProgram [] _ env = pure env
+evalCqlProgram ((v,k):l) prog env = do
   e   <- getKindCtx prog v k
   ops <- toOptions (other env) $ getOptions' e
   t   <- wrapError ("Eval Error in " ++ v) $ timeout' (iOps ops Timeout) $ eval' prog env e
-  evalAqlProgram l prog $ setEnv env v t
+  evalCqlProgram l prog $ setEnv env v t
 
 findOrder :: Prog -> Err [(String, Kind)]
 findOrder (p@(KindCtx t s i m q tr _)) = do

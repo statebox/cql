@@ -17,17 +17,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-name:                aql
+name:                cql
 version:             0.1.0.0
-github:              "statebox/aql"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2018 Author name here"
+github:              "statebox/cql"
+license:             AGPL
+author:              "Statebox"
+copyright:           "2019 Statebox"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -36,7 +34,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/aql#readme>
+description:         Please see the README on GitHub at <https://github.com/statebox/cql#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -73,7 +71,7 @@ ghc-options:
 - -Wno-name-shadowing
 
 executables:
-  aql-exe:
+  cql-exe:
     main:                Main.hs
     source-dirs:         cli
     ghc-options:
@@ -81,10 +79,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aql
+    - cql
 
 tests:
-  aql-test:
+  cql-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -92,6 +90,6 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aql
+    - cql
     - hspec
     - QuickCheck

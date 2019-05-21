@@ -118,7 +118,7 @@ evalSchTerm alg x term = case term of
 -- | Helper function used by checkSatisfaction to convert terms in the Collage of entity sort
 -- into terms with Voids in the attribute etc slots.  Morally Collage should store two or more
 -- classes of equation, but having to convert like this is relatively rare.  Indeed, checkSatisfaction
--- itself is redundant - a properly functioning AQL would not generate unsatisfying instances.
+-- itself is redundant - a properly functioning CQL would not generate unsatisfying instances.
 down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
 down1 (Var v)  = Var v
 down1 (Gen g)  = Gen g
@@ -337,7 +337,7 @@ newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att)
 -- | Computes an initial instance (minimal model of a presentation).
 -- Actually, computes the cannonical term model, where the underlying elements
 -- of the carriers are equivalence class of terms modulo provable equality
--- in the presentation (differs from AQL java, which uses fresh IDs).
+-- in the presentation (differs from CQL java, which uses fresh IDs).
 -- The term model is constructed by repeatedly adding news terms to the empty model
 -- until a fixedpoint is reached.
 initialInstance
@@ -503,7 +503,7 @@ data InstExpRaw' =
   InstExpRaw'
   { instraw_schema  :: SchemaExp
   , instraw_gens    :: [(String, String)]
---, instraw_sks     :: [(String, String)] this should maybe change in aql grammar
+--, instraw_sks     :: [(String, String)] this should maybe change in cql grammar
   , instraw_oeqs    :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
   , instraw_imports :: [InstanceExp]
@@ -640,7 +640,7 @@ pivot (Instance sch (Presentation _ sks _) _ (Algebra _ ens _ fk _ tys nnf _ teq
     em    = Map.fromList [  (x, en ) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en) ]
     fm    = Map.fromList [ ((x, fk ) , Fk  fk  $ Var ()) | (x, fk ) <- Map.keys sch'_fks  ]
     am    = Map.fromList [ ((x, att) , Att att $ Var ()) | (x, att) <- Map.keys sch'_atts ]
-    dp2 _ (EQ (l, r)) = l == r -- todo: stopping for now, this definition is wrong and AQL java should change too
+    dp2 _ (EQ (l, r)) = l == r -- todo: stopping for now, this definition is wrong and CQL java should change too
     sch'  = Schema (typeside sch) sch'_ens sch'_fks sch'_atts sch'_peqs sch'_oeqs dp2
     inst  = Instance sch' (Presentation gens' sks' eqs') dp' $ Algebra sch' ens' gen' fk' rep' tys' nnf' rep2' es'
     mapp  = Mapping sch' sch em fm am

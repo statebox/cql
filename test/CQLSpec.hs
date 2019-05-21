@@ -20,9 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE OverloadedStrings #-}
 
-module AQLSpec where
+module CQLSpec where
 
-import           Language.AQL
+import           Language.CQL
 import           Language.Schema
 import           Language.Term
 import           Language.Typeside
@@ -42,28 +42,28 @@ import           Control.Monad.IO.Class (liftIO)
 
 spec :: Spec
 spec = do
-  it "processes correctly the example file Mapping.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Mapping.aql" :: String)
+  it "processes correctly the example file Mapping.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Mapping.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file Employee.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Employee.aql" :: String)
+  it "processes correctly the example file Employee.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Employee.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file Sigma.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Sigma.aql" :: String)
+  it "processes correctly the example file Sigma.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Sigma.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file Delta.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Delta.aql" :: String)
+  it "processes correctly the example file Delta.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Delta.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file Import.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Import.aql" :: String)
+  it "processes correctly the example file Import.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Import.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file Congruence.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/Congruence.aql" :: String)
+  it "processes correctly the example file Congruence.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/Congruence.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
   -- print typesideDom

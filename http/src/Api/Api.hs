@@ -23,17 +23,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Api.Api where
 
-import           Language.AQL (runProg)
+import           Language.CQL (runProg)
 
 -- servant-server
 import           Servant      ((:>), Handler, PlainText, Post, ReqBody, Server)
 
-type API = "aql" :> ReqBody '[PlainText] String :> Post '[PlainText] String
+type API = "cql" :> ReqBody '[PlainText] String :> Post '[PlainText] String
 
-aqlApi :: Server API
-aqlApi = aqlEndpoint
+cqlApi :: Server API
+cqlApi = cqlEndpoint
 
-aqlEndpoint :: String -> Handler String
-aqlEndpoint aqlDefinition = do
-  let aqlEnvironment = runProg aqlDefinition
-  pure $ either id (\(_, _, env) -> show env) aqlEnvironment
+cqlEndpoint :: String -> Handler String
+cqlEndpoint cqlDefinition = do
+  let cqlEnvironment = runProg cqlDefinition
+  pure $ either id (\(_, _, env) -> show env) cqlEnvironment

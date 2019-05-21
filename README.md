@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/statebox/aql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/aql)
+[![Build Status](https://travis-ci.com/statebox/cql.svg?branch=master&token=Ljpteop2x6Z8X4NsFyyn)](https://travis-ci.com/statebox/cql)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 # CQL
@@ -7,17 +7,17 @@ Categorical Query Language (CQL) implementation in Haskell.
 
 ## Example
 
-After building, you can use `aql-exe` to evaluate a `.aql` file, e.g.
+After building, you can use `cql-exe` to evaluate a `.cql` file, e.g.
 
 ```sh
 # build it
 stack build
 
-# run `aql-exe` on `examples/Employee.aql`
-.stack-work/dist/x86_64-osx/Cabal-2.2.0.1/build/aql-exe/aql-exe examples/Employee.aql
+# run `cql-exe` on `examples/Employee.cql`
+stack exec cql-exe examples/Employee.cql
 ```
 
-Here is an example of what an `.aql` file looks like
+Here is an example of what an `.cql` file looks like
 
 ```
 options
@@ -118,7 +118,7 @@ Install:
 
 Generate docs:
 
-`stack haddock aql`
+`stack haddock cql`
 
 ### Cabal
 
@@ -152,20 +152,20 @@ See also [default.nix](default.nix)
 
 ## HTTP API
 
-To launch the APIs, use `stack exec aql-http`. Then you can send http requests to port 8080, with an AQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
+To launch the APIs, use `stack exec cql-http`. Then you can send http requests to port 8080, with an CQL specification in the body. The `Content-Type` of the request needs to be set to `text/plain;charset=utf-8`
 
 For example, you could try using `cURL` as follows
 
 ```
 curl -X POST \
-  http://localhost:8080/aql \
+  http://localhost:8080/cql \
   -H 'Content-Type: text/plain;charset=utf-8' \
-  --data-binary "@./examples/Employee.aql"
+  --data-binary "@./examples/Employee.cql"
 ```
 
 You can set the following environment variables to customise the behaviour of the endpoint:
 
-- `AQL_ENV`: Should be `Development` or `Production`. Regulates the verbosity of the console output.
+- `CQL_ENV`: Should be `Development` or `Production`. Regulates the verbosity of the console output.
 
 - `PORT`: determines on which port the endpoint is exposed
 

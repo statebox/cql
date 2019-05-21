@@ -31,7 +31,7 @@ import           Text.Read              (readMaybe)
 
 app :: IO ()
 app = do
-  environment <- lookupEnvVar "AQL_ENV" Development
+  environment <- lookupEnvVar "CQL_ENV" Development
   apiPort <- lookupEnvVar "PORT" 8080
   startApp $ Config environment apiPort
 

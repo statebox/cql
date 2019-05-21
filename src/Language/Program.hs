@@ -49,7 +49,7 @@ import           Language.Transform as Tr
 import           Language.Typeside  as T
 import           Prelude            hiding (EQ)
 
--- | Top level AQL expressions, untyped.
+-- | Top level CQL expressions, untyped.
 data Exp
   = ExpTy TypesideExp
   | ExpS  SchemaExp
@@ -58,7 +58,7 @@ data Exp
   | ExpT  TransformExp
   | ExpQ  QueryExp
 
--- | Top level AQL expressions, dynamically typed.
+-- | Top level CQL expressions, dynamically typed.
 data Val
   = ValTy TypesideEx
   | ValS  SchemaEx
@@ -89,13 +89,13 @@ data KindCtx ts s i m q t o
   , other      :: o
   }
 
--- | AQL programs
+-- | CQL programs
 type Prog  = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, String)]
 
 newProg :: KindCtx ts s i m q t [a]
 newProg = newEnv []
 
--- | The result of an AQL type checking pass.
+-- | The result of an CQL type checking pass.
 type Types = KindCtx TypesideExp TypesideExp SchemaExp (SchemaExp,SchemaExp) (SchemaExp,SchemaExp) (InstanceExp,InstanceExp) ()
 
 newTypes :: KindCtx ts s i m q t ()

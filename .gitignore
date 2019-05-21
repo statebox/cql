@@ -1,8 +1,8 @@
 .stack-work/
-aql.cabal
-http/aql-http.cabal
+cql.cabal
+http/cql-http.cabal
 *~
 .DS_Store
 *.yaml#
-*.aql#
+*.cql#
 

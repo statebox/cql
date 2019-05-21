@@ -24,7 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 , wai-extra, warp, twee-lib, union-find, fgl, mtl, PropLogic }:
 
 mkDerivation {
-  pname = "aql";
+  pname = "cql";
   version = "0.1.0.0";
   src = ./.;
 
@@ -48,7 +48,7 @@ mkDerivation {
     hpack
   '';
 
-  homepage = "https://github.com/statebox/aql";
-  description = "AQL - Algebraic Query Language implementation in Haskell";
-  license = stdenv.lib.licenses.bsd3;
+  homepage = "https://github.com/statebox/cql";
+  description = "CQL - Categorical Query Language implementation in Haskell";
+  license = stdenv.lib.licenses.agpl3;
 }
