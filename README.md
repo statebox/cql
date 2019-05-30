@@ -5,6 +5,17 @@
 
 Categorical Query Language (CQL) implementation in Haskell.
 
+
+## About
+
+[CQL](https://www.categoricaldata.net) is a query language that allows you to specify data migrations declaratively, in a way that guarantees their correctness. 
+
+It is the culmination of years of original mathematical [research](https://www.categoricaldata.net/papers.php) after the right balance between flexibility and correctness. Its solid grounding in category theory sets it apart from its ad hoc counterparts, and enables the compositional development and analysis of data transformations to a degree previously impossible.
+
+CQL, formerly known as AQL, was developed by [Statebox](https://www.statebox.org) in collaboration with [Conexus](http://conexus.ai/).
+
+[Learn more](https://www.categoricaldata.net/index.php).
+
 ## Example
 
 After building, you can use `cql-exe` to evaluate a `.cql` file, e.g.
