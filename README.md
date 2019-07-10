@@ -14,7 +14,7 @@ It is the culmination of years of original mathematical [research](https://www.c
 
 CQL, formerly known as AQL, was developed by [Statebox](https://www.statebox.org) in collaboration with [Conexus](http://conexus.ai/), who develop the [Java version](https://github.com/CategoricalData/cql) of CQL.
 
-[Learn more](https://www.categoricaldata.net/index.php).
+[Learn more](https://www.categoricaldata.net).
 
 ## Example
 
