@@ -28,7 +28,7 @@ stack build
 stack exec cql examples/Employee.cql
 ```
 
-Here is an example of what an `.cql` file looks like
+Here is an example of what a `.cql` file looks like:
 
 ```
 options
