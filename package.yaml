@@ -71,7 +71,7 @@ ghc-options:
 - -Wno-name-shadowing
 
 executables:
-  cql-exe:
+  cql:
     main:                Main.hs
     source-dirs:         cli
     ghc-options:
