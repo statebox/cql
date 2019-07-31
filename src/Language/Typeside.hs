@@ -1,3 +1,23 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -57,7 +77,7 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
 instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
   rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
 
-typecheckTypeside :: (ShowOrdN '[var, ty, sym]) => Typeside var ty sym -> Err ()
+typecheckTypeside :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym]) => Typeside var ty sym -> Err ()
 typecheckTypeside = typeOfCol . tsToCol
 
 -- | Converts a typeside to a collage.
@@ -67,7 +87,7 @@ tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.em
 
 data TypesideEx :: * where
   TypesideEx
-    :: forall var ty sym. (ShowOrdTypeableN '[var, ty, sym]) =>
+    :: forall var ty sym. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym]) =>
     Typeside var ty sym
     -> TypesideEx
 

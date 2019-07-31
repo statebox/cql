@@ -1,9 +1,27 @@
-name:                aql-http
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# This file is part of `statebox/cql`, the categorical query language.
+#
+# Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+name:                cql-http
 version:             0.1.0.0
-github:              "statebox/aql"
-license:             BSD3
+github:              "statebox/cql"
+license:             AGPL
 author:              "Statebox"
-copyright:           "2018 Statebox"
+copyright:           "2019 Statebox"
 
 
 # Metadata used when publishing your package
@@ -13,10 +31,10 @@ copyright:           "2018 Statebox"
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/aql#readme>
+description:         Please see the README on GitHub at <https://github.com/statebox/cql#readme>
 
 dependencies:
-- aql
+- cql
 - base >= 4.7 && < 5
 - servant-server
 - wai
@@ -31,7 +49,7 @@ ghc-options:
 - -Werror
 
 executables:
-  aql-http:
+  cql-http:
     main:                Main.hs
     source-dirs:         .
     ghc-options:
@@ -39,4 +57,4 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - aql-http
+    - cql-http

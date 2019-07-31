@@ -1,3 +1,23 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 module Language.Parser where
 
 import           Data.List
@@ -14,8 +34,8 @@ import           Language.Parser.Typeside   as T'
 import           Language.Program           as P
 import           Text.Megaparsec
 
-parseAqlProgram' :: Parser (String, Exp)
-parseAqlProgram' = do
+parseCqlProgram' :: Parser (String, Exp)
+parseCqlProgram' = do
   _ <- constant "typeside"
   x <- identifier
   _ <- constant "="
@@ -50,15 +70,15 @@ parseAqlProgram' = do
     y <- transExpParser
     return (x, ExpT y)
 
-parseAqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
-parseAqlProgram'' = between spaceConsumer eof g
+parseCqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
+parseCqlProgram'' = between spaceConsumer eof g
   where
     f = do
       _ <- constant "options"
       many optionParser
     g = do
       x <- optional f
-      y <- many parseAqlProgram'
+      y <- many parseCqlProgram'
       return (fromMaybe [] x, y)
 
 
@@ -73,9 +93,9 @@ toProg' o ((v,e):p) = case e of
    ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr) o
   where KindCtx t s i m q tr _ = toProg' o p
 
-parseAqlProgram :: String -> Err Prog
-parseAqlProgram s = case runParser parseAqlProgram'' "" s of
-  Left err -> Left $ "Parse error: " ++ parseErrorPretty err
-  Right (o, x) -> if length (fmap fst x) == length (nub $ fmap fst x)
+parseCqlProgram :: String -> Err Prog
+parseCqlProgram s = case runParser parseCqlProgram'' "" s of
+  Left err      -> Left $ "Parse error: " ++ parseErrorPretty err
+  Right (o, xs) -> if length xs == length (nub $ fst $ unzip xs)
     then pure $ toProg' o x
     else Left $ "Duplicate definition: " ++ show (nub (fmap fst x \\ nub (fmap fst x)))

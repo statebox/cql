@@ -1,19 +1,39 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Api.Api where
 
-import           Language.AQL (runProg)
+import           Language.CQL (runProg)
 
 -- servant-server
 import           Servant      ((:>), Handler, PlainText, Post, ReqBody, Server)
 
-type API = "aql" :> ReqBody '[PlainText] String :> Post '[PlainText] String
+type API = "cql" :> ReqBody '[PlainText] String :> Post '[PlainText] String
 
-aqlApi :: Server API
-aqlApi = aqlEndpoint
+cqlApi :: Server API
+cqlApi = cqlEndpoint
 
-aqlEndpoint :: String -> Handler String
-aqlEndpoint aqlDefinition = do
-  let aqlEnvironment = runProg aqlDefinition
-  pure $ either id (\(_, _, env) -> show env) aqlEnvironment
+cqlEndpoint :: String -> Handler String
+cqlEndpoint cqlDefinition = do
+  let cqlEnvironment = runProg cqlDefinition
+  pure $ either id (\(_, _, env) -> show env) cqlEnvironment
