@@ -1,3 +1,23 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -17,6 +37,7 @@
 
 module Language.Prover where
 
+import           Control.DeepSeq
 import           Data.List
 import           Data.Map
 import           Data.Maybe
@@ -29,7 +50,7 @@ import           Language.Common
 import           Language.Options            as O hiding (Prover)
 import           Language.Term               as S
 import           Prelude                     hiding (EQ)
-import           Twee
+import           Twee                        as Twee
 import           Twee.Base                   as TweeBase
 import           Twee.Equation               as TweeEq
 import qualified Twee.KBO                    as KBO
@@ -63,8 +84,8 @@ data Prover var ty sym en fk att gen sk = Prover
 
 -- | Create a prover from a collage and user-provided options.
 createProver
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
-  => Collage     var  ty  sym  en  fk  att  gen  sk
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
+  => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var  ty  sym  en  fk  att  gen  sk)
 createProver col ops = do
@@ -82,7 +103,7 @@ createProver col ops = do
 
 -- | For theories with no equations, syntactic equality works.
 freeProver
-  :: (Eq var, Eq sym, Eq fk, Eq att, Eq gen, Eq sk)
+  :: TyMap Eq '[var, sym, fk, att, gen, sk]
   => Collage var ty sym en fk att gen sk
   -> Either String (Prover var ty sym en fk att gen sk)
 freeProver col | Set.size (ceqs col) == 0 = return $ Prover col p
@@ -97,7 +118,7 @@ freeProver col | Set.size (ceqs col) == 0 = return $ Prover col p
 -- without empty sorts and without non-trivial critical pairs (rule overlaps).
 -- Runs the rules non deterministically to get a unique normal form.
 orthProver
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -188,7 +209,7 @@ data Precedence = Precedence !Bool !(Maybe Int) !Int
   deriving (Eq, Ord)
 
 prec
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Head        ty sym en fk att gen sk
   -> Precedence
@@ -200,7 +221,7 @@ prec col c = Precedence p q r -- trace (show (p,q,r)) $
     r = negate (Map.findWithDefault 0 c $ occs col)
 
 toTweeConst
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Head        ty sym en fk att gen sk
   -> Constant (Head ty sym en fk att gen sk)
@@ -215,7 +236,7 @@ toTweeConst col c = Constant (prec col c) c arr sz Nothing
       HSym s -> length $ fst $ (csyms col) ! s
 
 convert
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Ctx var (ty+en)
   -> S.Term var ty sym en fk att gen sk
@@ -230,7 +251,7 @@ convert col ctx x = case x of
 
 initState
   :: forall                     var  ty  sym  en  fk  att  gen  sk
-  .  (ShowOrdTypeableN '[       var, ty, sym, en, fk, att, gen, sk])
+  .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[       var, ty, sym, en, fk, att, gen, sk])
   => Collage                    var  ty  sym  en  fk  att  gen  sk
   -> State (Extended (Constant (Head ty  sym  en  fk  att  gen  sk)))
 initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initialState $ ceqs col
@@ -243,7 +264,7 @@ initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initial
 -- critical pairs (rule overlaps) are detected.
 kbProver
   :: forall                     var  ty  sym  en  fk  att  gen  sk
-  .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
@@ -266,7 +287,7 @@ kbProver col ops = if allSortsInhabited col || allow_empty
 -- how much of the congruence graph gets preserved between calls; the code we have could re-run
 -- building the congruence graph on each call to eq.
 congProver
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Err (Prover var ty sym en fk att gen sk)
 congProver col = if eqsAreGround col'
@@ -280,7 +301,7 @@ congProver col = if eqsAreGround col'
     (col', f) = simplifyCol col
 
 convertCong
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => S.Term var ty sym en fk att gen sk
   -> Language.Internal.Term (Head ty sym en fk att gen sk)
 convertCong x = case x of

@@ -1,3 +1,24 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE ExplicitForAll        #-}
@@ -20,6 +41,7 @@ module Language.Query where
 import           Control.DeepSeq
 import           Data.Map.Strict as Map
 import           Data.Set        as Set
+import           Data.Typeable
 import           Data.Void
 import           Language.Common
 import           Language.Schema
@@ -36,14 +58,14 @@ data Query var ty sym en fk att en' fk' att'
   , atts :: Map att'                   (Term var ty   sym  en fk att  Void Void)
   }
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show en', Show fk', Show att')
+instance TyMap Show '[var, ty, sym, en, fk, att, en', fk', att']
   => Show (Query var ty sym en fk att en' fk' att') where
   show (Query _ _ ens' fks' atts') =
     "ens = "  ++ show ens'  ++
     "\nfks = "  ++ show fks'  ++
     "\natts = " ++ show atts'
 
-instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq en', Eq fk', Eq att')
+instance TyMap Eq '[var, ty, sym, en, fk, att, en', fk', att']
   => Eq (Query var ty sym en fk att en' fk' att') where
   (==) (Query s1' s2' ens' fks' atts') (Query s1'' s2'' ens'' fks'' atts'')
     = (s1' == s1'') && (s2' == s2'') && (ens' == ens'') && (fks' == fks'') && (atts' == atts'')
@@ -55,7 +77,7 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
 data QueryEx :: * where
   QueryEx
     :: forall var ty sym en fk att en' fk' att'
-    .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, en', fk', att'])
+    .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
     => Query var ty sym en fk att en' fk' att' -> QueryEx
 
 instance NFData QueryEx where

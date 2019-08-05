@@ -1,3 +1,23 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -46,12 +66,11 @@ data Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   , sks  :: Map sk  (Term Void ty   sym  en fk att  gen' sk')
   }
 
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk, NFData x, NFData y, NFData gen', NFData sk', NFData x', NFData y')
+instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y']
   => NFData (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   rnf (Transform s t g a) = deepseq s $ deepseq t $ deepseq g $ rnf a
 
-instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk,
-          Show x, Show y, Show gen', Show sk', Show x', Show y')
+instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y']
   => Show (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   show (Transform _ _ gens' sks') =
     "transform {" ++
@@ -61,7 +80,7 @@ instance (Show var, Show ty, Show sym, Show en, Show fk, Show att, Show gen, Sho
    where ens'' = Prelude.map (\(s,t) -> show s ++ " -> " ++ show t) $ Map.toList gens'
          fks'' = Prelude.map (\(k,s) -> show k ++ " -> " ++ show s) $ Map.toList sks'
 
-instance (Eq var, Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk, Eq x, Eq y, Eq gen', Eq sk', Eq x', Eq y')
+instance TyMap Eq '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y']
   => Eq (Transform var ty sym en fk att gen sk x y gen' sk' x' y') where
   (==) (Transform s1 s2 gens' sks') (Transform s1' s2' gens'' sks'')
     = (s1 == s1') && (s2 == s2') && (gens' == gens'') && (sks' == sks'')
@@ -73,14 +92,14 @@ tSks :: Transform var ty sym en fk att gen sk x y gen' sk' x' y' -> Map sk  (Ter
 tSks = sks
 
 typecheckTransform
-  :: (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, gen', sk'])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att], MultiTyMap '[Show, Ord, NFData] '[var, ty, gen, sk, x, y, gen', sk', x', y'])
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
 typecheckTransform m = typeOfMor $ transToMor m
 
 validateTransform
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y' -- need forall
-  . (ShowOrdN '[var, ty, sym, en, fk, att, gen, sk, gen', sk'])
+  . (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att], MultiTyMap '[Show, Ord, NFData] '[var, ty, gen, sk, x, y, gen', sk', x', y'])
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
 validateTransform m@(Transform src' dst' _ _) =
@@ -95,7 +114,7 @@ validateTransform m@(Transform src' dst' _ _) =
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
 transToMor
-  :: (ShowOrdN '[var, ty, sym, en', fk', att', gen, sk, gen', sk'])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, gen, sk, en', fk', att', gen', sk'])
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
 transToMor (Transform src' dst' gens' sks') =
@@ -113,7 +132,7 @@ transToMor (Transform src' dst' gens' sks') =
 data TransformEx :: * where
   TransformEx
     :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
-    . (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
+    . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
     => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
     -> TransformEx
 
@@ -168,7 +187,7 @@ getOptionsTransform x = case x of
 -- Evaluation
 
 composeTransform
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y', gen'', sk'', x'', y''])
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y', gen'', sk'', x'', y''])
   =>      Transform var ty sym en fk att gen  sk  x  y  gen'  sk'  x'  y'
   ->      Transform var ty sym en fk att gen' sk' x' y' gen'' sk'' x'' y''
   -> Err (Transform var ty sym en fk att gen  sk  x  y  gen'' sk'' x'' y'')
@@ -180,7 +199,7 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _)
     a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
 
 evalSigmaTrans
-  :: (ShowOrdTypeableN '[var, ty, sym, gen, sk, en', fk', att', gen', sk'], Ord en, Ord fk, Ord att)
+  :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk', x', y'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Options
@@ -194,8 +213,7 @@ evalSigmaTrans f (Transform src0 dst0 gens' sks') o = do
     sks''  = changeEn  (M.fks f) (M.atts f) <$> sks'
 
 evalDeltaSigmaUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att'
-  . (ShowOrdTypeableN '[var, ty, sym, gen , sk, en', fk', att', en, fk, att])
+  :: forall var ty sym en fk att gen sk x y en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att', gen, sk, x, y])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en fk att gen sk x y
   -> Options
@@ -210,8 +228,7 @@ evalDeltaSigmaUnit m i o = do
     g j sk  _   = upp $     nf'' (algebra j) $ Sk  sk
 
 evalDeltaSigmaCoUnit
-  :: forall var ty sym en fk att gen sk x y en' fk' att'
-  .  (ShowOrdTypeableN '[var, ty, sym, en, x, y, en', fk', att', fk, att])
+  :: forall var ty sym en fk att gen sk x y en' fk' att'. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y
   -> Options
@@ -225,7 +242,7 @@ evalDeltaSigmaCoUnit m i o = do
     g _ (sk      , _) = (sk      , repr' (algebra i) sk)
 
 evalDeltaTrans
-  :: (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y', en', fk', att'])
+  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, en', fk', att', gen, sk, x, y, gen', sk', x', y'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Transform var ty sym en' fk' att' gen sk x y gen' sk' x' y'
   -> Options
@@ -253,7 +270,7 @@ data TransExpRaw'
 -- | Evaluates a literal into a transform.
 evalTransformRaw
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
-  .  (ShowOrdTypeableN '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
+  .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
   => Instance var ty sym en fk att gen  sk  x  y
   -> Instance var ty sym en fk att gen' sk' x' y'
   -> TransExpRaw'
@@ -266,13 +283,13 @@ evalTransformRaw s t h is = do
   pure $ TransformEx r
   where
     doImports [] = return []
-    doImports (TransformEx ts : r) = case cast ts of
+    doImports ((TransformEx ts):r) = case cast ts of
       Nothing  -> Left "Bad import"
       Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
 evalTransformRaw'
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
-  . (Typeable sym, Ord fk, Typeable fk, Ord att, Typeable att, Ord gen, Typeable gen, Ord sk, Typeable sk, Ord gen', Typeable gen', Ord sk', Typeable sk')
+  .  (MultiTyMap '[Ord, Typeable] '[fk, att, gen, sk, gen', sk'], Typeable sym)
   => Instance var ty sym en fk att gen  sk  x  y
   -> Instance var ty sym en fk att gen' sk' x' y'
   -> TransExpRaw'

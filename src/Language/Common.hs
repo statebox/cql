@@ -1,3 +1,23 @@
+{-
+SPDX-License-Identifier: AGPL-3.0-only
+
+This file is part of `statebox/cql`, the categorical query language.
+
+Copyright (C) 2019 Stichting Statebox <https://statebox.nl>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-}
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
@@ -21,7 +41,6 @@
 module Language.Common where
 
 import           Control.Arrow   (left)
-import           Control.DeepSeq
 import           Data.Char
 import           Data.Foldable   as Foldable (foldl, toList)
 import           Data.Kind
@@ -119,14 +138,21 @@ member' k m = elem' k (Map.keys m)
 mergeMaps :: Ord k => [Map k v] -> Map k v
 mergeMaps = foldl Map.union Map.empty
 
+-- | Allows to set a constraint for multiple type variables at the same time.
+-- For example you could use `TyMap Show '[a, b, c]` instead of
+-- `(Show a, Show b, Show c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
 type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
-type family ShowOrdN (xs :: [*]) :: Constraint
-type instance ShowOrdN '[] = ()
-type instance ShowOrdN (t ': ts) = (Show t, Ord t, NFData t, ShowOrdN ts)
-
-type family ShowOrdTypeableN (xs :: [*]) :: Constraint
-type instance ShowOrdTypeableN '[] = ()
-type instance ShowOrdTypeableN (t ': ts) = (Show t, Ord t, Typeable t, NFData t, ShowOrdTypeableN ts)
+-- | Allows to set multiple contraints for multiple type variables at the same
+-- time.
+-- For example you could use `MultiTyMap '[Show, Ord] '[a, b, c]` insted of
+-- `(Show a, Ord a, Show b, Ord b, Show c, Ord c)`
+-- The drawback of using this is that the compiler will treat this as a unique
+-- constraint, so it won't be able to detect specific unused constraints
+type family MultiTyMap (fs :: [* -> Constraint]) (xs :: [*]) :: Constraint
+type instance MultiTyMap '[] _ = ()
+type instance MultiTyMap (f : fs) xs = (TyMap f xs, MultiTyMap fs xs)
