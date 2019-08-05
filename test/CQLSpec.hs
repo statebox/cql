@@ -66,12 +66,12 @@ spec = do
     fileContent <- liftIO $ readFile ("examples/Congruence.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  it "processes correctly the example file KB.aql" $ do
-    fileContent <- liftIO $ readFile ("examples/KB.aql" :: String)
+  it "processes correctly the example file KB.cql" $ do
+    fileContent <- liftIO $ readFile ("examples/KB.cql" :: String)
     parsed <- pure $ runProg fileContent
     isRight parsed `shouldBe` True
-  -- it "processes correctly the example file Petri.aql" $ do
-  --   fileContent <- liftIO $ readFile ("examples/Petri.aql" :: String)
+  -- it "processes correctly the example file Petri.cql" $ do
+  --   fileContent <- liftIO $ readFile ("examples/Petri.cql" :: String)
   --   parsed <- pure $ runProg fileContent
   --   isRight parsed `shouldBe` True
   -- print typesideDom
