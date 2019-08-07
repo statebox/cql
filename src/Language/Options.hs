@@ -21,6 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE EmptyDataDeriving #-}
 
 module Language.Options where
+
 import           Data.Void
 import           Language.Common
 import           Text.Read
@@ -181,4 +182,3 @@ type CharOption = Void
  --  Csv_Escape_Char
  --  Csv_Quote_Char
  --  deriving (Eq, Ord, Show, Enum)
-

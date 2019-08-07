@@ -20,13 +20,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 module Language.Parser.Mapping where
 
-import           Data.Maybe
 import           Language.Mapping
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
 import           Language.Parser.Schema     hiding (attParser, fkParser)
 import           Language.Term
+
+-- megaparsec
 import           Text.Megaparsec
+
+-- prelude
+import           Data.Maybe
 
 --------------------------------------------------------------------------------
 
@@ -41,8 +45,7 @@ attParser :: Parser (String, Either (String, Maybe String, RawTerm) [String])
 attParser = do
   x <- identifier
   _ <- constant "->"
-  z <- c1 x <|> c2 x
-  return z
+  c1 x <|> c2 x
   where
     c1 x = do
       _ <- constant "lambda"
@@ -52,7 +55,7 @@ attParser = do
         identifier
       _ <- constant "."
       e <- rawTermParser
-      return $ (x, Left (y, z, e))
+      return (x, Left (y, z, e))
     c2 x = do
       y <- sepBy1 identifier $ constant "."
       return (x, Right y)
@@ -73,8 +76,7 @@ mappingRawParser = do
   s <- schemaExpParser
   _ <- constant "->"
   t <- schemaExpParser
-  m <- braces $ (q' s t)
-  pure $ m
+  braces $ q' s t
   where
     p = do
       x <- do
@@ -89,7 +91,7 @@ mappingRawParser = do
       a <- optional $ do
         _ <- constant "attributes"
         many attParser
-      pure $ (x, fromMaybe [] f, fromMaybe [] a)
+      pure (x, fromMaybe [] f, fromMaybe [] a)
     q' s t = do
       i <- optional $ do
         _ <- constant "imports"
@@ -99,16 +101,18 @@ mappingRawParser = do
         _ <- constant "options"
         many optionParser
       pure $ q s t (fromMaybe [] o) (fromMaybe [] i) m
-    q s t o i = Prelude.foldr (\(x,fm,am) (MappingExpRaw' s' t' ens' fks' atts' o' i') -> MappingExpRaw' s' t' (x:ens') (fm++fks') (am++atts') o' i') (MappingExpRaw' s t [] [] [] o i)
+    q s t o i = Prelude.foldr
+      (\(x,fm,am) (MappingExpRaw' s' t' ens' fks' atts' o' i') -> MappingExpRaw' s' t' (x:ens') (fm++fks') (am++atts') o' i')
+      (MappingExpRaw' s t [] [] [] o i)
 
 
 mapExpParser :: Parser MappingExp
-mapExpParser = mapCompParser
+mapExpParser
+  =   mapCompParser
   <|> MappingRaw <$> mappingRawParser
   <|> MappingVar <$> identifier
   <|> parens mapExpParser
   <|> do
     _ <- constant "identity"
-    x <- schemaExpParser
-    return $ MappingId x
+    MappingId <$> schemaExpParser
 

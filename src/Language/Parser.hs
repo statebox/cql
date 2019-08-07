@@ -40,35 +40,35 @@ parseCqlProgram' = do
   x <- identifier
   _ <- constant "="
   y <- typesideExpParser
-  return $ (x, ExpTy y)
+  return (x, ExpTy y)
   <|>
   do
     _ <- constant "schema"
     x <- identifier
     _ <- constant "="
     y <- schemaExpParser
-    return $ (x, ExpS y)
+    return (x, ExpS y)
   <|>
   do
     _ <- constant "instance"
     x <- identifier
     _ <- constant "="
     y <- instExpParser
-    return $ (x, ExpI y)
+    return (x, ExpI y)
   <|>
   do
     _ <- constant "mapping"
     x <- identifier
     _ <- constant "="
     y <- mapExpParser
-    return $ (x, ExpM y)
+    return (x, ExpM y)
   <|>
   do
     _ <- constant "transform"
     x <- identifier
     _ <- constant "="
     y <- transExpParser
-    return $ (x, ExpT y)
+    return (x, ExpT y)
 
 parseCqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
 parseCqlProgram'' = between spaceConsumer eof g
@@ -98,4 +98,4 @@ parseCqlProgram s = case runParser parseCqlProgram'' "" s of
   Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
   Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
     then pure $ toProg' o x
-    else Left $ "Duplicate definition: " ++ show (nub ((fst $ unzip x) \\ (nub $ fst $ unzip x)))
+    else Left $ "Duplicate definition: " ++ show (nub (fmap fst x \\ nub (fmap fst x)))

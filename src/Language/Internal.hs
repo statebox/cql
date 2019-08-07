@@ -28,21 +28,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #-}
 module Language.Internal where
 
-import           Prelude hiding (any,abs)
+import           Prelude                       hiding (abs, any)
 
 import           Control.Arrow
 import           Control.Monad
-import           Control.Monad.Trans.UnionFind (Point,UnionFindT,fresh)
+import           Control.Monad.Trans.UnionFind (Point, UnionFindT, fresh)
 import qualified Control.Monad.Trans.UnionFind as U
 
-import           Data.Ord
-import qualified Data.List as L
+import qualified Data.List                     as L
 --import           Data.Sequence (Seq)
-import           Data.Maybe (fromJust)
-import           Data.Map (Map)
-import           Data.Foldable (traverse_)
-import           Data.Traversable (traverse)
-import           Data.Graph.Inductive hiding (Graph)
+import           Data.Foldable                 (traverse_)
+import           Data.Graph.Inductive          hiding (Graph)
+import           Data.Map                      (Map)
+import           Data.Maybe                    (fromJust)
+import           Data.Traversable              (traverse)
 
 
 
@@ -51,7 +50,7 @@ newtype Conjunctions t = Conjunction [Equation t]
 data Equation t
   =    Equal (Term t) (Term t)
   | NotEqual (Term t) (Term t)
-data Term t = Function t [(Term t)]
+data Term t = Function t [Term t]
   deriving (Eq, Ord)
 
 data Satisfiability t = Satisfiable (Model t) | Unsatisfiable
@@ -69,7 +68,7 @@ infix 4 =/=
 
 instance Show t => Show (Term t) where
   show (Function sym childs) =
-    show sym ++ "(" ++ concat (L.intersperse "," (map show childs)) ++ ")"
+    show sym ++ "(" ++ L.intercalate "," (map show childs) ++ ")"
 
 class Conjunction t a | a -> t where
   (/\) :: Equation t -> a -> Conjunctions t
@@ -138,7 +137,7 @@ predecessors gr (Vert (x,_)) = label gr <$> pre (graph gr) x
 successors :: Graph t -> Vert t -> [Vert t]
 successors gr (Vert (x,_)) = label gr <$> suc (graph gr) x
 
-terms :: [Equation t] -> [((Term t), (Term t))]
+terms :: [Equation t] -> [(Term t, Term t)]
 terms = map go
   where
     go e = case e of
@@ -154,7 +153,7 @@ term (Graph (_,gr0)) (Vert (n0,_)) = go gr0 n0
         (Nothing,_) -> error "context is Nothing"
         (Just (_,_,(sym,_),out0),gr') ->
           Function sym $ map (go gr') $ sortEdges out0
-    sortEdges out0 = map snd $ L.sortBy (comparing fst) out0
+    sortEdges out0 = map snd $ L.sortOn fst out0
 
 partition :: Ord t => Graph t -> (Equation t -> Bool) -> [Equation t] -> ([(Vert t,Vert t)],[(Vert t,Vert t)])
 partition gr f equations =
@@ -164,9 +163,7 @@ partition gr f equations =
 unless :: Monad m => m Bool -> m () -> m ()
 unless mbool m = do
   b <- mbool
-  if b
-    then return ()
-    else m
+  Control.Monad.unless b m
 
 instance Show t => Show (Vert t) where
   show (Vert (n, _)) = show n

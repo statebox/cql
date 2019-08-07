@@ -61,7 +61,7 @@ data Query var ty sym en fk att en' fk' att'
 instance TyMap Show '[var, ty, sym, en, fk, att, en', fk', att']
   => Show (Query var ty sym en fk att en' fk' att') where
   show (Query _ _ ens' fks' atts') =
-      "ens = "  ++ show ens'  ++
+    "ens = "  ++ show ens'  ++
     "\nfks = "  ++ show fks'  ++
     "\natts = " ++ show atts'
 

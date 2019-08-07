@@ -18,21 +18,23 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
+
+{-# LANGUAGE TupleSections #-}
+
 module Language.Parser.Schema where
 
 import           Language.Parser.LexerRules
 import           Language.Parser.Parser
+import           Language.Parser.Typeside
+import           Language.Schema            as X
+import           Language.Term
+import           Language.Typeside
 
 -- base
 import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
-
-import           Language.Parser.Typeside
-import           Language.Schema            as X
-import           Language.Term
-import           Language.Typeside
 
 obsEqParser :: Parser (String, Maybe String, RawTerm, RawTerm)
 obsEqParser = do
@@ -55,7 +57,7 @@ fkParser = do
   y <- identifier
   _ <- constant "->"
   z <- identifier
-  return $ map (\a -> (a, (y, z))) x
+  return $ map (, (y, z)) x
 
 pathEqParser :: Parser ([Fk],[Fk])
 pathEqParser = do
@@ -69,8 +71,7 @@ schemaRawParser = do
   _ <- constant "literal"
   _ <- constant ":"
   t <- typesideExpParser
-  schemaLiteral <- (braces $ p t)
-  pure $ schemaLiteral
+  braces $ p t
   where
     p t = do
       i <- optional $ do
@@ -104,13 +105,11 @@ schemaRawParser = do
         (fromMaybe [] i )
 
 schemaExpParser :: Parser X.SchemaExp
-schemaExpParser =
-  SchemaRaw <$> schemaRawParser
-    <|>
-  SchemaVar <$> identifier
-    <|>
-  do _ <- constant "empty"
-     _ <- constant ":"
-     x <- typesideExpParser
-     return $ SchemaInitial x
-    <|> parens schemaExpParser
+schemaExpParser
+  =   SchemaRaw <$> schemaRawParser
+  <|> SchemaVar <$> identifier
+  <|> do
+    _ <- constant "empty"
+    _ <- constant ":"
+    SchemaInitial <$> typesideExpParser
+  <|> parens schemaExpParser

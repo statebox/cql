@@ -93,10 +93,8 @@ createProver col ops = do
   case p of
     Free       -> freeProver col
     Orthogonal -> orthProver col ops
-    Auto       -> if Set.null (ceqs col)
-      then if eqsAreGround col
-           then congProver col
-           else orthProver col ops
+    Auto       -> if Set.null (ceqs col) && eqsAreGround col
+      then congProver col
       else orthProver col ops
     Completion -> kbProver col ops
     Congruence -> congProver col
@@ -156,7 +154,7 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
         g q = not $ (CP.left q) == (CP.right q)
 
     noOverlaps :: (Ord v, Eq f) => [Rule f v] -> Bool
-    noOverlaps x = (and $ Prelude.map R.isLeftLinear x) && (Prelude.null $ findCps x)
+    noOverlaps x = all R.isLeftLinear x && Prelude.null (findCps x)
 
     isDecreasing :: Eq var => [EQ var ty sym en fk att gen sk] -> Bool
     isDecreasing [] = True
@@ -198,12 +196,12 @@ instance Show x => Pretty (Constant x) where
 instance Show x => PrettyTerm (Constant x) where
 
 instance (Show x, Ord x, Typeable x) => Ordered (Extended (Constant x)) where
-  lessEq t u = KBO.lessEq t u
-  lessIn model t u = KBO.lessIn model t u
+  lessEq = KBO.lessEq
+  lessIn = KBO.lessIn
 
 instance EqualsBonus (Constant x) where
   hasEqualsBonus = isJust . con_bonus
-  isEquals = not . isJust . fromJust . con_bonus
+  isEquals = isNothing . fromJust . con_bonus
   isTrue = fromJust . fromJust . con_bonus
   isFalse = fromJust . fromJust . con_bonus
 
@@ -313,5 +311,3 @@ convertCong x = case x of
   S.Att g a  -> Cong.Function (HAtt g) [convertCong a]
   S.Fk  g a  -> Cong.Function (HFk  g) [convertCong a]
   S.Sym g as -> Cong.Function (HSym g) $ fmap convertCong as
-
-

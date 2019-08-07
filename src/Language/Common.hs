@@ -64,15 +64,15 @@ fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
     op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
     r  = fromListAccum kvs
 
-showCtx :: (Show a1, Show a2) => Map a1 a2 -> [Char]
-showCtx m = intercalate " " $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
+showCtx :: (Show a1, Show a2) => Map a1 a2 -> String
+showCtx m = unwords $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
 
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' [] = return Set.empty
 fromList'' (k:l) = do
   l' <- fromList'' l
   if Set.member k l'
-  then Left $ "Duplicate binding: " ++ (show k)
+  then Left $ "Duplicate binding: " ++ show k
   else pure $ Set.insert k l'
 
 -- | Converts a map to a finite list, returning an error when there are duplicate bindings.
@@ -81,7 +81,7 @@ toMapSafely [] = return Map.empty
 toMapSafely ((k,v):l) = do
   l' <- toMapSafely l
   if Map.member k l'
-  then Left $ "Duplicate binding: " ++ (show k)
+  then Left $ "Duplicate binding: " ++ show k
   else pure $ Map.insert k v l'
 
 showCtx'' :: (Show a1, Show a2) => Map a1 a2 -> String
@@ -102,7 +102,7 @@ type Err = Either String
 
 -- generic helper inspired by https://pursuit.purescript.org/search?q=note
 note :: b -> Maybe a -> Either b a
-note n x = maybe (Left n) Right x
+note n = maybe (Left n) Right
 
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
  deriving (Show, Eq, Ord)
@@ -110,8 +110,8 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
 type ID = Integer
 
 
-showCtx' :: (Show a1, Show a2) => Map a1 a2 -> [Char]
-showCtx' m = intercalate "\n\t" $ fmap (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
+showCtx' :: (Show a1, Show a2) => Map a1 a2 -> String
+showCtx' m = intercalate "\n\t" $ (\(k,v) -> show k ++ " : " ++ show v) <$> Map.toList m
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.
@@ -129,7 +129,7 @@ toLowercase = Prelude.map toLower
 
 -- | Heterogenous membership in a list
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool
-elem' x ys = maybe False (flip elem ys) (cast x)
+elem' x ys = maybe False (`elem` ys) (cast x)
 
 -- | Heterogenous membership in the keys of a map list
 member' :: (Typeable t, Typeable a, Eq a) => t -> Map a v -> Bool

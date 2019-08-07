@@ -18,22 +18,24 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
+{-# LANGUAGE TupleSections         #-}
+
 module Language.Parser.Instance where
 
+import           Language.Instance          as I
+import           Language.Mapping
 import           Language.Parser.LexerRules
+import           Language.Parser.Mapping    as M
 import           Language.Parser.Parser
+import           Language.Parser.Schema
+import           Language.Schema            as S
+import           Language.Term
 
 -- base
 import           Data.Maybe
 
 -- megaparsec
 import           Text.Megaparsec
-
-import           Language.Instance          as I
-import           Language.Parser.Mapping    as M
-import           Language.Parser.Schema
-import           Language.Schema            as S
-import           Language.Term
 
 eqParser :: Parser (RawTerm, RawTerm)
 eqParser = do
@@ -61,67 +63,66 @@ eqParser2 = do
 skParser :: Parser [(Gen, En)]
 skParser = genParser
 
-
 genParser :: Parser [(Gen, En)]
 genParser = do
   x <- some identifier
   _ <- constant ":"
   y <- identifier
-  return $ map (\a -> (a,y)) x
+  return $ map (, y) x
+
+mapInstParser :: String -> (MappingExp -> InstanceExp -> [(String, String)] -> InstanceExp) -> Parser InstanceExp
+mapInstParser s constructor = do
+  _ <- constant s
+  f <- mapExpParser
+  i <- instExpParser
+  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
+  return $ constructor f i $ fromMaybe [] o
 
 sigmaParser :: Parser InstanceExp
-sigmaParser = do
-  _ <- constant "sigma"
-  f <- mapExpParser
-  i <- instExpParser
-  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ InstanceSigma f i $ fromMaybe [] o
-
+sigmaParser = mapInstParser "sigma" InstanceSigma
 
 deltaParser :: Parser InstanceExp
-deltaParser = do
-  _ <- constant "delta"
-  f <- mapExpParser
-  i <- instExpParser
-  o <- optional $ braces $ do { _ <- constant "options"; many optionParser }
-  return $ InstanceDelta f i $ fromMaybe [] o
+deltaParser = mapInstParser "delta" InstanceDelta
 
 instRawParser :: Parser InstExpRaw'
 instRawParser = do
   _ <- constant "literal"
   _ <- constant ":"
   t <- schemaExpParser
-  x <- (braces $ p t)
-  pure $ x
-  where p t = do i <- optional $ do
-                    _ <- constant "imports"
-                    many instExpParser
-                 e <- optional $ do
-                    _ <- constant "generators"
-                    y <- many genParser
-                    return $ concat y
-                 o <- optional $ do
-                    _ <- constant "equations"
-                    many eqParser
-                 o2 <- optional $ do
-                    _ <- constant "multi_equations"
-                    eqParser2
-                 x <- optional $ do
-                    _ <- constant "options"
-                    many optionParser
-                 pure $ InstExpRaw' t
-                    (fromMaybe [] e)
-                    (fromMaybe [] o ++ fromMaybe [] o2)
-                    (fromMaybe [] x)
-                    (fromMaybe [] i)
+  braces $ p t
+  where
+    p t = do
+      i <- optional $ do
+        _ <- constant "imports"
+        many instExpParser
+      e <- optional $ do
+        _ <- constant "generators"
+        y <- many genParser
+        return $ concat y
+      o <- optional $ do
+        _ <- constant "equations"
+        many eqParser
+      o2 <- optional $ do
+        _ <- constant "multi_equations"
+        eqParser2
+      x <- optional $ do
+        _ <- constant "options"
+        many optionParser
+      pure $ InstExpRaw' t
+        (fromMaybe [] e)
+        (fromMaybe [] o ++ fromMaybe [] o2)
+        (fromMaybe [] x)
+        (fromMaybe [] i)
 
 instExpParser :: Parser InstanceExp
-instExpParser = InstanceRaw <$> instRawParser
-    <|> InstanceVar  <$> identifier
-    <|> sigmaParser  <|> deltaParser
-    <|> do
-        _ <- constant "empty"
-        _ <- constant ":"
-        x <- schemaExpParser
-        return $ InstanceInitial x
-    <|> parens instExpParser
+instExpParser
+  =   InstanceRaw   <$> instRawParser
+  <|> InstanceVar   <$> identifier
+  <|> InstancePivot <$> (constant "pivot" *> instExpParser)
+  <|> sigmaParser
+  <|> deltaParser
+  <|> do
+    _ <- constant "empty"
+    _ <- constant ":"
+    InstanceInitial <$> schemaExpParser
+  <|> parens instExpParser

@@ -22,7 +22,6 @@ module Language.Parser.Generator.Generator where
 
 import           Language.Parser.ReservedWords
 
-
 -- QuickCheck
 import           Test.QuickCheck.Gen
 
@@ -43,19 +42,19 @@ upperIdGen :: Gen String
 upperIdGen =
   ((:) <$> upperCharGen <*>
     listOf (oneof [idCharGen, digitCharGen])) `suchThat`
-      (\s -> not (s `elem` reservedWords))
+      (`notElem` reservedWords)
 
 lowerIdGen :: Gen String
 lowerIdGen =
   ((:) <$> lowerCharGen <*>
     listOf (oneof [idCharGen, digitCharGen])) `suchThat`
-      (\s -> not (s `elem` reservedWords))
+      (`notElem` reservedWords)
 
 specialIdGen :: Gen String
 specialIdGen = (:) <$> idCharGen <*> listOf (oneof [idCharGen, digitCharGen])
 
 identifierGen :: Gen String
-identifierGen = (oneof [lowerIdGen, upperIdGen, specialIdGen])
+identifierGen = oneof [lowerIdGen, upperIdGen, specialIdGen]
 
 boolGen :: Gen Bool
 boolGen = oneof [pure True, pure False]

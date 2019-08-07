@@ -31,6 +31,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -102,7 +103,7 @@ newTypes :: KindCtx ts s i m q t ()
 newTypes = newEnv ()
 
 newEnv :: o -> KindCtx ts s i m q t o
-newEnv o = KindCtx m m m m m m o
+newEnv = KindCtx m m m m m m
   where m = Map.empty
 
 instance TyMap Show '[ts, s, i, m, q, t, o] => Show (KindCtx ts s i m q t o) where
@@ -117,10 +118,9 @@ instance TyMap Show '[ts, s, i, m, q, t, o] => Show (KindCtx ts s i m q t o) whe
 
 allVars :: KindCtx ts s i m q t o -> [(String, Kind)]
 allVars x =
-  (fmap (\x'->(x', TYPESIDE )) $ keys $ typesides  x) ++
-  (fmap (\x'->(x', SCHEMA   )) $ keys $ schemas    x) ++
-  (fmap (\x'->(x', INSTANCE )) $ keys $ instances  x) ++
-  (fmap (\x'->(x', MAPPING  )) $ keys $ mappings   x) ++
-  (fmap (\x'->(x', QUERY    )) $ keys $ queries    x) ++
-  (fmap (\x'->(x', TRANSFORM)) $ keys $ transforms x)
-
+  fmap (, TYPESIDE ) (keys $ typesides  x) ++
+  fmap (, SCHEMA   ) (keys $ schemas    x) ++
+  fmap (, INSTANCE ) (keys $ instances  x) ++
+  fmap (, MAPPING  ) (keys $ mappings   x) ++
+  fmap (, QUERY    ) (keys $ queries    x) ++
+  fmap (, TRANSFORM) (keys $ transforms x)
