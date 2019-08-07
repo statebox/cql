@@ -31,7 +31,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
-
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
@@ -644,7 +643,7 @@ pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) = (sch', 
     dp' (EQ (l, r)) = idp $ EQ (instToInst l, instToInst r)
 
     ens' = Set.singleton
-    gen'  = id
+    gen' = id
     fk' (x, f) (x', _) | x == x' = (fk f x', snd $ Schema.sch_fks sch ! f)
                        | otherwise = error "anomaly, please report"
     rep'  = Gen
@@ -669,14 +668,17 @@ pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) = (sch', 
     inst  = Instance sch' (Presentation gens' sks' eqs') dp' alg'
     mapp  = Mapping sch' sch em fm am
 
-    schToInst' :: x -> Term () ty sym (x, en) (x, fk) (x, att) Void Void -> Term Void ty sym en fk att gen sk
+    schToInst'
+      :: x
+      -> Term ()   ty sym (x, en) (x, fk) (x, att) Void Void
+      -> Term Void ty sym     en      fk      att  gen  sk
     schToInst' x z = case z of
       Sym f as     -> Sym f $ fmap (schToInst' x) as
       Att (_, f) a -> Att f $ schToInst' x a
       Sk x0        -> absurd x0
       Var ()       -> upp $ fn x
       Fk (_, f) a  -> Fk f $ schToInst' x a
-      Gen x0       ->  absurd x0
+      Gen x0       -> absurd x0
 
     instToInst :: Term Void ty sym (x, en) (x, fk) (x, att) (x, en) y -> Term Void ty sym en fk att gen sk
     instToInst z = case z of
