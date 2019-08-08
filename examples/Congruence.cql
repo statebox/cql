@@ -1,5 +1,5 @@
-prover
-    options = congruence
+options
+    prover = congruence
 
 typeside T = literal {
     types
