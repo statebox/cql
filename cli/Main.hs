@@ -23,12 +23,25 @@ module Main where
 import           Language.CQL
 import           System.Environment
 
-
 main :: IO ()
-main = do args <- getArgs
-          w <- mapM readFile args
-          _ <- mapM (putStrLn . f' . runProg) w
-          return ()
- where f' (Left x)        = x
-       f' (Right (_,t,c)) = show t ++ "\n\n-------------------\n\n" ++ show c
+main = do
+  args <- getArgs
+  src  <- mapM readFile args
+  _    <- mapM (putStrLn . showResult . runProg) src
+  return ()
+  where
+    showResult r = case r of
+      Right (_, types, env) ->
+        "////////////////////////////////////////////////////////////////////////////////\n" ++
+        "// types                                                                      //\n" ++
+        "////////////////////////////////////////////////////////////////////////////////\n" ++
+        "\n" ++
+        "\n" ++
+        show types ++
+        "////////////////////////////////////////////////////////////////////////////////\n" ++
+        "// environment                                                                //\n" ++
+        "////////////////////////////////////////////////////////////////////////////////\n" ++
+        "\n" ++
+        show env
+      Left err -> err
 
