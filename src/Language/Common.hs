@@ -47,6 +47,7 @@ import           Data.Kind
 import           Data.Map.Strict as Map hiding (foldl)
 import           Data.Maybe
 import           Data.Set        as Set (Set, empty, insert, member, singleton)
+import           Data.String     (lines)
 import           Data.Typeable
 
 split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
@@ -112,6 +113,12 @@ type ID = Integer
 
 showCtx' :: (Show a1, Show a2) => Map a1 a2 -> String
 showCtx' m = intercalate "\n\t" $ (\(k,v) -> show k ++ " : " ++ show v) <$> Map.toList m
+
+section :: String -> String -> String
+section heading body =  heading ++ "\n" ++ indentLines body  ++ "\n"
+
+indentLines :: String -> String
+indentLines = foldMap (\l -> "\t" <> l <> "\n"). lines
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.

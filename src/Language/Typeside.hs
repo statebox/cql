@@ -94,7 +94,9 @@ data TypesideEx :: * where
 instance NFData TypesideEx where
   rnf (TypesideEx x) = rnf x
 
-deriving instance Show TypesideEx
+-- TypesideEx is an implementation detail, so hide its presence
+instance (Show TypesideEx) where
+  show (TypesideEx i) = show i
 
 ------------------------------------------------------------------------------------------------------------
 -- Literal typesides

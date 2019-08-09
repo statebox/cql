@@ -94,13 +94,20 @@ instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] =>
   Show (Term var ty sym en fk att gen sk)
   where
     show x = case x of
-     Var v      -> show v
-     Gen g      -> show g
-     Sk  s      -> show s
-     Fk  fk  a  -> show a ++ "." ++ show fk
-     Att att a  -> show a ++ "." ++ show att
-     Sym sym [] -> show sym
-     Sym sym az -> show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
+      Var v      -> dropQuotes $ show v
+      Gen g      -> show' g
+      Sk  s      -> show' s
+      Fk  fk  a  -> show' a ++ "." ++ show' fk
+      Att att a  -> show' a ++ "." ++ show' att
+      Sym sym [] -> show' sym
+      Sym sym az -> show' sym ++ "(" ++ (intercalate "," . fmap show' $ az) ++ ")"
+
+show' :: Show a => a -> String
+show' = dropQuotes . show
+
+dropQuotes :: String -> String
+dropQuotes s = if '\"' `elem` s then Prelude.filter (not . ('\"' ==)) s
+                                else s
 
 deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
 
@@ -116,11 +123,11 @@ data Head ty sym en fk att gen sk =
 instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
   => Show (Head ty sym en fk att gen sk) where
   show x = case x of
-    HSym  sym -> show sym
-    HFk   fk  -> show fk
-    HAtt  att -> show att
-    HGen  gen -> show gen
-    HSk   sk  -> show sk
+    HSym  sym -> show' sym
+    HFk   fk  -> show' fk
+    HAtt  att -> show' att
+    HGen  gen -> show' gen
+    HSk   sk  -> show' sk
 
 -- | Maps functions through a term.
 mapTerm

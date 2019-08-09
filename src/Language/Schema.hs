@@ -171,7 +171,9 @@ data SchemaEx :: * where
     => Schema var ty sym en fk att
     -> SchemaEx
 
-deriving instance Show SchemaEx
+-- SchemaEx is an implementation detail, so hide its presence
+instance (Show SchemaEx) where
+  show (SchemaEx i) = show i
 
 instance NFData SchemaEx where
   rnf (SchemaEx x) = rnf x

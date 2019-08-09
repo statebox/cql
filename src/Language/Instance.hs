@@ -792,26 +792,28 @@ evalDeltaInst m i _ = pure $ Instance (src m) (algebraToPresentation alg) eq' al
 -------------------------------------------------------------------------------------------------------------------
 -- Printing
 
-deriving instance Show InstanceEx
+-- InstanceEx is an implementation detail, so hide its presence
+instance (Show InstanceEx) where
+  show (InstanceEx i) = show i
 
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
   => Show (Instance var ty sym en fk att gen sk x y) where
   show (Instance _ p _ alg) =
     "instance\n" ++
-    show p ++ "\n" ++
-    show alg
+    (indentLines $ "presentation" ++ "\n" ++ show p) ++ "\n" ++
+    (indentLines $ "algebra" ++ "\n" ++ show alg) ++ "\n"
 
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
   show alg@(Algebra sch _ _ _ _ ty' _ _ teqs') =
-    "algebra" ++ "\n" ++
-    intercalate "\n\n" prettyEntities ++ "\n" ++
+    "entities" ++ "\n" ++
+    (indentLines $ intercalate "\n" prettyEntities) ++ "\n" ++
     "type-algebra" ++ "\n" ++
+    indentLines prettyTypeEqns ++ "\n" ++
     "nulls" ++ "\n" ++
-    w ++
-    prettyTypeEqns
+    indentLines w
     where
-      w = "  " ++ (intercalate "\n  " . mapl w2 . Typeside.tys . Schema.typeside $ sch)
+      w = intercalate "\n" . mapl w2 . Typeside.tys . Schema.typeside $ sch
       w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
       prettyEntities = prettyEntityTable alg `mapl` Schema.ens sch
       prettyTypeEqns = intercalate "\n" (Set.map show teqs')
@@ -823,7 +825,7 @@ prettyEntity
   -> String
 prettyEntity alg@(Algebra sch en' _ _ _ _ _ _ _) es =
   show es ++ " (" ++ (show . Set.size $ en' es) ++ ")\n" ++
-  "-------------\n" ++
+  "--------------------------------------------------------------------------------\n" ++
   intercalate "\n" (prettyEntityRow es `mapl` en' es)
   where
     -- prettyEntityRow :: en -> x -> String
@@ -872,6 +874,7 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
 
 instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk]
   => Show (Presentation var ty sym en fk att gen sk) where
-  show (Presentation ens' _ eqs') = "presentation {\n" ++
-    "generators\n\t" ++ showCtx' ens' ++ "\n" ++
-    "equations\n\t" ++ intercalate "\n\t" (Set.map show eqs') ++ "}"
+  show (Presentation ens' _ eqs') =
+    indentLines $
+      "generators\n\t" ++ showCtx' ens' ++ "\n" ++
+      "equations\n\t" ++ intercalate "\n\t" (Set.map show eqs') ++ "\n"
