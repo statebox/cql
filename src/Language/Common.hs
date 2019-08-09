@@ -118,7 +118,10 @@ section :: String -> String -> String
 section heading body =  heading ++ "\n" ++ indentLines body
 
 indentLines :: String -> String
-indentLines = foldMap (\l -> "\t" <> l <> "\n"). lines
+indentLines = foldMap (\l -> tab <> l <> "\n"). lines
+
+tab :: String
+tab = "    "
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.
