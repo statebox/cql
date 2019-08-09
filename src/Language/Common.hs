@@ -115,7 +115,7 @@ showCtx' :: (Show a1, Show a2) => Map a1 a2 -> String
 showCtx' m = intercalate "\n\t" $ (\(k,v) -> show k ++ " : " ++ show v) <$> Map.toList m
 
 section :: String -> String -> String
-section heading body =  heading ++ "\n" ++ indentLines body  ++ "\n"
+section heading body =  heading ++ "\n" ++ indentLines body
 
 indentLines :: String -> String
 indentLines = foldMap (\l -> "\t" <> l <> "\n"). lines

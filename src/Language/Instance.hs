@@ -799,9 +799,18 @@ instance (Show InstanceEx) where
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
   => Show (Instance var ty sym en fk att gen sk x y) where
   show (Instance _ p _ alg) =
-    "instance\n" ++
-    (indentLines $ "presentation" ++ "\n" ++ show p) ++ "\n" ++
-    (indentLines $ "algebra" ++ "\n" ++ show alg) ++ "\n"
+    section "instance" $ unlines
+      [ section "presentation" (show p)
+      , section "algebra" (show alg)
+      ]
+
+instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk]
+  => Show (Presentation var ty sym en fk att gen sk) where
+  show (Presentation ens' _ eqs') =
+    unlines
+      [ section "generators" $ showCtx' ens'
+      , section "equations"  $ intercalate "\n" $ Set.map show eqs'
+      ]
 
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
@@ -871,10 +880,3 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
     prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
 
     prettyTerm = show
-
-instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk]
-  => Show (Presentation var ty sym en fk att gen sk) where
-  show (Presentation ens' _ eqs') =
-    indentLines $
-      "generators\n\t" ++ showCtx' ens' ++ "\n" ++
-      "equations\n\t" ++ intercalate "\n\t" (Set.map show eqs') ++ "\n"

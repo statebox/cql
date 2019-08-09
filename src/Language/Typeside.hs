@@ -67,12 +67,15 @@ instance (Eq var, Eq ty, Eq sym) => Eq (Typeside var ty sym) where
     = (tys' == tys'') && (syms' == syms'') && (eqs' == eqs'')
 
 instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
-  show (Typeside tys' syms' eqs' _) = "typeside {\n" ++
-    "types\n\t"    ++ intercalate "\n\t" (Prelude.map show $ Set.toList tys') ++
-    "\nfunctions\n\t" ++ intercalate "\n\t" syms'' ++
-    "\nequations\n\t"  ++ intercalate "\n\t" eqs'' ++ " }"
-   where syms'' = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList syms'
-         eqs''  = Prelude.map (\(k,s) -> "forall " ++ showCtx k ++ " . " ++ show s) $ Set.toList eqs'
+  show (Typeside tys' syms' eqs' _) =
+    section "typeside" $ unlines
+      [ section "types"     $ unlines . fmap show $ Set.toList tys'
+      , section "functions" $ unlines syms''
+      , section "equations" $ unlines eqs''
+      ]
+   where
+    syms'' = (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) <$> Map.toList syms'
+    eqs''  = (\(k,s)     -> "forall " ++ showCtx k ++ " . " ++ show s)     <$> Set.toList eqs'
 
 instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
   rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()
