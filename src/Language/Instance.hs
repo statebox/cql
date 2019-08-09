@@ -49,7 +49,7 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
-import           Language.Common
+import           Language.Common       (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.Mapping      as Mapping
 import           Language.Options
 import           Language.Prover
@@ -800,32 +800,31 @@ instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, 
   => Show (Instance var ty sym en fk att gen sk x y) where
   show (Instance _ p _ alg) =
     section "instance" $ unlines
-      [ section "presentation" (show p)
-      , section "algebra" (show alg)
+      [ section "presentation" $ show p
+      , section "algebra"      $ show alg
       ]
 
 instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk]
   => Show (Presentation var ty sym en fk att gen sk) where
   show (Presentation ens' _ eqs') =
     unlines
-      [ section "generators" $ showCtx' ens'
+      [ section "generators" $ intercalate "\n" $ sepTup " : " <$> Map.toList ens'
       , section "equations"  $ intercalate "\n" $ Set.map show eqs'
       ]
 
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
   => Show (Algebra var ty sym en fk att gen sk x y) where
   show alg@(Algebra sch _ _ _ _ ty' _ _ teqs') =
-    "entities" ++ "\n" ++
-    (indentLines $ intercalate "\n" prettyEntities) ++ "\n" ++
-    "type-algebra" ++ "\n" ++
-    indentLines prettyTypeEqns ++ "\n" ++
-    "nulls" ++ "\n" ++
-    indentLines w
+    unlines $
+      [ section "entities"     $ unlines prettyEntities
+      , section "type-algebra" $ intercalate "\n" prettyTypeEqns
+      , section "nulls"        $ intercalate "\n" w
+      ]
     where
-      w = intercalate "\n" . mapl w2 . Typeside.tys . Schema.typeside $ sch
+      w = mapl w2 . Typeside.tys . Schema.typeside $ sch
       w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
       prettyEntities = prettyEntityTable alg `mapl` Schema.ens sch
-      prettyTypeEqns = intercalate "\n" (Set.map show teqs')
+      prettyTypeEqns = Set.map show teqs'
 
 prettyEntity
   :: (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)

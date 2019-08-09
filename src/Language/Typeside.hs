@@ -74,8 +74,11 @@ instance (Show var, Show ty, Show sym) => Show (Typeside var ty sym) where
       , section "equations" $ unlines eqs''
       ]
    where
-    syms'' = (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) <$> Map.toList syms'
-    eqs''  = (\(k,s)     -> "forall " ++ showCtx k ++ " . " ++ show s)     <$> Set.toList eqs'
+    syms''  = (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) <$> Map.toList syms'
+    eqs''   = (\(k,s)     -> "forall " ++ showCtx k ++ " . " ++ show s)     <$> Set.toList eqs'
+
+    showCtx :: (Show a1, Show a2) => Map a1 a2 -> String
+    showCtx m = unwords $ fmap (sepTup " : ") $ Map.toList m
 
 instance (NFData var, NFData ty, NFData sym) => NFData (Typeside var ty sym) where
   rnf (Typeside tys0 syms0 eqs0 eq0) = deepseq tys0 $ deepseq syms0 $ deepseq eqs0 $ deepseq eq0 ()

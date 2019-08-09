@@ -40,7 +40,7 @@ module Language.Program where
 
 import           Control.DeepSeq
 import           Data.Map.Strict    as Map
-import           Language.Common    (section, showCtx'', TyMap, Kind(..))
+import           Language.Common    (section, TyMap, Kind(..))
 import           Language.Instance  as I
 import           Language.Mapping   as M
 import           Language.Query     as Q
@@ -108,13 +108,18 @@ newEnv = KindCtx m m m m m m
 
 instance TyMap Show '[ts, s, i, m, q, t, o] => Show (KindCtx ts s i m q t o) where
   show (KindCtx ts s i m q t o) =
-    section "typesides"  (showCtx'' ts) ++
-    section "schemas"    (showCtx'' s)  ++
-    section "instances"  (showCtx'' i)  ++
-    section "mappings"   (showCtx'' m)  ++
-    section "queries"    (showCtx'' q)  ++
-    section "transforms" (showCtx'' t)  ++
-    section "other"      (show o)
+    section "program" $ unlines
+      [ section "typesides"  $ showCtx ts
+      , section "schemas"    $ showCtx s
+      , section "instances"  $ showCtx i
+      , section "mappings"   $ showCtx m
+      , section "queries"    $ showCtx q
+      , section "transforms" $ showCtx t
+      , section "other"      $ show o
+      ]
+    where
+      showCtx :: (Show a1, Show a2) => Map a1 a2 -> String
+      showCtx m = unlines $ (\(k,v) -> show k ++ " = " ++ show v ++ "\n") <$> Map.toList m
 
 allVars :: KindCtx ts s i m q t o -> [(String, Kind)]
 allVars x =

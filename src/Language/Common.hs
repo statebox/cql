@@ -65,9 +65,6 @@ fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
     op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
     r  = fromListAccum kvs
 
-showCtx :: (Show a1, Show a2) => Map a1 a2 -> String
-showCtx m = unwords $ Prelude.map (\(k,v) -> show k ++ " : " ++ show v) $ Map.toList m
-
 fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
 fromList'' [] = return Set.empty
 fromList'' (k:l) = do
@@ -84,9 +81,6 @@ toMapSafely ((k,v):l) = do
   if Map.member k l'
   then Left $ "Duplicate binding: " ++ show k
   else pure $ Map.insert k v l'
-
-showCtx'' :: (Show a1, Show a2) => Map a1 a2 -> String
-showCtx'' m = intercalate "\n" $ (\(k,v) -> show k ++ " = " ++ show v ++ "\n") <$> Map.toList m
 
 lookup' :: (Show k, Show a, Ord k) => k -> Map k a -> a
 lookup' m v = fromMaybe (error $ "Can't find " ++ show v ++ " in " ++ show m) $ Map.lookup m v
@@ -110,12 +104,11 @@ data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | Q
 
 type ID = Integer
 
-
-showCtx' :: (Show a1, Show a2) => Map a1 a2 -> String
-showCtx' m = intercalate "\n\t" $ (\(k,v) -> show k ++ " : " ++ show v) <$> Map.toList m
+sepTup :: (Show a1, Show a2) => String -> (a1, a2) -> String
+sepTup sep (k,v) = show k ++ sep ++ show v
 
 section :: String -> String -> String
-section heading body =  heading ++ "\n" ++ indentLines body
+section heading body = heading ++ "\n" ++ indentLines body
 
 indentLines :: String -> String
 indentLines = foldMap (\l -> tab <> l <> "\n"). lines
