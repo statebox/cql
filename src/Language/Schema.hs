@@ -78,16 +78,18 @@ instance TyMap Eq '[var, ty, sym, en, fk, att]
 
 instance TyMap Show '[var, ty, sym, en, fk, att]
   => Show (Schema var ty sym en fk att) where
-  show (Schema _ ens' fks' atts' path_eqs' obs_eqs' _) = "schema {\n" ++
-    "entities\n\t"  ++ intercalate "\n\t" (Prelude.map show $ Set.toList ens') ++
-    "\nforeign_keys\n\t" ++ intercalate "\n\t" fks'' ++
-    "\natts\n\t" ++ intercalate "\n\t" atts'' ++
-    "\npath_equations\n\t" ++ intercalate "\n\t" (eqs'' path_eqs') ++
-    "\nobservation_equations\n\t " ++ intercalate "\n\t" (eqs'' obs_eqs') ++ " }"
+  show (Schema _ ens' fks' atts' path_eqs' obs_eqs' _) =
+    section "schema" $ unlines
+      [ section "entities"               $ unlines $ show <$> Set.toList ens'
+      , section "foreign_keys"           $ unlines $ fks''
+      , section "atts"                   $ unlines $ atts''
+      , section "path_equations"         $ unlines $ eqs'' path_eqs'
+      , section "observation_equations " $ unlines $ eqs'' obs_eqs'
+      ]
     where
-      fks''   = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList fks'
-      atts''  = Prelude.map (\(k,(s,t)) -> show k ++ " : " ++ show s ++ " -> " ++ show t) $ Map.toList atts'
-      eqs'' x = Prelude.map (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) $ Set.toList x
+      fks''   = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList fks'
+      atts''  = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList atts'
+      eqs'' x = (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) <$> Set.toList x
 
 -- | Checks that the underlying theory is well-sorted.
 -- I.e. rule out "1" = one kind of errors.
@@ -171,7 +173,9 @@ data SchemaEx :: * where
     => Schema var ty sym en fk att
     -> SchemaEx
 
-deriving instance Show SchemaEx
+-- SchemaEx is an implementation detail, so hide its presence
+instance (Show SchemaEx) where
+  show (SchemaEx i) = show i
 
 instance NFData SchemaEx where
   rnf (SchemaEx x) = rnf x
