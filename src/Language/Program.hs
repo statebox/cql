@@ -78,7 +78,7 @@ instance NFData Val where
     ValT  x -> rnf x
     ValQ  x -> rnf x
 
--- | Equivalent to Ctx (String + ... + String) (ts + ... + t)
+-- | Isomorphic to @Ctx (String + ... + String) (ts + ... + t)@.
 data KindCtx ts s i m q t o
   = KindCtx
   { typesides  :: Ctx String ts
@@ -90,8 +90,8 @@ data KindCtx ts s i m q t o
   , other      :: o
   }
 
--- | CQL programs
-type Prog  = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, String)]
+-- | A CQL program.
+type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, String)]
 
 newProg :: KindCtx ts s i m q t [a]
 newProg = newEnv []
@@ -122,10 +122,10 @@ instance TyMap Show '[ts, s, i, m, q, t, o] => Show (KindCtx ts s i m q t o) whe
       showCtx m = unlines $ (\(k,v) -> show k ++ " = " ++ show v ++ "\n") <$> Map.toList m
 
 allVars :: KindCtx ts s i m q t o -> [(String, Kind)]
-allVars x =
-  fmap (, TYPESIDE ) (keys $ typesides  x) ++
-  fmap (, SCHEMA   ) (keys $ schemas    x) ++
-  fmap (, INSTANCE ) (keys $ instances  x) ++
-  fmap (, MAPPING  ) (keys $ mappings   x) ++
-  fmap (, QUERY    ) (keys $ queries    x) ++
-  fmap (, TRANSFORM) (keys $ transforms x)
+allVars ctx =
+  (fmap (, TYPESIDE ) . keys . typesides  $ ctx) <>
+  (fmap (, SCHEMA   ) . keys . schemas    $ ctx) <>
+  (fmap (, INSTANCE ) . keys . instances  $ ctx) <>
+  (fmap (, MAPPING  ) . keys . mappings   $ ctx) <>
+  (fmap (, QUERY    ) . keys . queries    $ ctx) <>
+  (fmap (, TRANSFORM) . keys . transforms $ ctx)

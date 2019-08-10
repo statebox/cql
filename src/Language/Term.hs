@@ -90,24 +90,22 @@ instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
   NFData (EQ var ty sym en fk att gen sk) where
     rnf (EQ (x, y)) = deepseq x $ rnf y
 
+
 instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] =>
   Show (Term var ty sym en fk att gen sk)
   where
     show x = case x of
-      Var v      -> dropQuotes $ show v
+      Var v      -> show' v
       Gen g      -> show' g
       Sk  s      -> show' s
       Fk  fk  a  -> show' a ++ "." ++ show' fk
       Att att a  -> show' a ++ "." ++ show' att
       Sym sym [] -> show' sym
       Sym sym az -> show' sym ++ "(" ++ (intercalate "," . fmap show' $ az) ++ ")"
+      where
 
 show' :: Show a => a -> String
 show' = dropQuotes . show
-
-dropQuotes :: String -> String
-dropQuotes s = if '\"' `elem` s then Prelude.filter (not . ('\"' ==)) s
-                                else s
 
 deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
 
@@ -154,7 +152,7 @@ mapTerm v t r e f a g s x = case x of
 mapVar :: var -> Term () ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
 mapVar v = mapTerm (const v) id id id id id id id
 
--- | The number of variable and symbol occurances in a term.
+-- | The number of variable and symbol occurrences in a term.
 size :: Term var ty sym en fk att gen sk -> Integer
 size x = case x of
   Var _    -> 1
@@ -223,9 +221,9 @@ hasTypeType'' t = case t of
 -- | Experimental
 subst2
   :: forall ty2 sym2 en2 fk2 att2 gen2 sk2 ty3 sym3 en3 fk3 att3 gen3 sk3 var sym en fk att gen sk var3
-  . (Eq var,                Up sym2 sym,  Up fk2 fk,  Up att2 att,  Up gen2 gen,  Up sk2 sk,  Up en2 en,
-           Up var3 var,     Up sym3 sym,  Up fk3 fk,  Up att3 att,  Up gen3 gen,  Up sk3 sk,  Up en3 en,
-                Up sym3 sym2, Up fk3 fk2, Up att3 att2, Up gen3 gen2, Up sk3 sk2, Up en3 en2, Up ty3 ty2)
+  . (Eq var,              Up sym2 sym,  Up fk2 fk,  Up att2 att,  Up gen2 gen,  Up sk2 sk,  Up en2 en,
+             Up var3 var, Up sym3 sym,  Up fk3 fk,  Up att3 att,  Up gen3 gen,  Up sk3 sk,  Up en3 en,
+                          Up sym3 sym2, Up fk3 fk2, Up att3 att2, Up gen3 gen2, Up sk3 sk2, Up en3 en2, Up ty3 ty2)
   => Term ()   ty2 sym2 en2 fk2 att2 gen2 sk2
   -> Term var3 ty3 sym3 en3 fk3 att3 gen3 sk3
   -> Term var  ty2 sym en fk att gen sk
@@ -278,7 +276,7 @@ occurs h x = case x of
   Att h' a  -> h == HAtt h' || occurs h a
   Sym h' as -> h == HSym h' || any (occurs h) as
 
--- |  If there is one, finds an equation of the form empty |- @gen/sk = term@,
+-- | If there is one, finds an equation of the form empty |- @gen/sk = term@,
 -- where @gen@ does not occur in @term@.
 findSimplifiable
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
@@ -668,7 +666,3 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
   if lhs' == rhs'
   then Right lhs'
   else Left  $ "Equation lhs has type " ++ show lhs' ++ " but rhs has type " ++ show rhs'
-
-
-
---Set is not Traversable! Lame

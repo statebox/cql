@@ -100,12 +100,14 @@ note :: b -> Maybe a -> Either b a
 note n = maybe (Left n) Right
 
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
- deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord)
 
 type ID = Integer
 
-sepTup :: (Show a1, Show a2) => String -> (a1, a2) -> String
-sepTup sep (k,v) = show k ++ sep ++ show v
+-- | Drop quotes if argument doesn't contain a space.
+dropQuotes :: String -> String
+dropQuotes s = if ' ' `elem` s then Prelude.filter (not . ('\"' ==)) s
+                               else s
 
 section :: String -> String -> String
 section heading body = heading ++ "\n" ++ indentLines body
@@ -115,6 +117,9 @@ indentLines = foldMap (\l -> tab <> l <> "\n"). lines
 
 tab :: String
 tab = "    "
+
+sepTup :: (Show a1, Show a2) => String -> (a1, a2) -> String
+sepTup sep (k,v) = show k ++ sep ++ show v
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.
@@ -127,8 +132,9 @@ intercalate sep xs = snd (foldl go (True, mempty) xs)
 mapl :: Foldable f => (a -> b) -> f a -> [b]
 mapl fn = fmap fn . Foldable.toList
 
-toLowercase :: String -> String
-toLowercase = Prelude.map toLower
+-- | Converts a String to lowercase, like DataList.Extra.lower.
+lower :: String -> String
+lower = fmap toLower
 
 -- | Heterogenous membership in a list
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool

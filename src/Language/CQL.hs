@@ -61,7 +61,7 @@ import           Language.Typeside  as T
 import           Prelude            hiding (EQ, exp)
 import           System.IO.Unsafe
 
--- | Timesout a computation after @i@ microseconds.
+-- | Times out a computation after @i@ microseconds.
 timeout' :: NFData x => Integer -> Err x -> Err x
 timeout' i p = unsafePerformIO $ do
   m <- newEmptyMVar
@@ -240,15 +240,15 @@ typecheckSchemaExp p x = case x of
 -- | The result of evaluating an CQL program.
 type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
 
--- | Simple three phase evaluation and reporting.
+-- | Parse, typecheck, and evaluate the CQL program.
 runProg :: String -> Err (Prog, Types, Env)
-runProg p = do
-  p1  <- parseCqlProgram p
-  ops <- toOptions defaultOptions $ other p1
-  o   <- findOrder p1
-  p2  <- typecheckCqlProgram o p1 newTypes
-  p3  <- evalCqlProgram      o p1 $ newEnv ops
-  return (p1, p2, p3)
+runProg srcText = do
+  progE  <- parseCqlProgram srcText
+  opts   <- toOptions defaultOptions $ other progE
+  o      <- findOrder progE
+  typesE <- typecheckCqlProgram o progE newTypes
+  envE   <- evalCqlProgram      o progE $ newEnv opts
+  return (progE, typesE, envE)
 
 evalCqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalCqlProgram [] _ env = pure env

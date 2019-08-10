@@ -232,7 +232,7 @@ evalSchemaRaw' x (SchemaExpRaw' _ ens'x fks'x atts'x peqs oeqs _ _) is = do
       let rhs' = procTerm v (keys' fks') (keys' atts') rhs
       rest <- procOeqs fks' atts' eqs'
       if not $ hasTypeType'' lhs'
-        then Left $ "Bad obs equation: " ++ show lhs ++ " == " ++ show rhs
+        then Left $ "Bad observation equation: " ++ show lhs ++ " == " ++ show rhs
         else pure $ Set.insert (en, EQ (lhs', rhs')) rest
 
     infer _ (Just t) _    _     _   _   = return t
