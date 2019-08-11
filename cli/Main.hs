@@ -23,8 +23,6 @@ module Main where
 import           Language.CQL
 import           System.Environment
 
-import Language.CQL.Program
-
 main :: IO ()
 main = do
   args <- getArgs

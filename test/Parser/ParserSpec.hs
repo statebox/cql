@@ -22,7 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Parser.ParserSpec where
 
-import           Language.CQL.Parser.Generator.Generator
+import           Language.CQL.Parser.Generator
 import           Language.CQL.Parser.Parser
 import           Language.CQL.Parser.ReservedWords
 import           Data.Either                             (isLeft)
