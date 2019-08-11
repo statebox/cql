@@ -42,23 +42,23 @@ module Language.CQL where
 import           Control.Concurrent
 import           Control.DeepSeq
 import           Control.Exception
-import           Data.List              (nub)
-import qualified Data.Map.Strict        as Map
+import           Data.List                   (nub)
+import qualified Data.Map.Strict             as Map
 import           Data.Maybe
 import           Data.Typeable
-import           Language.CQL.Common    as C
+import           Language.CQL.Common         as C
 import           Language.CQL.Graph
-import           Language.CQL.Instance  as I
-import           Language.CQL.Mapping   as M
+import           Language.CQL.Instance       as I
+import           Language.CQL.Mapping        as M
 import           Language.CQL.Options
-import           Language.CQL.Parser    (parseCqlProgram)
-import           Language.CQL.Program   as P
-import           Language.CQL.Query     as Q
-import           Language.CQL.Schema    as S
-import           Language.CQL.Term      as Term
-import           Language.CQL.Transform as Tr
-import           Language.CQL.Typeside  as T
-import           Prelude                hiding (EQ, exp)
+import           Language.CQL.Parser.Program (parseProgram)
+import           Language.CQL.Program        as P
+import           Language.CQL.Query          as Q
+import           Language.CQL.Schema         as S
+import           Language.CQL.Term           as Term
+import           Language.CQL.Transform      as Tr
+import           Language.CQL.Typeside       as T
+import           Prelude                     hiding (EQ, exp)
 import           System.IO.Unsafe
 
 -- | Times out a computation after @i@ microseconds.
@@ -243,7 +243,7 @@ type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx 
 -- | Parse, typecheck, and evaluate the CQL program.
 runProg :: String -> Err (Prog, Types, Env)
 runProg srcText = do
-  progE  <- parseCqlProgram srcText
+  progE  <- parseProgram srcText
   opts   <- toOptions defaultOptions $ other progE
   o      <- findOrder progE
   typesE <- typecheckCqlProgram o progE newTypes

@@ -18,7 +18,8 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.CQL.Parser where
+
+module Language.CQL.Parser.Program where
 
 import           Data.List
 import           Data.Map                       as Map hiding ((\\))
@@ -34,21 +35,21 @@ import           Language.CQL.Parser.Typeside   as T'
 import           Language.CQL.Program           as P
 import           Text.Megaparsec
 
-parseCqlProgram :: String -> Err Prog
-parseCqlProgram s = case runParser parseCqlProgram' "" s of
-  Left err -> Left $ "Parse error: " ++ parseErrorPretty err
-  Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
-    then pure $ toProg o x
-    else Left $ "Duplicate definition: " ++ show (nub (fmap fst x \\ nub (fmap fst x)))
+parseProgram :: String -> Err Prog
+parseProgram s = case runParser parseProgram' "" s of
+  Left err           -> Left $ "Parse error: " ++ parseErrorPretty err
+  Right (opts, prog) -> if length (fst $ unzip prog) == length (nub $ fst $ unzip prog)
+    then Right $ toProg opts prog
+    else Left  $ "Duplicate definition: " ++ show (nub (fmap fst prog \\ nub (fmap fst prog)))
 
--- | Returns a list of config options and programs.
-parseCqlProgram' :: Parser ([(String, String)], [(String, Exp)])
-parseCqlProgram' =
+-- | Returns a list of config option key-value paired with programs.
+parseProgram' :: Parser ([(String, String)], [(String, Exp)])
+parseProgram' =
   between spaceConsumer eof configsAndProgs
   where
     configsAndProgs = do
       opts  <- optional (constant "options" *> many optionParser)
-      progs <- many parseSection
+      progs <- many parseExp
       return (fromMaybe [] opts, progs)
 
 toProg :: [(String, String)] -> [(String, Exp)] -> Prog
@@ -63,17 +64,17 @@ toProg opts ((v,e):p) = case e of
   where
     KindCtx t s i m q tr _ = toProg opts p
 
-parseSection :: Parser (String, Exp)
-parseSection =
-  section "typeside"  typesideExpParser ExpTy <|>
-  section "schema"    schemaExpParser   ExpS  <|>
-  section "instance"  instExpParser     ExpI  <|>
-  section "mapping"   mapExpParser      ExpM  <|>
-  section "transform" transExpParser    ExpT
+parseExp :: Parser (String, Exp)
+parseExp =
+  go "typeside"  typesideExpParser ExpTy <|>
+  go "schema"    schemaExpParser   ExpS  <|>
+  go "instance"  instExpParser     ExpI  <|>
+  go "mapping"   mapExpParser      ExpM  <|>
+  go "transform" transExpParser    ExpT
   where
-    section sectionKindName bodyParser ctor = do
-      _           <- constant sectionKindName
-      sectionName <- identifier
+    go expKindName bodyParser ctor = do
+      _           <- constant expKindName
+      expName <- identifier
       _           <- constant "="
       body        <- bodyParser
-      return (sectionName, ctor body)
+      return (expName, ctor body)
