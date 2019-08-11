@@ -38,7 +38,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Common where
+module Language.CQL.Common where
 
 import           Control.Arrow   (left)
 import           Data.Char

@@ -37,21 +37,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Schema where
+module Language.CQL.Schema where
 import           Control.DeepSeq
-import           Data.List         (nub)
-import           Data.Map.Strict   as Map
+import           Data.List             (nub)
+import           Data.Map.Strict       as Map
 import           Data.Maybe
-import           Data.Set          as Set
+import           Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Options
-import           Language.Prover
-import           Language.Term
-import           Language.Typeside
--- cyclic import           Language.Instance
-import           Prelude           hiding (EQ)
+import           Language.CQL.Common
+import           Language.CQL.Options
+import           Language.CQL.Prover
+import           Language.CQL.Term
+import           Language.CQL.Typeside
+-- cyclic import           Language.CQL.Instance
+import           Prelude               hiding (EQ)
 
 
 data Schema var ty sym en fk att

@@ -37,24 +37,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Transform where
+module Language.CQL.Transform where
 
 import           Control.DeepSeq
-import           Data.Map          (Map, mapWithKey)
-import qualified Data.Map.Strict   as Map
+import           Data.Map              (Map, mapWithKey)
+import qualified Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set          as Set
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Instance as I
-import           Language.Mapping  as M
-import           Language.Options
-import           Language.Query
-import           Language.Schema   as S
-import           Language.Term
-import           Prelude           hiding (EQ)
-
+import           Language.CQL.Common
+import           Language.CQL.Instance as I
+import           Language.CQL.Mapping  as M
+import           Language.CQL.Options
+import           Language.CQL.Query
+import           Language.CQL.Schema   as S
+import           Language.CQL.Term
+import           Prelude               hiding (EQ)
 
 
 -- | Map from one 'Instance' to another of the same 'Schema'.

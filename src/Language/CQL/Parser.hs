@@ -18,20 +18,20 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.Parser where
+module Language.CQL.Parser where
 
 import           Data.List
-import           Data.Map                   as Map hiding ((\\))
+import           Data.Map                       as Map hiding ((\\))
 import           Data.Maybe
-import           Language.Common            as C
-import           Language.Parser.Instance   as I
-import           Language.Parser.LexerRules
-import           Language.Parser.Mapping    as M
-import           Language.Parser.Parser
-import           Language.Parser.Schema     as S'
-import           Language.Parser.Transform  as TT
-import           Language.Parser.Typeside   as T'
-import           Language.Program           as P
+import           Language.CQL.Common            as C
+import           Language.CQL.Parser.Instance   as I
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.Mapping    as M
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Parser.Schema     as S'
+import           Language.CQL.Parser.Transform  as TT
+import           Language.CQL.Parser.Typeside   as T'
+import           Language.CQL.Program           as P
 import           Text.Megaparsec
 
 parseCqlProgram' :: Parser (String, Exp)

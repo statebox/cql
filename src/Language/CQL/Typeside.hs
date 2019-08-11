@@ -37,20 +37,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Typeside where
+module Language.CQL.Typeside where
 import           Control.DeepSeq
-import           Data.List        (nub)
-import           Data.Map.Strict  hiding (foldr)
-import qualified Data.Map.Strict  as Map
-import           Data.Set         (Set)
-import qualified Data.Set         as Set
+import           Data.List             (nub)
+import           Data.Map.Strict       hiding (foldr)
+import qualified Data.Map.Strict       as Map
+import           Data.Set              (Set)
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Options
-import           Language.Prover
-import           Language.Term
-import           Prelude          hiding (EQ)
+import           Language.CQL.Common
+import           Language.CQL.Options
+import           Language.CQL.Prover
+import           Language.CQL.Term
+import           Prelude               hiding (EQ)
 
 -- | A user-defined kind for customization of data types.
 data Typeside var ty sym

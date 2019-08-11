@@ -23,11 +23,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 module CQLSpec where
 
 import           Language.CQL
-import           Language.Schema
-import           Language.Term
-import           Language.Typeside
+import           Language.CQL.Schema
+import           Language.CQL.Term
+import           Language.CQL.Typeside
 
---base
+-- base
 import           Data.Either            (isRight)
 import           Data.Map.Strict        as Map
 import           Data.Set               as Set

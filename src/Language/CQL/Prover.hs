@@ -35,7 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Prover where
+module Language.CQL.Prover where
 
 import           Control.DeepSeq
 import           Data.List
@@ -46,20 +46,19 @@ import           Data.Rewriting.Rule         as R
 import           Data.Rewriting.Rules        as Rs
 import           Data.Rewriting.Term         as T
 import           Data.Set                    as Set
-import           Language.Common
-import           Language.Options            as O hiding (Prover)
-import           Language.Term               as S
+import           Language.CQL.Common
+import           Language.CQL.Options        as O hiding (Prover)
+import           Language.CQL.Term           as S
 import           Prelude                     hiding (EQ)
 import           Twee                        as Twee
 import           Twee.Base                   as TweeBase
 import           Twee.Equation               as TweeEq
 import qualified Twee.KBO                    as KBO
 import           Twee.Proof                  as TweeProof hiding (defaultConfig)
---import Debug.Trace
 import           Data.Map.Strict             as Map
 import           Data.Typeable
-import           Language.Congruence         as Cong
-import           Language.Internal           (Term)
+import           Language.CQL.Congruence     as Cong
+import           Language.CQL.Internal       (Term)
 
 
 
@@ -303,7 +302,7 @@ congProver col = if eqsAreGround col'
 convertCong
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => S.Term var ty sym en fk att gen sk
-  -> Language.Internal.Term (Head ty sym en fk att gen sk)
+  -> Language.CQL.Internal.Term (Head ty sym en fk att gen sk)
 convertCong x = case x of
   S.Var _    -> error "Anomaly, please report.  Congruence conversion received variable."
   S.Gen g    -> Cong.Function (HGen g) []

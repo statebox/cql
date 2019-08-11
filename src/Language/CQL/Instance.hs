@@ -36,7 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Instance where
+module Language.CQL.Instance where
 
 import           Control.DeepSeq
 import           Control.Monad
@@ -49,14 +49,14 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
-import           Language.Common       (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.Mapping      as Mapping
-import           Language.Options
-import           Language.Prover
-import           Language.Query
-import           Language.Schema       as Schema
-import           Language.Term         as Term
-import           Language.Typeside     as Typeside
+import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
+import           Language.CQL.Mapping  as Mapping
+import           Language.CQL.Options
+import           Language.CQL.Prover
+import           Language.CQL.Query
+import           Language.CQL.Schema   as Schema
+import           Language.CQL.Term     as Term
+import           Language.CQL.Typeside as Typeside
 import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
 import qualified Text.Tabular.AsciiArt as Ascii

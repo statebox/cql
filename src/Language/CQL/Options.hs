@@ -20,10 +20,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE EmptyDataDeriving #-}
 
-module Language.Options where
+module Language.CQL.Options where
 
 import           Data.Void
-import           Language.Common (Err, intercalate, lower)
+import           Language.CQL.Common (Err, intercalate, lower)
 import           Text.Read
 
 data Options = Options {

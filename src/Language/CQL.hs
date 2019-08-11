@@ -42,23 +42,23 @@ module Language.CQL where
 import           Control.Concurrent
 import           Control.DeepSeq
 import           Control.Exception
-import           Data.List          (nub)
-import qualified Data.Map.Strict    as Map
+import           Data.List              (nub)
+import qualified Data.Map.Strict        as Map
 import           Data.Maybe
 import           Data.Typeable
-import           Language.Common    as C
-import           Language.Graph
-import           Language.Instance  as I
-import           Language.Mapping   as M
-import           Language.Options
-import           Language.Parser    (parseCqlProgram)
-import           Language.Program   as P
-import           Language.Query     as Q
-import           Language.Schema    as S
-import           Language.Term      as Term
-import           Language.Transform as Tr
-import           Language.Typeside  as T
-import           Prelude            hiding (EQ, exp)
+import           Language.CQL.Common    as C
+import           Language.CQL.Graph
+import           Language.CQL.Instance  as I
+import           Language.CQL.Mapping   as M
+import           Language.CQL.Options
+import           Language.CQL.Parser    (parseCqlProgram)
+import           Language.CQL.Program   as P
+import           Language.CQL.Query     as Q
+import           Language.CQL.Schema    as S
+import           Language.CQL.Term      as Term
+import           Language.CQL.Transform as Tr
+import           Language.CQL.Typeside  as T
+import           Prelude                hiding (EQ, exp)
 import           System.IO.Unsafe
 
 -- | Times out a computation after @i@ microseconds.

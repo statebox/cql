@@ -18,10 +18,10 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.Parser.Parser where
+module Language.CQL.Parser.Parser where
 
-import           Language.Parser.LexerRules
-import           Language.Parser.ReservedWords
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.ReservedWords
 
 -- base
 import           Data.Char
@@ -34,7 +34,7 @@ import qualified Text.Megaparsec.Char.Lexer    as L
 
 -- scientific
 import           Data.Scientific               (Scientific)
-import           Language.Term
+import           Language.CQL.Term
 
 rawTermParser :: Parser RawTerm
 rawTermParser =

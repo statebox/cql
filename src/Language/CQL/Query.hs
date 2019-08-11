@@ -37,16 +37,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Query where
+module Language.CQL.Query where
 import           Control.DeepSeq
-import           Data.Map.Strict as Map
-import           Data.Set        as Set
+import           Data.Map.Strict      as Map
+import           Data.Set             as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Schema
-import           Language.Term
-import           Prelude         hiding (EQ)
+import           Language.CQL.Common
+import           Language.CQL.Schema
+import           Language.CQL.Term
+import           Prelude              hiding (EQ)
 
 data Query var ty sym en fk att en' fk' att'
   = Query

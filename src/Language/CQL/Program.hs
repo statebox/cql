@@ -36,19 +36,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Program where
+module Language.CQL.Program where
 
 import           Control.DeepSeq
-import           Data.Map.Strict    as Map
-import           Language.Common    (section, TyMap, Kind(..))
-import           Language.Instance  as I
-import           Language.Mapping   as M
-import           Language.Query     as Q
-import           Language.Schema    as S
-import           Language.Term      as Term
-import           Language.Transform as Tr
-import           Language.Typeside  as T
-import           Prelude            hiding (EQ)
+import           Data.Map.Strict        as Map
+import           Language.CQL.Common    (section, TyMap, Kind(..))
+import           Language.CQL.Instance  as I
+import           Language.CQL.Mapping   as M
+import           Language.CQL.Query     as Q
+import           Language.CQL.Schema    as S
+import           Language.CQL.Term      as Term
+import           Language.CQL.Transform as Tr
+import           Language.CQL.Typeside  as T
+import           Prelude                hiding (EQ)
 
 -- | Top level CQL expressions, untyped.
 data Exp

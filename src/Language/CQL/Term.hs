@@ -37,7 +37,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Term where
+module Language.CQL.Term where
 
 import           Control.DeepSeq
 import           Data.Map.Merge.Strict
@@ -45,7 +45,7 @@ import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Maybe
 import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
-import           Language.Common
+import           Language.CQL.Common
 import           Prelude               hiding (EQ)
 
 data RawTerm = RawApp String [RawTerm]
