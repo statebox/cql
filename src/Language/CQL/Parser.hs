@@ -34,68 +34,46 @@ import           Language.CQL.Parser.Typeside   as T'
 import           Language.CQL.Program           as P
 import           Text.Megaparsec
 
-parseCqlProgram' :: Parser (String, Exp)
-parseCqlProgram' = do
-  _ <- constant "typeside"
-  x <- identifier
-  _ <- constant "="
-  y <- typesideExpParser
-  return (x, ExpTy y)
-  <|>
-  do
-    _ <- constant "schema"
-    x <- identifier
-    _ <- constant "="
-    y <- schemaExpParser
-    return (x, ExpS y)
-  <|>
-  do
-    _ <- constant "instance"
-    x <- identifier
-    _ <- constant "="
-    y <- instExpParser
-    return (x, ExpI y)
-  <|>
-  do
-    _ <- constant "mapping"
-    x <- identifier
-    _ <- constant "="
-    y <- mapExpParser
-    return (x, ExpM y)
-  <|>
-  do
-    _ <- constant "transform"
-    x <- identifier
-    _ <- constant "="
-    y <- transExpParser
-    return (x, ExpT y)
-
-parseCqlProgram'' :: Parser ([(String,String)],[(String, Exp)])
-parseCqlProgram'' = between spaceConsumer eof g
-  where
-    f = do
-      _ <- constant "options"
-      many optionParser
-    g = do
-      x <- optional f
-      y <- many parseCqlProgram'
-      return (fromMaybe [] x, y)
-
-
-toProg' :: [(String, String)] -> [(String, Exp)] -> Prog
-toProg' _ [] = newProg
-toProg' o ((v,e):p) = case e of
-   ExpTy ty' -> KindCtx (Map.insert v ty' t) s i m q tr o
-   ExpS s'   -> KindCtx t (Map.insert v s' s) i m q tr o
-   ExpI i'   -> KindCtx t s (Map.insert v i' i) m q tr o
-   ExpM m'   -> KindCtx t s i (Map.insert v m' m) q tr o
-   ExpQ q'   -> KindCtx t s i m (Map.insert v q' q) tr o
-   ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr) o
-  where KindCtx t s i m q tr _ = toProg' o p
-
 parseCqlProgram :: String -> Err Prog
-parseCqlProgram s = case runParser parseCqlProgram'' "" s of
-  Left err -> Left $ "Parse error: " ++ (parseErrorPretty err)
+parseCqlProgram s = case runParser parseCqlProgram' "" s of
+  Left err -> Left $ "Parse error: " ++ parseErrorPretty err
   Right (o, x) -> if length (fst $ unzip x) == length (nub $ fst $ unzip x)
-    then pure $ toProg' o x
+    then pure $ toProg o x
     else Left $ "Duplicate definition: " ++ show (nub (fmap fst x \\ nub (fmap fst x)))
+
+-- | Returns a list of config options and programs.
+parseCqlProgram' :: Parser ([(String, String)], [(String, Exp)])
+parseCqlProgram' =
+  between spaceConsumer eof configsAndProgs
+  where
+    configsAndProgs = do
+      opts  <- optional (constant "options" *> many optionParser)
+      progs <- many parseSection
+      return (fromMaybe [] opts, progs)
+
+toProg :: [(String, String)] -> [(String, Exp)] -> Prog
+toProg _ [] = newProg
+toProg opts ((v,e):p) = case e of
+  ExpTy ty' -> KindCtx (Map.insert v ty' t) s i m q tr opts
+  ExpS s'   -> KindCtx t (Map.insert v s' s)  i m q tr opts
+  ExpI i'   -> KindCtx t s (Map.insert v i' i)  m q tr opts
+  ExpM m'   -> KindCtx t s i (Map.insert v m' m)  q tr opts
+  ExpQ q'   -> KindCtx t s i m (Map.insert v q' q)  tr opts
+  ExpT t'   -> KindCtx t s i m q (Map.insert v t' tr)  opts
+  where
+    KindCtx t s i m q tr _ = toProg opts p
+
+parseSection :: Parser (String, Exp)
+parseSection =
+  section "typeside"  typesideExpParser ExpTy <|>
+  section "schema"    schemaExpParser   ExpS  <|>
+  section "instance"  instExpParser     ExpI  <|>
+  section "mapping"   mapExpParser      ExpM  <|>
+  section "transform" transExpParser    ExpT
+  where
+    section sectionKindName bodyParser ctor = do
+      _           <- constant sectionKindName
+      sectionName <- identifier
+      _           <- constant "="
+      body        <- bodyParser
+      return (sectionName, ctor body)

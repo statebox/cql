@@ -99,7 +99,7 @@ boolParser
 textParser :: Parser String
 textParser = do
   _ <- constant "\""
-  text <- many (escapeSeq <|> show <$> noneOf ['"', '\r', '\n', '\\']) -- TODO: check if the escping is correct
+  text <- many (escapeSeq <|> show <$> noneOf ['"', '\r', '\n', '\\']) -- TODO: check if the escaping is correct
   _ <- constant "\""
   pure $ unwords text
 
