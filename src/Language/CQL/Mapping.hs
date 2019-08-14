@@ -38,17 +38,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Mapping where
+
 import           Control.DeepSeq
-import           Data.Map.Strict     (Map)
-import           Data.Map.Strict     as Map
+import           Data.Map.Strict       (Map)
+import           Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set            as Set
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Schema as Schema
+import           Language.CQL.Morphism
+import           Language.CQL.Schema   as Schema
 import           Language.CQL.Term
-import           Prelude             hiding (EQ)
+import           Prelude               hiding (EQ)
 
 -- | Morphism of schemas.
 data Mapping var ty sym en fk att en' fk' att'
