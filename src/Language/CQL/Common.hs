@@ -65,15 +65,16 @@ fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
     op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
     r  = fromListAccum kvs
 
-fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
-fromList'' [] = return Set.empty
-fromList'' (k:l) = do
-  l' <- fromList'' l
+-- | Converts a 'List' to a 'Set', returning an error when there are duplicate bindings.
+toSetSafely :: (Show k, Ord k) => [k] -> Err (Set k)
+toSetSafely [] = return Set.empty
+toSetSafely (k:l) = do
+  l' <- toSetSafely l
   if Set.member k l'
   then Left $ "Duplicate binding: " ++ show k
   else pure $ Set.insert k l'
 
--- | Converts a map to a finite list, returning an error when there are duplicate bindings.
+-- | Converts an association list to a 'Map', returning an error when there are duplicate bindings.
 toMapSafely :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
 toMapSafely [] = return Map.empty
 toMapSafely ((k,v):l) = do
