@@ -44,8 +44,9 @@ import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Maybe
 import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
+import           Language.CQL.Collage  (Collage(..))
 import           Language.CQL.Common
-import           Language.CQL.Term     (Collage(..), Ctx, Term(..), EQ(..), subst, upp)
+import           Language.CQL.Term     (Ctx, Term(..), EQ(..), subst, upp)
 import           Prelude               hiding (EQ)
 
 

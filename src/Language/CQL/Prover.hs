@@ -47,6 +47,8 @@ import           Data.Rewriting.Rules        as Rs
 import           Data.Rewriting.Term         as T
 import           Data.Set                    as Set
 import           Language.CQL.Common
+import           Language.CQL.Collage        as Collage (simplify)
+import           Language.CQL.Collage
 import           Language.CQL.Options        as O hiding (Prover)
 import           Language.CQL.Term           as S
 import           Prelude                     hiding (EQ)
@@ -130,7 +132,7 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
     else   Left $ "Rewriting Error: not orthogonal.  Pairs are " ++ show (findCps eqs2)
   else     Left   "Rewriting Error: not size decreasing"
   where
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
 
     p _ (EQ (lhs', rhs')) = nf (convert' lhs') == nf (convert' rhs')
 
@@ -272,7 +274,7 @@ kbProver col ops = if allSortsInhabited col || allow_empty
            in pure $ Prover col p'
       else Left "Completion Error: contains uninhabited sorts"
   where
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
     p ctx (EQ (lhs', rhs')) = normaliseTerm (completed ctx lhs' rhs') (convert col ctx lhs') == normaliseTerm (completed ctx lhs' rhs') (convert col ctx rhs')
     completed g l r = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
     allow_empty = bOps ops Allow_Empty_Sorts_Unsafe
@@ -297,7 +299,7 @@ congProver col = if eqsAreGround col'
     hidden = decide rules'
     rules' = fmap (\(_, EQ (l, r)) -> (convertCong l, convertCong r)) $ Set.toList $ ceqs col
     doProof l r = hidden (convertCong l) (convertCong r)
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
 
 convertCong
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])

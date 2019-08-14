@@ -45,6 +45,7 @@ import           Data.Maybe
 import           Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
+import           Language.CQL.Collage (Collage(..), typeOfCol)
 import           Language.CQL.Common
 import           Language.CQL.Options
 import           Language.CQL.Prover

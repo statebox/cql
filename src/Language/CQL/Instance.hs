@@ -49,6 +49,7 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
+import           Language.CQL.Collage (Collage(..), attsFrom, fksFrom, typeOf, typeOfCol)
 import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
