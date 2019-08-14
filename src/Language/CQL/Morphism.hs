@@ -79,39 +79,39 @@ checkDoms' mor = do
     s sk = if Map.member sk $ m_sks  mor then pure () else Left $ "No sk mapping for "     ++ show sk
 
 -- | Translates a term along a morphism.
-trans'
+translate'
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
   .  TyMap Ord '[gen, sk, fk, var, att, var']
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Term var' Void Void en  fk  Void gen  Void
   -> Term var' Void Void en' fk' Void gen' Void
-trans' _ (Var x) = Var x
-trans' mor (Fk f a) = let
-  x = trans' mor a :: Term var' Void Void en' fk' Void gen' Void
-  y = upp (m_fks mor ! f) :: Term () Void Void en' fk' Void gen' Void
+translate' _   (Var x)  = Var x
+translate' mor (Fk f a) = let
+  x = translate' mor a    :: Term var' Void Void en' fk' Void gen' Void
+  y = upp (m_fks mor ! f) :: Term ()   Void Void en' fk' Void gen' Void
   in subst y x
-trans' mor (Gen g) = upp $ m_gens mor ! g
-trans' _ (Sym _ _) = undefined
-trans' _ (Att _ _) = undefined
-trans' _ (Sk _   ) = undefined
+translate' mor (Gen g) = upp $ m_gens mor ! g
+translate' _   (Sym _ _) = undefined
+translate' _   (Att _ _) = undefined
+translate' _   (Sk _   ) = undefined
 
 -- | Translates a term along a morphism.
-trans
+translate
   :: forall var var' ty sym en fk att gen sk en' fk' att' gen' sk'
   .  TyMap Ord '[gen, sk, fk, var, att, var']
   => Morphism var  ty sym en  fk  att  gen  sk en' fk' att' gen' sk'
   -> Term     var' ty sym en  fk  att  gen  sk
   -> Term     var' ty sym en' fk' att' gen' sk'
-trans mor term = case term of
+translate mor term = case term of
   Var x    -> Var x
-  Sym f xs -> Sym f $ Prelude.map (trans mor) xs
+  Sym f xs -> Sym f (translate mor <$> xs)
   Gen g    -> upp $ m_gens mor ! g
   Sk  s    -> upp $ m_sks mor  ! s
-  Att f a  -> subst (upp $ (m_atts mor) ! f) $ trans mor a
+  Att f a  -> subst (upp $ m_atts mor ! f) $ translate mor a
   Fk  f a  -> subst (upp y) x
     where
-      x = trans mor a   :: Term var' ty sym  en' fk' att' gen' sk'
-      y = m_fks mor ! f :: Term () Void Void en' fk' Void Void Void
+      x = translate mor a :: Term var' ty sym  en' fk' att' gen' sk'
+      y = m_fks mor ! f   :: Term () Void Void en' fk' Void Void Void
 
 
 typeOfMor

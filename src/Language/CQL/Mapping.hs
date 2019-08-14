@@ -47,7 +47,7 @@ import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Morphism (Morphism(..), trans, trans', typeOfMor)
+import           Language.CQL.Morphism (Morphism(..), translate, translate', typeOfMor)
 import           Language.CQL.Schema   as Schema
 import           Language.CQL.Term
 import           Prelude               hiding (EQ)
@@ -125,16 +125,16 @@ validateMapping m@(Mapping src' dst' ens' _ _) = do
   where
     validateObsEq :: (en, EQ () ty sym en fk att Void Void) -> Err ()
     validateObsEq (enx, EQ (l,r)) = let
-      l'  = trans (mapToMor m) l
-      r'  = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
+      l'  = translate (mapToMor m) l
+      r'  = translate (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
       en' = ens' ! enx
       in if eq dst' en' (EQ (l', r'))
          then pure ()
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
     validatePathEq :: (en, EQ () Void Void en fk Void Void Void) -> Err ()
     validatePathEq (enx, EQ (l,r)) = let
-      l'  = trans' (mapToMor m) l
-      r'  = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
+      l'  = translate' (mapToMor m) l
+      r'  = translate' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
       en' = ens' ! enx
       in if eq dst' en' (EQ (upp l', upp r'))
          then pure ()
@@ -187,8 +187,8 @@ composeMapping
 composeMapping (Mapping s t e f a) m2@(Mapping s' t' e' _ _) =
   if t == s'
   then let e'' = Map.fromList [ (k, e' ! v)                     | (k, v) <- Map.toList e ]
-           f'' = Map.fromList [ (k, trans'  (mapToMor m2) v)    | (k, v) <- Map.toList f ]
-           a'' = Map.fromList [ (k, trans   (mapToMor m2) v)    | (k, v) <- Map.toList a ]
+           f'' = Map.fromList [ (k, translate' (mapToMor m2) v) | (k, v) <- Map.toList f ]
+           a'' = Map.fromList [ (k, translate  (mapToMor m2) v) | (k, v) <- Map.toList a ]
        in pure $ Mapping s t' e'' f'' a''
   else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
 
