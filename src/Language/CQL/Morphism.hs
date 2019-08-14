@@ -113,13 +113,12 @@ translate mor term = case term of
       x = translate mor a :: Term var' ty sym  en' fk' att' gen' sk'
       y = m_fks mor ! f   :: Term () Void Void en' fk' Void Void Void
 
-
-typeOfMor
+typeOf
   :: forall var ty sym en fk att gen sk en' fk' att' gen' sk'
   .  (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk'])
   => Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
   -> Err ()
-typeOfMor mor  = do
+typeOf mor  = do
   checkDoms' mor
   mapM_ typeOfMorEns $ Map.toList $ m_ens mor
   mapM_ typeOfMorFks $ Map.toList $ m_fks mor

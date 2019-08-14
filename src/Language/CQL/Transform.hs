@@ -48,8 +48,9 @@ import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Instance as I
-import           Language.CQL.Mapping  as M
-import           Language.CQL.Morphism (Morphism(..), translate, translate', typeOfMor)
+import           Language.CQL.Mapping  as M hiding (toMorphism)
+import           Language.CQL.Morphism (Morphism(..), translate, translate')
+import           Language.CQL.Morphism as Morphism (typeOf)
 import           Language.CQL.Options
 import           Language.CQL.Query
 import           Language.CQL.Schema   as S
@@ -95,7 +96,7 @@ typecheckTransform
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att], MultiTyMap '[Show, Ord, NFData] '[var, ty, gen, sk, x, y, gen', sk', x', y'])
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
-typecheckTransform m = typeOfMor $ toMorphism m
+typecheckTransform m = Morphism.typeOf $ toMorphism m
 
 validateTransform
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y' -- need forall
