@@ -49,7 +49,7 @@ import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Instance as I
 import           Language.CQL.Mapping  as M
-import           Language.CQL.Morphism
+import           Language.CQL.Morphism (Morphism(..), trans, trans', typeOfMor)
 import           Language.CQL.Options
 import           Language.CQL.Query
 import           Language.CQL.Schema   as S

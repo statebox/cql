@@ -47,7 +47,7 @@ import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Morphism
+import           Language.CQL.Morphism (Morphism(..), trans, trans', typeOfMor)
 import           Language.CQL.Schema   as Schema
 import           Language.CQL.Term
 import           Prelude               hiding (EQ)
