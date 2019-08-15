@@ -37,20 +37,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Typeside where
+module Language.CQL.Typeside where
 import           Control.DeepSeq
-import           Data.List        (nub)
-import           Data.Map.Strict  hiding (foldr)
-import qualified Data.Map.Strict  as Map
-import           Data.Set         (Set)
-import qualified Data.Set         as Set
+import           Data.Bifunctor        (first)
+import           Data.List             (nub)
+import           Data.Map.Strict       hiding (foldr)
+import qualified Data.Map.Strict       as Map
+import           Data.Set              (Set)
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Options
-import           Language.Prover
-import           Language.Term
-import           Prelude          hiding (EQ)
+import           Language.CQL.Collage  (Collage(..), typeOfCol)
+import           Language.CQL.Common
+import           Language.CQL.Options
+import           Language.CQL.Prover
+import           Language.CQL.Term
+import           Prelude               hiding (EQ)
 
 -- | A user-defined kind for customization of data types.
 data Typeside var ty sym
@@ -88,13 +90,15 @@ typecheckTypeside = typeOfCol . tsToCol
 
 -- | Converts a typeside to a collage.
 tsToCol :: (Ord var, Ord ty, Ord sym) => Typeside var ty sym -> Collage var ty sym Void Void Void Void Void
-tsToCol (Typeside t s e _) = Collage e' t Set.empty s Map.empty Map.empty Map.empty Map.empty
-  where e' = Set.map (\(g,x)->(Map.map Left g, x)) e
+tsToCol (Typeside tys syms eqs _) =
+  Collage (leftify eqs) tys Set.empty syms mempty mempty mempty mempty
+  where
+    leftify = Set.map (first (fmap Left))
 
 data TypesideEx :: * where
   TypesideEx
-    :: forall var ty sym. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym]) =>
-    Typeside var ty sym
+    :: forall var ty sym. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym])
+    => Typeside var ty sym
     -> TypesideEx
 
 instance NFData TypesideEx where
@@ -119,42 +123,50 @@ data TypesideRaw' = TypesideRaw'
   , tsraw_imports :: [TypesideExp]
   } deriving (Eq, Show)
 
-evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
-evalTypesideRaw ops t a' = do
-  a <- doImports a'
-  r <- evalTypesideRaw' t a
-  l <- toOptions ops $ tsraw_options t
-  p <- createProver (tsToCol r) l
-  pure $ TypesideEx $ Typeside (tys r) (syms r) (eqs r) (f p)
-  where
-    f p ctx = prove p (Map.map Left ctx)
-    doImports :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
-    doImports [] = return []
-    doImports (TypesideEx ts : r) = case cast ts of
-      Nothing  -> Left "Bad import"
-      Just ts' -> do { r'  <- doImports r ; return $ ts' : r' }
 
-evalTypesideRaw' :: TypesideRaw'  -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
-evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
-  tys'  <- fromList''  ttys
-  syms' <- toMapSafely   tsyms
-  eqs'  <- evalEqs (addImportedSyms syms') teqs
-  return $ Typeside (Set.union imported_tys' tys') (addImportedSyms syms') (Set.union imported_eqs eqs') undefined -- leave prover blank
+evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
+evalTypesideRaw opts tsRaw imports = do
+  imports' <- doImports imports
+  ts       <- evalTypesideRaw' tsRaw imports'
+  opts'    <- toOptions opts $ tsraw_options tsRaw
+  prover   <- createProver (tsToCol ts) opts'
+  let eq   =  \ctx -> prove prover (Map.map Left ctx)
+  pure $ TypesideEx $ Typeside (tys ts) (syms ts) (eqs ts) eq
   where
-    imported_tys' = foldr Set.union Set.empty $ fmap tys is
-    addImportedSyms syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) is
-    imported_eqs = foldr Set.union Set.empty $ fmap eqs is
+    doImports :: forall var ty sym. (Typeable var, Typeable ty, Typeable sym) => [TypesideEx] -> Err [Typeside var ty sym]
+    doImports []                    = return []
+    doImports (TypesideEx imp:imps) = do
+      imp'  <- note "Bad import" $ cast imp
+      imps' <- doImports imps
+      return $ imp' : imps'
+
+evalTypesideRaw' :: TypesideRaw' -> [Typeside Var Ty Sym] -> Err (Typeside Var Ty Sym)
+evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) importedTys = do
+  tys'  <- toSetSafely ttys
+  syms' <- toMapSafely tsyms
+  eqs'  <- evalEqs (addImportedSyms syms') teqs
+  return $ Typeside (Set.union importedTys' tys') (addImportedSyms syms') (Set.union importedEqs eqs') prover
+  where
+    prover                = undefined -- intentionally left blank; is there a less explosive way to do this?
+    importedTys'          = foldMap tys importedTys
+    importedEqs           = foldMap eqs importedTys
+    addImportedSyms syms' = foldr (\(f',(s,t)) m -> Map.insert f' (s,t) m) syms' $ concatMap (Map.toList . syms) importedTys
+
     evalEqs _ [] = pure Set.empty
     evalEqs syms' ((ctx, lhs, rhs):eqs') = do
-      ctx' <- check syms' ctx lhs rhs
+      ctx' <- check    syms' ctx  lhs rhs
       lhs' <- evalTerm syms' ctx' lhs
       rhs' <- evalTerm syms' ctx' rhs
-      rest <- evalEqs syms' eqs'
+      rest <- evalEqs  syms' eqs'
       pure $ Set.insert (ctx', EQ (lhs', rhs')) rest
-    evalTerm _ ctx (RawApp v []) | Map.member v ctx = pure $ Var v
-    evalTerm syms' ctx (RawApp v l) = do { l' <- mapM (evalTerm syms' ctx) l ; pure $ Sym v l' }
+
+    evalTerm :: Monad m => t -> Ctx String a -> RawTerm -> m (Term String ty String en fk att gen sk)
+    evalTerm _     ctx (RawApp v []) | Map.member v ctx = pure $ Var v
+    evalTerm syms' ctx (RawApp v l)                     = Sym v <$> mapM (evalTerm syms' ctx) l
+
     check _ [] _ _ = pure Map.empty
     check syms' ((v,t):l) lhs rhs = do {x <- check syms' l lhs rhs; t' <- infer v t syms' lhs rhs; pure $ Map.insert v t' x}
+
     infer _ (Just t) _ _ _  = return t
     infer v _ syms' lhs rhs = case (t1s, t2s) of
       ([t1]       , [t2]       ) -> if t1 == t2 then return t1 else Left $ "Type mismatch on " ++ show v ++ " in " ++ show lhs ++ " = " ++ show rhs ++ ", types are " ++ show t1 ++ " and " ++ show t2
@@ -166,6 +178,7 @@ evalTypesideRaw' (TypesideRaw' ttys tsyms teqs _ _) is = do
       where
         t1s = nub $ typesOf v syms' lhs
         t2s = nub $ typesOf v syms' rhs
+
     typesOf _ _     (RawApp _  []) = []
     typesOf v syms' (RawApp f' as) = concatMap fn $ zip as $ maybe [] fst $ Map.lookup f' syms'
       where
@@ -195,17 +208,18 @@ sqlTypeNames =
   , "Real"
   , "Smallint", "String"
   , "Text", "Time", "Timestamp", "Tinyint"
-  , "Varbinary", "Varchar" ]
+  , "Varbinary", "Varchar"
+  ]
 
 -----------------------------------------------------------------------------------------------------------
 -- Expression syntax
 
--- there are practical haskell type system related reasons to not want this to be a gadt
+-- There are practical haskell type system related reasons to not want this to be a GADT.
 data TypesideExp where
-  TypesideVar :: String -> TypesideExp
-  TypesideInitial :: TypesideExp
-  TypesideRaw :: TypesideRaw' -> TypesideExp
-  TypesideSql :: TypesideExp
+  TypesideVar     :: String       -> TypesideExp
+  TypesideInitial ::                 TypesideExp
+  TypesideRaw     :: TypesideRaw' -> TypesideExp
+  TypesideSql     ::                 TypesideExp
 
 deriving instance Eq TypesideExp
 deriving instance Show TypesideExp
@@ -216,7 +230,6 @@ instance Deps TypesideExp where
     TypesideInitial                      -> []
     TypesideSql                          -> []
     TypesideRaw (TypesideRaw' _ _ _ _ i) -> concatMap deps i
-
 
 getOptionsTypeside :: TypesideExp -> [(String, String)]
 getOptionsTypeside x = case x of

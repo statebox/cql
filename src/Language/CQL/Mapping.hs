@@ -37,18 +37,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Mapping where
+module Language.CQL.Mapping where
+
 import           Control.DeepSeq
-import           Data.Map.Strict (Map)
-import           Data.Map.Strict as Map
+import           Data.Map.Strict       (Map)
+import           Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set        as Set
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Schema as Schema
-import           Language.Term
-import           Prelude         hiding (EQ)
+import           Language.CQL.Common
+import           Language.CQL.Morphism (Morphism(..), translate, translate')
+import           Language.CQL.Morphism as Morphism (typeOf)
+import           Language.CQL.Schema   as Schema
+import           Language.CQL.Term
+import           Prelude               hiding (EQ)
 
 -- | Morphism of schemas.
 data Mapping var ty sym en fk att en' fk' att'
@@ -98,18 +101,18 @@ getFks = fks
 getAtts :: Mapping var ty sym en fk att en' fk' att' -> Map att (Term () ty   sym  en' fk' att' Void Void)
 getAtts = atts
 
-mapToMor
+toMorphism
   :: MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, en', fk', att']
   => Mapping var ty sym en fk att en' fk' att'
   -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
-mapToMor (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
+toMorphism (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
 typecheckMapping
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty], MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att, en', fk', att'])
   => Mapping var ty sym en fk att en' fk' att'
   -> Err ()
-typecheckMapping m =  typeOfMor $ mapToMor m
+typecheckMapping m = Morphism.typeOf $ toMorphism m
 
 -- | Given @F@ checks that each @S |- p = q  ->  T |- F p = F q@.
 validateMapping
@@ -123,16 +126,16 @@ validateMapping m@(Mapping src' dst' ens' _ _) = do
   where
     validateObsEq :: (en, EQ () ty sym en fk att Void Void) -> Err ()
     validateObsEq (enx, EQ (l,r)) = let
-      l'  = trans (mapToMor m) l
-      r'  = trans (mapToMor m) r :: Term () ty sym en' fk' att' Void Void
+      l'  = translate (toMorphism m) l
+      r'  = translate (toMorphism m) r :: Term () ty sym en' fk' att' Void Void
       en' = ens' ! enx
       in if eq dst' en' (EQ (l', r'))
          then pure ()
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
     validatePathEq :: (en, EQ () Void Void en fk Void Void Void) -> Err ()
     validatePathEq (enx, EQ (l,r)) = let
-      l'  = trans' (mapToMor m) l
-      r'  = trans' (mapToMor m) r :: Term () Void Void en' fk' Void Void Void
+      l'  = translate' (toMorphism m) l
+      r'  = translate' (toMorphism m) r :: Term () Void Void en' fk' Void Void Void
       en' = ens' ! enx
       in if eq dst' en' (EQ (upp l', upp r'))
          then pure ()
@@ -184,9 +187,9 @@ composeMapping
   -> Err (Mapping var ty sym en  fk  att  en'' fk'' att'')
 composeMapping (Mapping s t e f a) m2@(Mapping s' t' e' _ _) =
   if t == s'
-  then let e'' = Map.fromList [ (k, e' ! v)                     | (k, v) <- Map.toList e ]
-           f'' = Map.fromList [ (k, trans'  (mapToMor m2) v)    | (k, v) <- Map.toList f ]
-           a'' = Map.fromList [ (k, trans   (mapToMor m2) v)    | (k, v) <- Map.toList a ]
+  then let e'' = Map.fromList [ (k, e' ! v)                       | (k, v) <- Map.toList e ]
+           f'' = Map.fromList [ (k, translate' (toMorphism m2) v) | (k, v) <- Map.toList f ]
+           a'' = Map.fromList [ (k, translate  (toMorphism m2) v) | (k, v) <- Map.toList a ]
        in pure $ Mapping s t' e'' f'' a''
   else Left $ "Source and target schemas do not match: " ++ show t ++ " and " ++ show s'
 

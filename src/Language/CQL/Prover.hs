@@ -35,7 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Prover where
+module Language.CQL.Prover where
 
 import           Control.DeepSeq
 import           Data.List
@@ -46,20 +46,21 @@ import           Data.Rewriting.Rule         as R
 import           Data.Rewriting.Rules        as Rs
 import           Data.Rewriting.Term         as T
 import           Data.Set                    as Set
-import           Language.Common
-import           Language.Options            as O hiding (Prover)
-import           Language.Term               as S
+import           Language.CQL.Common
+import           Language.CQL.Collage        as Collage (simplify)
+import           Language.CQL.Collage
+import           Language.CQL.Options        as O hiding (Prover)
+import           Language.CQL.Term           as S
 import           Prelude                     hiding (EQ)
 import           Twee                        as Twee
 import           Twee.Base                   as TweeBase
 import           Twee.Equation               as TweeEq
 import qualified Twee.KBO                    as KBO
 import           Twee.Proof                  as TweeProof hiding (defaultConfig)
---import Debug.Trace
 import           Data.Map.Strict             as Map
 import           Data.Typeable
-import           Language.Congruence         as Cong
-import           Language.Internal           (Term)
+import           Language.CQL.Congruence     as Cong
+import           Language.CQL.Internal       (Term)
 
 
 
@@ -131,7 +132,7 @@ orthProver col ops = if isDecreasing eqs1 || allow_nonTerm
     else   Left $ "Rewriting Error: not orthogonal.  Pairs are " ++ show (findCps eqs2)
   else     Left   "Rewriting Error: not size decreasing"
   where
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
 
     p _ (EQ (lhs', rhs')) = nf (convert' lhs') == nf (convert' rhs')
 
@@ -273,7 +274,7 @@ kbProver col ops = if allSortsInhabited col || allow_empty
            in pure $ Prover col p'
       else Left "Completion Error: contains uninhabited sorts"
   where
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
     p ctx (EQ (lhs', rhs')) = normaliseTerm (completed ctx lhs' rhs') (convert col ctx lhs') == normaliseTerm (completed ctx lhs' rhs') (convert col ctx rhs')
     completed g l r = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
     allow_empty = bOps ops Allow_Empty_Sorts_Unsafe
@@ -298,12 +299,12 @@ congProver col = if eqsAreGround col'
     hidden = decide rules'
     rules' = fmap (\(_, EQ (l, r)) -> (convertCong l, convertCong r)) $ Set.toList $ ceqs col
     doProof l r = hidden (convertCong l) (convertCong r)
-    (col', f) = simplifyCol col
+    (col', f) = Collage.simplify col
 
 convertCong
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => S.Term var ty sym en fk att gen sk
-  -> Language.Internal.Term (Head ty sym en fk att gen sk)
+  -> Language.CQL.Internal.Term (Head ty sym en fk att gen sk)
 convertCong x = case x of
   S.Var _    -> error "Anomaly, please report.  Congruence conversion received variable."
   S.Gen g    -> Cong.Function (HGen g) []

@@ -36,7 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Instance where
+module Language.CQL.Instance where
 
 import           Control.DeepSeq
 import           Control.Monad
@@ -49,14 +49,15 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
-import           Language.Common       (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.Mapping      as Mapping
-import           Language.Options
-import           Language.Prover
-import           Language.Query
-import           Language.Schema       as Schema
-import           Language.Term         as Term
-import           Language.Typeside     as Typeside
+import           Language.CQL.Collage (Collage(..), attsFrom, fksFrom, typeOf, typeOfCol)
+import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
+import           Language.CQL.Mapping  as Mapping
+import           Language.CQL.Options
+import           Language.CQL.Prover
+import           Language.CQL.Query
+import           Language.CQL.Schema   as Schema
+import           Language.CQL.Term     as Term
+import           Language.CQL.Typeside as Typeside
 import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
 import qualified Text.Tabular.AsciiArt as Ascii
@@ -258,7 +259,8 @@ data InstanceEx :: * where
 algebraToPresentation :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk], Ord y, Ord x)
   => Algebra var ty sym en fk att gen sk x y
   -> Presentation var ty sym en fk att x y
-algebraToPresentation alg@(Algebra sch en' _ _ _ ty' _ _ _) = Presentation gens' sks' eqs'
+algebraToPresentation alg@(Algebra sch en' _ _ _ ty' _ _ _) =
+  Presentation gens' sks' eqs'
   where
     gens'   = Map.fromList $ reify en' $ Schema.ens sch
     sks'    = Map.fromList $ reify ty' $ Typeside.tys $ Schema.typeside sch
@@ -266,8 +268,8 @@ algebraToPresentation alg@(Algebra sch en' _ _ _ ty' _ _ _) = Presentation gens'
     eqs2    = concatMap attsToEqs reified
     eqs'    = Set.fromList $ eqs1 ++ eqs2
     reified = reify en' $ Schema.ens sch
-    fksToEqs  (x, e) = Prelude.map (\(fk , _) -> fkToEq  x fk ) $ fksFrom'  sch e
-    attsToEqs (x, e) = Prelude.map (\(att, _) -> attToEq x att) $ attsFrom' sch e
+    fksToEqs  (x, e) = (\(fk , _) -> fkToEq  x fk ) <$> fksFrom'  sch e
+    attsToEqs (x, e) = (\(att, _) -> attToEq x att) <$> attsFrom' sch e
     fkToEq  x fk  = EQ (Fk fk   (Gen x), Gen $ aFk  alg fk  x)
     attToEq x att = EQ (Att att (Gen x), upp $ aAtt alg att x)
 
@@ -376,7 +378,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
     teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
     teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
 
-
+-- | Assemble Skolem terms (labeled nulls).
 assembleSks
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
@@ -391,7 +393,7 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
     ret   = Map.fromSet (const Set.empty) $ ctys col
 
 -- | Inlines type-algebra equations of the form @gen = term@.
--- The hard work is delegtated to functions from the Term module.
+-- The hard work is delegated to functions from the 'Term' module.
 simplifyAlg
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Algebra var ty sym en fk att gen sk x y
@@ -420,8 +422,11 @@ deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att ge
 
 deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
 
-assembleGens :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
- => Collage var ty sym en fk att gen sk -> [Carrier en fk gen] -> Map en (Set (Carrier en fk gen))
+assembleGens
+ :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
+ => Collage var ty sym en fk att gen sk
+ -> [Carrier en fk gen]
+ -> Map en (Set (Carrier en fk gen))
 assembleGens col [] = Map.fromList $ Prelude.map (, Set.empty) $ Set.toList $ cens col
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
   where
@@ -447,9 +452,10 @@ close1m
   -> [Term Void Void Void en fk Void gen Void]
 close1m dp' col = dedup dp' . concatMap (close1 col dp')
 
-dedup :: (EQ var ty sym en fk att gen sk -> Bool)
-               -> [Term Void Void Void en fk Void gen Void]
-               -> [Term Void Void Void en fk Void gen Void]
+dedup
+  :: (EQ var ty sym en fk att gen sk -> Bool)
+  -> [Term Void Void Void en fk Void gen Void]
+  -> [Term Void Void Void en fk Void gen Void]
 dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
 close1
@@ -519,7 +525,7 @@ data InstExpRaw' =
   , instraw_oeqs    :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
   , instraw_imports :: [InstanceExp]
-} deriving (Eq,Show)
+} deriving (Eq, Show)
 
 type Gen = String
 type Sk  = String
@@ -770,7 +776,8 @@ evalDeltaAlgebra (Mapping src' _ ens' fks0 atts0)
 
 
 evalDeltaInst
-  :: forall var ty sym en fk att gen sk x y en' fk' att' . (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, x, y])
+  :: forall var ty sym en fk att gen sk x y en' fk' att'
+   . (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, x, y])
   => Mapping var ty sym en fk att en' fk' att'
   -> Instance var ty sym en' fk' att' gen sk x y -> Options
   -> Err (Instance var ty sym en fk att (en,x) y (en,x) y)
@@ -779,7 +786,7 @@ evalDeltaInst m i _ = pure $ Instance (src m) (algebraToPresentation alg) eq' al
     alg = evalDeltaAlgebra m i
     eq' (EQ (l, r)) = dp i $ EQ (translateTerm l, translateTerm r)
 
-    --translateTerm :: Term Void ty sym en  fk  att (en, x) y -> Term Void ty sym en' fk' att' gen    sk
+    translateTerm :: Term Void ty sym en  fk  att (en, x) y -> Term Void ty sym en' fk' att' gen    sk
     translateTerm t = case t of
       Var v      -> absurd v
       Sym s'  as -> Sym s' $ translateTerm <$> as
@@ -827,7 +834,8 @@ instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, 
       prettyTypeEqns = Set.map show teqs'
 
 prettyEntity
-  :: (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
+  :: forall var ty sym en fk att gen sk x y
+   . (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String
@@ -836,20 +844,21 @@ prettyEntity alg@(Algebra sch en' _ _ _ _ _ _ _) es =
   "--------------------------------------------------------------------------------\n" ++
   intercalate "\n" (prettyEntityRow es `mapl` en' es)
   where
-    -- prettyEntityRow :: en -> x -> String
+    prettyEntityRow :: en -> x -> String
     prettyEntityRow en'' e =
       show e ++ ": " ++
       intercalate "," (prettyFk  e <$> fksFrom'  sch en'') ++ ", " ++
       intercalate "," (prettyAtt e <$> attsFrom' sch en'')
 
-    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt :: x -> (att, w) -> String
     prettyAtt x (att,_) = show att ++ " = " ++ prettyTerm (aAtt alg att x)
     prettyFk  x (fk, _) = show fk  ++ " = " ++ show (aFk alg fk x)
     prettyTerm = show
 
 -- TODO unquote identifiers; stick fks and attrs in separate `Group`s?
 prettyEntityTable
-  :: (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
+  :: forall var ty sym en fk att gen sk x y
+   . (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
   => Algebra var ty sym en fk att gen sk x y
   -> en
   -> String
@@ -857,7 +866,7 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
   show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
   Ascii.render show id id tbl
   where
-    -- tbl :: T.Table x String String
+    tbl :: T.Table x String String
     tbl = T.Table
       (T.Group T.SingleLine (T.Header <$> Foldable.toList (en' es)))
       (T.Group T.SingleLine (T.Header <$> prettyColumnHeaders))
@@ -875,7 +884,7 @@ prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
 
     prettyFk x (fk, _) = show $ aFk alg fk x
 
-    -- prettyAtt :: x -> (att, w) -> String
+    prettyAtt :: x -> (att, ty) -> String
     prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
 
     prettyTerm = show

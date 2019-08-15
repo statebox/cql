@@ -18,16 +18,16 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.Parser.Transform (transExpParser) where
+module Language.CQL.Parser.Transform (transExpParser) where
 
-import           Language.Instance
-import           Language.Mapping
-import           Language.Parser.Instance
-import           Language.Parser.LexerRules
-import           Language.Parser.Mapping
-import           Language.Parser.Parser
-import           Language.Term
-import           Language.Transform
+import           Language.CQL.Instance
+import           Language.CQL.Mapping
+import           Language.CQL.Parser.Instance
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.Mapping
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Term
+import           Language.CQL.Transform
 
 -- prelude
 import           Data.Maybe

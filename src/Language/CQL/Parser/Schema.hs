@@ -21,14 +21,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 {-# LANGUAGE TupleSections #-}
 
-module Language.Parser.Schema where
+module Language.CQL.Parser.Schema where
 
-import           Language.Parser.LexerRules
-import           Language.Parser.Parser
-import           Language.Parser.Typeside
-import           Language.Schema            as X
-import           Language.Term
-import           Language.Typeside
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Parser.Typeside
+import           Language.CQL.Schema            as X
+import           Language.CQL.Term
+import           Language.CQL.Typeside
 
 -- base
 import           Data.Maybe

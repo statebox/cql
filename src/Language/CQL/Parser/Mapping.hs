@@ -18,13 +18,13 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.Parser.Mapping where
+module Language.CQL.Parser.Mapping where
 
-import           Language.Mapping
-import           Language.Parser.LexerRules
-import           Language.Parser.Parser
-import           Language.Parser.Schema     hiding (attParser, fkParser)
-import           Language.Term
+import           Language.CQL.Mapping
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Parser.Schema     hiding (attParser, fkParser)
+import           Language.CQL.Term
 
 -- megaparsec
 import           Text.Megaparsec

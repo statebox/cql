@@ -18,14 +18,11 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-module Language.Parser.Generator.Generator where
+module Language.CQL.Parser.Generator where
 
-import           Language.Parser.ReservedWords
-
--- QuickCheck
+import           Language.CQL.Parser.ReservedWords
 import           Test.QuickCheck.Gen
 
--- BASIC
 lowerCharGen :: Gen Char
 lowerCharGen = elements ['a' .. 'z']
 

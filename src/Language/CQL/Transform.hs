@@ -37,24 +37,25 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Transform where
+module Language.CQL.Transform where
 
 import           Control.DeepSeq
-import           Data.Map          (Map, mapWithKey)
-import qualified Data.Map.Strict   as Map
+import           Data.Map              (Map, mapWithKey)
+import qualified Data.Map.Strict       as Map
 import           Data.Maybe
-import qualified Data.Set          as Set
+import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Language.Common
-import           Language.Instance as I
-import           Language.Mapping  as M
-import           Language.Options
-import           Language.Query
-import           Language.Schema   as S
-import           Language.Term
-import           Prelude           hiding (EQ)
-
+import           Language.CQL.Common
+import           Language.CQL.Instance as I
+import           Language.CQL.Mapping  as M hiding (toMorphism)
+import           Language.CQL.Morphism (Morphism(..), translate, translate')
+import           Language.CQL.Morphism as Morphism (typeOf)
+import           Language.CQL.Options
+import           Language.CQL.Query
+import           Language.CQL.Schema   as S
+import           Language.CQL.Term
+import           Prelude               hiding (EQ)
 
 
 -- | Map from one 'Instance' to another of the same 'Schema'.
@@ -95,7 +96,7 @@ typecheckTransform
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[sym, en, fk, att], MultiTyMap '[Show, Ord, NFData] '[var, ty, gen, sk, x, y, gen', sk', x', y'])
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
-typecheckTransform m = typeOfMor $ transToMor m
+typecheckTransform m = Morphism.typeOf $ toMorphism m
 
 validateTransform
   :: forall var ty sym en fk att gen sk x y gen' sk' x' y' -- need forall
@@ -107,17 +108,17 @@ validateTransform m@(Transform src' dst' _ _) =
   where
     f :: (EQ Void ty sym en fk att gen sk) -> Err () -- need type signature
     f (EQ (l, r)) = let
-      l' = trans (transToMor m) l
-      r' = trans (transToMor m) r :: Term Void ty sym en fk att gen' sk'
+      l' = translate (toMorphism m) l
+      r' = translate (toMorphism m) r :: Term Void ty sym en fk att gen' sk'
       in if dp dst' (EQ (l',   r'))
          then pure ()
          else Left $ show l ++ " = " ++ show r ++ " translates to " ++ show l' ++ " = " ++ show r' ++ " which is not provable"
 
-transToMor
+toMorphism
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, gen, sk, en', fk', att', gen', sk'])
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
-transToMor (Transform src' dst' gens' sks') =
+toMorphism (Transform src' dst' gens' sks') =
   Morphism (presToCol (I.schema src') (pres src'))
            (presToCol (I.schema src') (pres dst'))
            ens0 fks0 atts0 gens' sks'
@@ -195,8 +196,8 @@ composeTransform (Transform s t f a) m2@(Transform s' t' _ _)
   | t == s'   = pure $ Transform s t' f'' a''
   | otherwise = Left $ "Source and target instances do not match: " ++ show t ++ " and " ++ show s'
   where
-    f'' = Map.fromList [ (k, trans' (transToMor m2) v) | (k, v) <- Map.toList f ]
-    a'' = Map.fromList [ (k, trans  (transToMor m2) v) | (k, v) <- Map.toList a ]
+    f'' = Map.fromList [ (k, translate' (toMorphism m2) v) | (k, v) <- Map.toList f ]
+    a'' = Map.fromList [ (k, translate  (toMorphism m2) v) | (k, v) <- Map.toList a ]
 
 evalSigmaTrans
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, en', fk', att', gen', sk', x', y'])
@@ -252,8 +253,8 @@ evalDeltaTrans m h o = do
   j <- evalDeltaInst m (dstT h) o
   pure $ Transform i j (gens' i) (sks' i)
   where
-    gens' i = mapWithKey (\(_,x) en' -> Gen (en', nf   (algebra $ dstT h) $ trans' (transToMor h) $ repr  (algebra $ srcT h) x)) $ I.gens $ pres i
-    sks'  i = mapWithKey (\y     _   -> upp  $    nf'' (algebra $ dstT h) $ trans  (transToMor h) $ repr' (algebra $ srcT h) y)  $ I.sks  $ pres i
+    gens' i = mapWithKey (\(_,x) en' -> Gen (en', nf   (algebra $ dstT h) $ translate' (toMorphism h) $ repr  (algebra $ srcT h) x)) $ I.gens $ pres i
+    sks'  i = mapWithKey (\y     _   -> upp  $    nf'' (algebra $ dstT h) $ translate  (toMorphism h) $ repr' (algebra $ srcT h) y)  $ I.sks  $ pres i
 
 ---------------------------------------------------------------------------------------------------------
 -- Raw literals

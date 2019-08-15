@@ -42,26 +42,26 @@ module Language.CQL where
 import           Control.Concurrent
 import           Control.DeepSeq
 import           Control.Exception
-import           Data.List          (nub)
-import qualified Data.Map.Strict    as Map
+import           Data.List                   (nub)
+import qualified Data.Map.Strict             as Map
 import           Data.Maybe
 import           Data.Typeable
-import           Language.Common    as C
-import           Language.Graph
-import           Language.Instance  as I
-import           Language.Mapping   as M
-import           Language.Options
-import           Language.Parser    (parseCqlProgram)
-import           Language.Program   as P
-import           Language.Query     as Q
-import           Language.Schema    as S
-import           Language.Term      as Term
-import           Language.Transform as Tr
-import           Language.Typeside  as T
-import           Prelude            hiding (EQ, exp)
+import           Language.CQL.Common         as C
+import           Language.CQL.Graph
+import           Language.CQL.Instance       as I
+import           Language.CQL.Mapping        as M
+import           Language.CQL.Options
+import           Language.CQL.Parser.Program (parseProgram)
+import           Language.CQL.Program        as P
+import           Language.CQL.Query          as Q
+import           Language.CQL.Schema         as S
+import           Language.CQL.Term           as Term
+import           Language.CQL.Transform      as Tr
+import           Language.CQL.Typeside       as T
+import           Prelude                     hiding (EQ, exp)
 import           System.IO.Unsafe
 
--- | Timesout a computation after @i@ microseconds.
+-- | Times out a computation after @i@ microseconds.
 timeout' :: NFData x => Integer -> Err x -> Err x
 timeout' i p = unsafePerformIO $ do
   m <- newEmptyMVar
@@ -240,15 +240,15 @@ typecheckSchemaExp p x = case x of
 -- | The result of evaluating an CQL program.
 type Env = KindCtx TypesideEx SchemaEx InstanceEx MappingEx QueryEx TransformEx Options
 
--- | Simple three phase evaluation and reporting.
+-- | Parse, typecheck, and evaluate the CQL program.
 runProg :: String -> Err (Prog, Types, Env)
-runProg p = do
-  p1  <- parseCqlProgram p
-  ops <- toOptions defaultOptions $ other p1
-  o   <- findOrder p1
-  p2  <- typecheckCqlProgram o p1 newTypes
-  p3  <- evalCqlProgram      o p1 $ newEnv ops
-  return (p1, p2, p3)
+runProg srcText = do
+  progE  <- parseProgram srcText
+  opts   <- toOptions defaultOptions $ other progE
+  o      <- findOrder progE
+  typesE <- typecheckCqlProgram o progE newTypes
+  envE   <- evalCqlProgram      o progE $ newEnv opts
+  return (progE, typesE, envE)
 
 evalCqlProgram :: [(String,Kind)] -> Prog -> Env -> Err Env
 evalCqlProgram [] _ env = pure env

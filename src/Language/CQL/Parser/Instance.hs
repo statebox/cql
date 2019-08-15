@@ -20,16 +20,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE TupleSections         #-}
 
-module Language.Parser.Instance where
+module Language.CQL.Parser.Instance where
 
-import           Language.Instance          as I
-import           Language.Mapping
-import           Language.Parser.LexerRules
-import           Language.Parser.Mapping    as M
-import           Language.Parser.Parser
-import           Language.Parser.Schema
-import           Language.Schema            as S
-import           Language.Term
+import           Language.CQL.Instance          as I
+import           Language.CQL.Mapping
+import           Language.CQL.Parser.LexerRules
+import           Language.CQL.Parser.Mapping    as M
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Parser.Schema
+import           Language.CQL.Schema            as S
+import           Language.CQL.Term
 
 -- base
 import           Data.Maybe

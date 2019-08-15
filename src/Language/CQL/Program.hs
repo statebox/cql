@@ -36,19 +36,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Program where
+module Language.CQL.Program where
 
 import           Control.DeepSeq
-import           Data.Map.Strict    as Map
-import           Language.Common    (section, TyMap, Kind(..))
-import           Language.Instance  as I
-import           Language.Mapping   as M
-import           Language.Query     as Q
-import           Language.Schema    as S
-import           Language.Term      as Term
-import           Language.Transform as Tr
-import           Language.Typeside  as T
-import           Prelude            hiding (EQ)
+import           Data.Map.Strict        as Map
+import           Language.CQL.Common    (section, TyMap, Kind(..))
+import           Language.CQL.Instance  as I
+import           Language.CQL.Mapping   as M
+import           Language.CQL.Query     as Q
+import           Language.CQL.Schema    as S
+import           Language.CQL.Term      as Term
+import           Language.CQL.Transform as Tr
+import           Language.CQL.Typeside  as T
+import           Prelude                hiding (EQ)
 
 -- | Top level CQL expressions, untyped.
 data Exp
@@ -78,7 +78,7 @@ instance NFData Val where
     ValT  x -> rnf x
     ValQ  x -> rnf x
 
--- | Equivalent to Ctx (String + ... + String) (ts + ... + t)
+-- | Isomorphic to @Ctx (String + ... + String) (ts + ... + t)@.
 data KindCtx ts s i m q t o
   = KindCtx
   { typesides  :: Ctx String ts
@@ -90,8 +90,8 @@ data KindCtx ts s i m q t o
   , other      :: o
   }
 
--- | CQL programs
-type Prog  = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, String)]
+-- | A CQL program.
+type Prog = KindCtx TypesideExp SchemaExp InstanceExp MappingExp QueryExp TransformExp [(String, String)]
 
 newProg :: KindCtx ts s i m q t [a]
 newProg = newEnv []
@@ -122,10 +122,10 @@ instance TyMap Show '[ts, s, i, m, q, t, o] => Show (KindCtx ts s i m q t o) whe
       showCtx m = unlines $ (\(k,v) -> show k ++ " = " ++ show v ++ "\n") <$> Map.toList m
 
 allVars :: KindCtx ts s i m q t o -> [(String, Kind)]
-allVars x =
-  fmap (, TYPESIDE ) (keys $ typesides  x) ++
-  fmap (, SCHEMA   ) (keys $ schemas    x) ++
-  fmap (, INSTANCE ) (keys $ instances  x) ++
-  fmap (, MAPPING  ) (keys $ mappings   x) ++
-  fmap (, QUERY    ) (keys $ queries    x) ++
-  fmap (, TRANSFORM) (keys $ transforms x)
+allVars ctx =
+  (fmap (, TYPESIDE ) . keys . typesides  $ ctx) <>
+  (fmap (, SCHEMA   ) . keys . schemas    $ ctx) <>
+  (fmap (, INSTANCE ) . keys . instances  $ ctx) <>
+  (fmap (, MAPPING  ) . keys . mappings   $ ctx) <>
+  (fmap (, QUERY    ) . keys . queries    $ ctx) <>
+  (fmap (, TRANSFORM) . keys . transforms $ ctx)

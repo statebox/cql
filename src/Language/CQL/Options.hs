@@ -20,10 +20,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE EmptyDataDeriving #-}
 
-module Language.Options where
+module Language.CQL.Options where
 
 import           Data.Void
-import           Language.Common
+import           Language.CQL.Common (Err, intercalate, lower)
 import           Text.Read
 
 data Options = Options {
@@ -59,7 +59,7 @@ toIntegerOption (k, v) = case matches of
   []    -> Left $ "No option called " ++ k
   (x:_) -> do { a <- parseInt v ; return (x, a) }
   where
-    matches = [ k' | k' <- opsI, toLowercase (show k') == k ]
+    matches = [ k' | k' <- opsI, lower (show k') == k ]
     parseInt :: String -> Err Integer
     parseInt x = case readMaybe x of
       Nothing -> Left  $ "Not an int: " ++ x
@@ -71,7 +71,7 @@ toStringOption (k,v) = case matches of
   []    -> Left $ "No option called " ++ k
   (x:_) -> return (x, v)
   where
-    matches = [ k' | k' <- opsS, toLowercase (show k') == k ]
+    matches = [ k' | k' <- opsS, lower (show k') == k ]
 
 
 toBoolOption :: (String, String) -> Err (BoolOption, Bool)
@@ -79,7 +79,7 @@ toBoolOption (k,v) = case matches of
   []    -> Left  $ "No option called " ++ k
   (x:_) -> do { a <- parseBool v ; return (x, a) }
   where
-    matches = [ k' | k' <- opsB, toLowercase (show k') == k ]
+    matches = [ k' | k' <- opsB, lower (show k') == k ]
     parseBool z = case z of
       "true"  -> Right True
       "false" -> Right False

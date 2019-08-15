@@ -38,7 +38,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Language.Common where
+module Language.CQL.Common where
 
 import           Control.Arrow   (left)
 import           Data.Char
@@ -65,15 +65,16 @@ fromListAccum ((k,v):kvs) = Map.insert k op (fromListAccum kvs)
     op = maybe (Set.singleton v) (Set.insert v) (Map.lookup k r)
     r  = fromListAccum kvs
 
-fromList'' :: (Show k, Ord k) => [k] -> Err (Set k)
-fromList'' [] = return Set.empty
-fromList'' (k:l) = do
-  l' <- fromList'' l
+-- | Converts a 'List' to a 'Set', returning an error when there are duplicate bindings.
+toSetSafely :: (Show k, Ord k) => [k] -> Err (Set k)
+toSetSafely [] = return Set.empty
+toSetSafely (k:l) = do
+  l' <- toSetSafely l
   if Set.member k l'
   then Left $ "Duplicate binding: " ++ show k
   else pure $ Set.insert k l'
 
--- | Converts a map to a finite list, returning an error when there are duplicate bindings.
+-- | Converts an association list to a 'Map', returning an error when there are duplicate bindings.
 toMapSafely :: (Show k, Ord k) => [(k,v)] -> Err (Map k v)
 toMapSafely [] = return Map.empty
 toMapSafely ((k,v):l) = do
@@ -100,12 +101,14 @@ note :: b -> Maybe a -> Either b a
 note n = maybe (Left n) Right
 
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
- deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord)
 
 type ID = Integer
 
-sepTup :: (Show a1, Show a2) => String -> (a1, a2) -> String
-sepTup sep (k,v) = show k ++ sep ++ show v
+-- | Drop quotes if argument doesn't contain a space.
+dropQuotes :: String -> String
+dropQuotes s = if ' ' `elem` s then Prelude.filter (not . ('\"' ==)) s
+                               else s
 
 section :: String -> String -> String
 section heading body = heading ++ "\n" ++ indentLines body
@@ -115,6 +118,9 @@ indentLines = foldMap (\l -> tab <> l <> "\n"). lines
 
 tab :: String
 tab = "    "
+
+sepTup :: (Show a1, Show a2) => String -> (a1, a2) -> String
+sepTup sep (k,v) = show k ++ sep ++ show v
 
 -- | A version of intercalate that works on Foldables instead of just List,
 -- | adapted from PureScript.
@@ -127,8 +133,9 @@ intercalate sep xs = snd (foldl go (True, mempty) xs)
 mapl :: Foldable f => (a -> b) -> f a -> [b]
 mapl fn = fmap fn . Foldable.toList
 
-toLowercase :: String -> String
-toLowercase = Prelude.map toLower
+-- | Converts a String to lowercase, like Data.List.Extra.lower.
+lower :: String -> String
+lower = fmap toLower
 
 -- | Heterogenous membership in a list
 elem' :: (Typeable t, Typeable a, Eq a) => t -> [a] -> Bool

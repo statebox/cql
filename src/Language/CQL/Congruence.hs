@@ -19,7 +19,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE FlexibleContexts, OverloadedLists, OverloadedStrings, TupleSections #-}
-module Language.Congruence (decide, Term(Function)) where
+module Language.CQL.Congruence (decide, Term(Function)) where
 
 import           Prelude hiding (any)
 
@@ -35,7 +35,7 @@ import           Data.Foldable (traverse_)
 import           Data.Graph.Inductive (LNode)
 import           Data.Functor.Identity
 
-import           Language.Internal
+import           Language.CQL.Internal
 
 
 decide :: Ord t => [(Term t, Term t)] -> Term t -> Term t -> Bool

@@ -22,20 +22,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Parser.ParserSpec where
 
-import           Language.Parser.Generator.Generator
-import           Language.Parser.Parser
-import           Language.Parser.ReservedWords
-
--- base
-import           Data.Either                         (isLeft)
-
--- hspec
+import           Language.CQL.Parser.Generator
+import           Language.CQL.Parser.Parser
+import           Language.CQL.Parser.ReservedWords
+import           Data.Either                             (isLeft)
 import           Test.Hspec
-
--- megaparsec
 import           Text.Megaparsec
-
--- QuickCheck
 import           Test.QuickCheck
 
 spec :: Spec
@@ -56,7 +48,7 @@ spec = do
       forAll ((:) <$> digitCharGen <*> listOf (oneof [idCharGen, digitCharGen])) $ \s ->
         isLeft $ parse identifier "" s
     specify
-      "does not parse a string starting with a not-allowed special character" $
+      "does not parse a string starting with an illegal special character" $
       forAll
         ((:) <$> (elements ['!', '"', '£', '%', '&', '/', '(', ')', '=', '?']) <*>
          listOf (oneof [idCharGen, digitCharGen])) $ \s ->
