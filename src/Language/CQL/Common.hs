@@ -133,7 +133,7 @@ intercalate sep xs = snd (foldl go (True, mempty) xs)
 mapl :: Foldable f => (a -> b) -> f a -> [b]
 mapl fn = fmap fn . Foldable.toList
 
--- | Converts a String to lowercase, like DataList.Extra.lower.
+-- | Converts a String to lowercase, like Data.List.Extra.lower.
 lower :: String -> String
 lower = fmap toLower
 
