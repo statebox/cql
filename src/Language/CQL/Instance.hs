@@ -49,8 +49,8 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
-import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
+import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.CQL.Instance.Presentation (Presentation(..), presToCol, typecheckPresentation, eqs0)
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
@@ -758,14 +758,6 @@ instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, 
     section "instance" $ unlines
       [ section "presentation" $ show p
       , section "algebra"      $ show alg
-      ]
-
-instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk]
-  => Show (Presentation var ty sym en fk att gen sk) where
-  show (Presentation ens' _ eqs') =
-    unlines
-      [ section "generators" $ intercalate "\n" $ sepTup " : " <$> Map.toList ens'
-      , section "equations"  $ intercalate "\n" $ Set.map show eqs'
       ]
 
 instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
