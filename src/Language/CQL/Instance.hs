@@ -67,12 +67,17 @@ import qualified Text.Tabular.AsciiArt as Ascii
 --------------------------------------------------------------------------------------------------------------------
 -- Algebras
 
--- | An algebra (model) of a schema.  For entities, consists of a carrier set, evaluation function
--- (nf), and its "inverse" repr.  For types, consists of a generating set of labelled nulls,
--- evaluation function (nf'), and its "inverse" repr', as well as a set of equations (the so-called type algebra).
--- The Eq instance is not defined because for now we define instance equality to be based on equations.
--- x: type of Carrier
--- y: type of generators for type algebra presentation
+-- | An algebra (model) of a 'Schema'.
+--
+--   * For entities, consists of a carrier set, evaluation function @nf@, and its "inverse" @repr@.
+--
+--   * For types, consists of a generating set of labelled nulls, evaluation function @nf'@, and its "inverse" @repr'@,
+--     as well as a set of equations (the so-called type algebra).
+--
+-- The @Eq@ instance is not defined because for now we define instance equality to be based on equations.
+--
+-- @x@: type of Carrier
+-- @y@: type of generators for type algebra presentation
 data Algebra var ty sym en fk att gen sk x y
   = Algebra
   { aschema :: Schema var ty sym en fk att
@@ -186,7 +191,7 @@ data Instance var ty sym en fk att gen sk x y
   = Instance
   { schema  :: Schema       var  ty sym en fk att
   , pres    :: Presentation var  ty sym en fk att gen sk
-  , dp      :: EQ           Void ty sym en fk att gen sk -> Bool
+  , dp      :: EQ           Void ty sym en fk att gen sk     -> Bool
   , algebra :: Algebra      var  ty sym en fk att gen sk x y
   }
 
@@ -198,7 +203,8 @@ freeTalg (Instance _ _ _ (Algebra _ _ _ _ _ _ _ _ teqs)) = Prelude.null teqs
 -- | Just syntactic equality of the theory for now.
 instance TyMap Eq '[var, ty, sym, en, fk, att, gen, sk, x, y]
   => Eq (Instance var ty sym en fk att gen sk x y) where
-  (==) (Instance schema' (Presentation gens' sks' eqs') _ _) (Instance schema'' (Presentation gens'' sks'' eqs'') _ _)
+  (==) (Instance schema'  (Presentation gens'  sks'  eqs' ) _ _)
+       (Instance schema'' (Presentation gens'' sks'' eqs'') _ _)
     = (schema' == schema'') && (gens' == gens'') && (sks' == sks'') && (eqs' == eqs'')
 
 instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk, x, y]
@@ -242,8 +248,8 @@ reify f s = concat $ Set.toList $ Set.map (\en'-> Set.toList $ Set.map (, en') $
 saturatedInstance
   :: forall var ty sym en fk att gen sk
   .  (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
-  => Schema var ty sym en fk att
-  -> Presentation var ty sym en fk att gen sk
+  => Schema        var ty sym en fk att
+  -> Presentation  var ty sym en fk att gen sk
   -> Err (Instance var ty sym en fk att gen sk gen (Either sk (gen, att)))
 saturatedInstance sch (Presentation gens sks eqs) = do
   (fks, atts) <- foldM procEq (Map.empty, Map.empty) eqs
@@ -252,7 +258,7 @@ saturatedInstance sch (Presentation gens sks eqs) = do
   let alg = Algebra sch (Set.fromList . gens') (nf1 fks) (nf2 fks) Gen (Set.fromList . sks' atts) (nf' atts) repr' Set.empty
   pure $ Instance sch (Presentation gens sks eqs) (\(EQ (l, r)) -> l == r) alg
   where
-    --checkTotality :: Map (gen, fk) gen -> Err ()
+    checkTotality :: Map (gen, fk) gen -> Err ()
     checkTotality fks =
       mapM_ (\en -> if   List.null (fksMissing en fks)
                     then pure ()
@@ -294,7 +300,11 @@ saturatedInstance sch (Presentation gens sks eqs) = do
 ---------------------------------------------------------------------------------------------------------------
 -- Initial algebras
 
+-- | The carrier for the initial algebra of an instance; they are just terms.
+--   Made into a separate type so this could be changed; cql-java for example just uses natural numbers as the carrier.
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
+
+-- | The generating labelled nulls for the type algebra of the associated instance.
 newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
 
 -- | Computes an initial instance (minimal model of a presentation).

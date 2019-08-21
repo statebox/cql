@@ -55,9 +55,9 @@ data Collage var ty sym en fk att gen sk
   { ceqs  :: Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   , ctys  :: Set ty
   , cens  :: Set en
-  , csyms :: Map sym ([ty],ty)
-  , cfks  :: Map fk (en, en)
-  , catts :: Map att (en, ty)
+  , csyms :: Map sym ([ty], ty)
+  , cfks  :: Map fk  (en  , en)
+  , catts :: Map att (en  , ty)
   , cgens :: Map gen en
   , csks  :: Map sk ty
   } deriving (Eq, Show)
@@ -81,7 +81,7 @@ simplify
   =>  Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplify (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
-  =         (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
+  =      (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
   where
     (ceqs'', f) = simplifyFix ceqs' []
     cgens''     = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HGen x) $ fmap fst f) $ Map.toList cgens'
@@ -109,7 +109,7 @@ assembleGens
  => Collage var ty sym en fk att gen sk
  -> [Carrier en fk gen]
  -> Map en (Set (Carrier en fk gen))
-assembleGens col []     = Map.fromList $ fmap (, Set.empty) $ Set.toList $ cens col
+assembleGens col []     = Map.fromList $ mapl (, Set.empty) $ cens col
 assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
   where
     m = assembleGens col tl
@@ -211,8 +211,8 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
 initGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 initGround col = (me', mt')
   where
-    me  = Map.fromList $ Prelude.map (\en -> (en, False)) $ Set.toList $ cens col
-    mt  = Map.fromList $ Prelude.map (\ty -> (ty, False)) $ Set.toList $ ctys col
+    me  = Map.fromList $ fmap (\en -> (en, False))              $ Set.toList $ cens  col
+    mt  = Map.fromList $ fmap (\ty -> (ty, False))              $ Set.toList $ ctys  col
     me' = Prelude.foldr (\(_, en) m -> Map.insert en True m) me $ Map.toList $ cgens col
     mt' = Prelude.foldr (\(_, ty) m -> Map.insert ty True m) mt $ Map.toList $ csks  col
 

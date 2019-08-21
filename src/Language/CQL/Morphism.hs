@@ -49,17 +49,17 @@ import           Language.CQL.Common
 import           Language.CQL.Term     (Ctx, Term(..), EQ(..), subst, upp)
 import           Prelude               hiding (EQ)
 
-
+-- | A morphism between 'Collage's.
 data Morphism var ty sym en fk att gen sk en' fk' att' gen' sk'
-  = Morphism {
-    m_src  :: Collage (()+var) ty sym en fk att gen sk
+  = Morphism
+  { m_src  :: Collage (()+var) ty sym en  fk  att  gen  sk
   , m_dst  :: Collage (()+var) ty sym en' fk' att' gen' sk'
   , m_ens  :: Map en  en'
-  , m_fks  :: Map fk  (Term () Void Void en' fk' Void Void Void)
-  , m_atts :: Map att (Term () ty   sym  en' fk' att' Void Void)
+  , m_fks  :: Map fk  (Term ()   Void Void en' fk' Void Void Void)
+  , m_atts :: Map att (Term ()   ty   sym  en' fk' att' Void Void)
   , m_gens :: Map gen (Term Void Void Void en' fk' Void gen' Void)
-  , m_sks  :: Map sk  (Term Void  ty   sym  en' fk' att'  gen' sk')
-}
+  , m_sks  :: Map sk  (Term Void ty   sym  en' fk' att' gen' sk')
+  }
 
 -- | Checks totality of the morphism mappings.
 checkDoms'
@@ -111,8 +111,8 @@ translate mor term = case term of
   Att f a  -> subst (upp $ m_atts mor ! f) $ translate mor a
   Fk  f a  -> subst (upp y) x
     where
-      x = translate mor a :: Term var' ty sym  en' fk' att' gen' sk'
-      y = m_fks mor ! f   :: Term () Void Void en' fk' Void Void Void
+      x = translate mor a :: Term var' ty   sym  en' fk' att' gen' sk'
+      y = m_fks mor ! f   :: Term ()   Void Void en' fk' Void Void Void
 
 typeOf
   :: forall var ty sym en fk att gen sk en' fk' att' gen' sk'
@@ -159,7 +159,6 @@ typeOf mor  = do
     typeOfMorSks (e,e') = Left $ "Bad null mapping " ++ show e ++ " -> " ++ show e'
 
 
--- I've given up on non string based error handling for now
 typeOf'
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk

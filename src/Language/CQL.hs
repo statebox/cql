@@ -89,7 +89,7 @@ timeout' i p = unsafePerformIO $ do
 class Typecheck e e' where
   typecheck :: Types -> e -> Err e'
 
--- | Checks that e.g. in @sigma F I@ that @F : S -> T and I : S-Inst@.
+-- | Checks that e.g. in @sigma F I@ that @F : S -> T@ and @I : S-Inst@.
 -- Checking that @S@ is well-formed is done by 'validate'.
 typecheckCqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
 typecheckCqlProgram [] _ x = pure x
@@ -360,6 +360,7 @@ getOptions' e = case e of
   ExpM  e' -> getOptions e'
   ExpT  e' -> getOptions e'
   ExpQ  e' -> getOptions e'
+
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx

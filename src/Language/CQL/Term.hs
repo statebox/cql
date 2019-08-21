@@ -344,7 +344,8 @@ class Up x y where
   upgr :: x -> y
 
 upp :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
-  => Term var ty sym en fk att gen sk -> Term var' ty' sym' en' fk' att' gen' sk'
+  => Term var  ty  sym  en  fk  att  gen  sk
+  -> Term var' ty' sym' en' fk' att' gen' sk'
 upp (Var v  ) = Var $ upgr v
 upp (Sym f a) = Sym (upgr f) $ fmap upp a
 upp (Fk  f a) = Fk  (upgr f) $      upp a
