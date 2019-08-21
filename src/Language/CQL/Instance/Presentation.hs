@@ -72,12 +72,12 @@ instance (NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, N
   rnf (Presentation g s e) = deepseq g $ deepseq s $ rnf e
 
 -- | Checks that an instance presentation is a well-formed theory.
-typecheckPresentation
+typecheck
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Err ()
-typecheckPresentation sch p = typeOfCol $ presToCol sch p
+typecheck sch p = typeOfCol $ presToCol sch p
 
 --created as an alias because of name clashes
 eqs0

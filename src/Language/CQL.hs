@@ -49,7 +49,7 @@ import           Data.Typeable
 import           Language.CQL.Common                as C
 import           Language.CQL.Graph
 import           Language.CQL.Instance              as I
-import           Language.CQL.Instance.Presentation as IP
+import qualified Language.CQL.Instance.Presentation as IP
 import           Language.CQL.Mapping               as M
 import           Language.CQL.Options
 import           Language.CQL.Parser.Program        (parseProgram)
@@ -320,11 +320,9 @@ instance Evalable SchemaExp SchemaEx where
   getOptions = getOptionsSchema
 
 instance Evalable InstanceExp InstanceEx where
-
-  -- | Calls @checkSatisfaction@.
   validate (InstanceEx x) = do
-    typecheckPresentation (schema x) (pres x)
-    checkSatisfaction x
+    IP.typecheck (schema x) (pres x)
+    I.satisfiesSchema x
   eval prog env exp = do
     i  <- evalInstance prog env exp
     o' <- toOptions (other env) $ getOptions exp

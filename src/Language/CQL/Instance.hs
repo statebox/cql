@@ -51,7 +51,8 @@ import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
 import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.CQL.Instance.Presentation (Presentation(..), presToCol, typecheckPresentation, eqs0)
+import           Language.CQL.Instance.Presentation (Presentation(..), presToCol, eqs0)
+import qualified Language.CQL.Instance.Presentation as IP (typecheck)
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
 import           Language.CQL.Prover
@@ -133,12 +134,12 @@ down1 (Gen g)  = Gen g
 down1 (Fk f a) = Fk f $ down1 a
 down1 _        = error "Anomaly: please report.  Function name: down1."
 
--- | Checks that an instance satisfies its schema.
-checkSatisfaction
+-- | Checks that an 'Instance' satisfies its 'Schema'.
+satisfiesSchema
   :: (MultiTyMap '[Show] '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq x)
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
-checkSatisfaction (Instance sch pres' dp' alg) = do
+satisfiesSchema (Instance sch pres' dp' alg) = do
   mapM_ (\(EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ eqs0 pres'
   mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqT l r en'')) $ Set.toList $ obs_eqs sch
   mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqE l r en'')) $ Set.toList $ path_eqs sch
@@ -559,7 +560,7 @@ evalInstanceRaw
 evalInstanceRaw ops ty' t is = do
   (i :: [Presentation var ty sym en fk att Gen Sk]) <- doImports is
   r <- evalInstanceRaw' ty' t i
-  _ <- typecheckPresentation ty' r
+  _ <- IP.typecheck ty' r
   l <- toOptions ops $ instraw_options t
   if bOps l Interpret_As_Algebra
   then do
