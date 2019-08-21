@@ -51,8 +51,8 @@ import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
 import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.CQL.Instance.Presentation (Presentation(..), presToCol, eqs0)
-import qualified Language.CQL.Instance.Presentation as IP (typecheck)
+import           Language.CQL.Instance.Presentation (Presentation(..), presToCol)
+import qualified Language.CQL.Instance.Presentation as IP (typecheck, Presentation(eqs))
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
 import           Language.CQL.Prover
@@ -140,7 +140,7 @@ satisfiesSchema
   => Instance var ty sym en fk att gen sk x y
   -> Err ()
 satisfiesSchema (Instance sch pres' dp' alg) = do
-  mapM_ (\(EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ eqs0 pres'
+  mapM_ (\(      EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ IP.eqs pres'
   mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqT l r en'')) $ Set.toList $ obs_eqs sch
   mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqE l r en'')) $ Set.toList $ path_eqs sch
   where
@@ -348,7 +348,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
     repr'''' (MkTalgGen (Right (x, att))) = Att att $ upp x
 
     teqs'' = concatMap (\(e, EQ (lhs,rhs)) -> fmap (\x -> EQ (nf'' this $ subst' lhs x, nf'' this $ subst' rhs x)) (Set.toList $ en' e)) $ Set.toList $ obs_eqs sch
-    teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ eqs0 p))
+    teqs' = Set.union (Set.fromList teqs'') (Set.map (\(EQ (lhs,rhs)) -> EQ (nf'' this lhs, nf'' this rhs)) (Set.filter hasTypeType' $ IP.eqs p))
 
 -- | Assemble Skolem terms (labeled nulls).
 assembleSks
@@ -525,7 +525,7 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
   let gensX = concatMap (Map.toList . gens) is ++ gens'''
       sksX  = concatMap (Map.toList . sks ) is ++ sks'''
   eqs'' <- transEq gensX sksX eqs'
-  pure $ Presentation (Map.fromList gensX) (Map.fromList sksX) $ Set.fromList $ (concatMap (Set.toList . eqs0) is) ++ (Set.toList eqs'')
+  pure $ Presentation (Map.fromList gensX) (Map.fromList sksX) $ Set.fromList $ (concatMap (Set.toList . IP.eqs) is) ++ (Set.toList eqs'')
   where
     keys' = map fst
 

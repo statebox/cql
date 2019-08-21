@@ -79,12 +79,6 @@ typecheck
   -> Err ()
 typecheck sch p = typeOfCol $ presToCol sch p
 
---created as an alias because of name clashes
-eqs0
-  :: Presentation var  ty sym en fk att gen sk
-  -> Set (EQ      Void ty sym en fk att gen sk)
-eqs0 (Presentation _ _ x) = x
-
 -- | Converts a presentation to a collage.
 presToCol
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
