@@ -50,7 +50,8 @@ import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf, typeOfCol)
+import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
+import           Language.CQL.Instance.Presentation (Presentation(..), presToCol, typecheckPresentation, eqs0)
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
 import           Language.CQL.Prover
@@ -179,46 +180,6 @@ aSk alg g = nf'' alg $ Sk g
 
 
 -------------------------------------------------------------------------------------------------------------------
-
--- | A presentation of an instance.
-data Presentation var ty sym en fk att gen sk
-  = Presentation
-  { gens :: Map gen en
-  , sks  :: Map sk ty
-  , eqs  :: Set (EQ Void ty sym en fk att gen sk)
-  }
-
-instance (NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData gen, NFData sk)
-  => NFData (Presentation var ty sym en fk att gen sk) where
-  rnf (Presentation g s e) = deepseq g $ deepseq s $ rnf e
-
--- | Checks that an instance presentation is a well-formed theory.
-typecheckPresentation
-  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
-  => Schema var ty sym en fk att
-  -> Presentation var ty sym en fk att gen sk
-  -> Err ()
-typecheckPresentation sch p = typeOfCol $ presToCol sch p
-
---created as an alias because of name clashes
-eqs0
-  :: Presentation var  ty sym en fk att gen sk
-  -> Set (EQ      Void ty sym en fk att gen sk)
-eqs0 (Presentation _ _ x) = x
-
--- | Converts a presentation to a collage.
-presToCol
-  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
-  => Schema var ty sym en fk att
-  -> Presentation var ty sym en fk att gen sk
-  -> Collage (()+var) ty sym en fk att gen sk
-presToCol sch (Presentation gens' sks' eqs') =
- Collage (Set.union e1 e2) (ctys schcol)
-         (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
-  where
-    schcol = schToCol sch
-    e1 = Set.map (\(   EQ (l,r)) -> (Map.empty, EQ (upp l, upp r)))   eqs'
-    e2 = Set.map (\(g, EQ (l,r)) -> (g,         EQ (upp l, upp r))) $ ceqs schcol
 
 -- | A database instance on a schema.  Contains a presentation, an algebra, and a decision procedure.
 data Instance var ty sym en fk att gen sk x y
