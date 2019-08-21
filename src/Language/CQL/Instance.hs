@@ -49,8 +49,8 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
-import           Language.CQL.Collage (Collage(..), attsFrom, fksFrom, typeOf, typeOfCol)
 import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, sepTup, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
+import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf, typeOfCol)
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
 import           Language.CQL.Prover
@@ -421,18 +421,6 @@ instance TyMap Show '[en, fk, att, gen, sk] => Show (TalgGen en fk att gen sk) w
 deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att gen sk)
 
 deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
-
-assembleGens
- :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
- => Collage var ty sym en fk att gen sk
- -> [Carrier en fk gen]
- -> Map en (Set (Carrier en fk gen))
-assembleGens col [] = Map.fromList $ Prelude.map (, Set.empty) $ Set.toList $ cens col
-assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
-  where
-    m = assembleGens col tl
-    t = typeOf col e
-    s = m ! t
 
 close
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])

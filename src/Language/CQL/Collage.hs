@@ -33,6 +33,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -100,6 +101,20 @@ attsFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(att,ty)]
 attsFrom sch en' = f $ Map.assocs $ catts sch
   where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+
+type Carrier en fk gen = Term Void Void Void en fk Void gen Void
+
+assembleGens
+ :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
+ => Collage var ty sym en fk att gen sk
+ -> [Carrier en fk gen]
+ -> Map en (Set (Carrier en fk gen))
+assembleGens col []     = Map.fromList $ fmap (, Set.empty) $ Set.toList $ cens col
+assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
+  where
+    m = assembleGens col tl
+    t = typeOf col e
+    s = m ! t
 
 -- | Gets the type of a term that is already known to be well-typed.
 typeOf
