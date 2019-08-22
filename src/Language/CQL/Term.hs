@@ -290,13 +290,13 @@ findSimplifiableEqs = procEqs . Set.toList
                                                Just   y -> Just y
 
 -- | Replaces a symbol by a term in a term.
-replace'
+replace
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Head ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
-replace' toReplace replacer x = case x of
+replace toReplace replacer x = case x of
   Sk  s    -> if HSk  s == toReplace then replacer else Sk  s
   Gen s    -> if HGen s == toReplace then replacer else Gen s
   Sym f [] -> if HSym f == toReplace then replacer else Sym f []
@@ -305,7 +305,7 @@ replace' toReplace replacer x = case x of
   Att f a  -> Att f $ self a
   Var v    -> Var v
   where
-    self = replace' toReplace replacer
+    self = replace toReplace replacer
 
 replaceRepeatedly
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
@@ -313,7 +313,7 @@ replaceRepeatedly
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
 replaceRepeatedly [] t        = t
-replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
+replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace s t e
 
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplify (extend) it.
 simplifyTheory
@@ -334,7 +334,7 @@ simplifyTheoryStep
 simplifyTheoryStep eqs = case findSimplifiableEqs eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
-    eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
+    eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace toRemove replacer lhs, replace toRemove replacer rhs))) eqs
     eqs3 = Set.filter (\(_  , EQ (x,   y  )) -> not $ x == y) eqs2
     in Just (eqs3, (toRemove, replacer))
 
