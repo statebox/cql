@@ -77,18 +77,17 @@ typecheck
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Err ()
-typecheck sch p = typeOfCol $ presToCol sch p
+typecheck sch p = typeOfCol $ toCollage sch p
 
 -- | Converts a presentation to a collage.
-presToCol
+toCollage
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Schema var ty sym en fk att
   -> Presentation var ty sym en fk att gen sk
   -> Collage (()+var) ty sym en fk att gen sk
-presToCol sch (Presentation gens' sks' eqs') =
- Collage (Set.union e1 e2) (ctys schcol)
-         (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
+toCollage sch (Presentation gens' sks' eqs') =
+  Collage (Set.union e1 e2) (ctys schcol) (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
   where
     schcol = schToCol sch
-    e1 = Set.map (\(   EQ (l,r)) -> (Map.empty, EQ (upp l, upp r)))   eqs'
+    e1 = Set.map (\(   EQ (l,r)) -> (Map.empty, EQ (upp l, upp r))) $ eqs'
     e2 = Set.map (\(g, EQ (l,r)) -> (g,         EQ (upp l, upp r))) $ ceqs schcol

@@ -51,8 +51,8 @@ import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
 import           Language.CQL.Common   (elem', fromListAccum, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.CQL.Instance.Algebra (Algebra(..), aAtt, down1, evalSchTerm, evalSchTerm', nf, nf'', repr'')
-import           Language.CQL.Instance.Presentation (Presentation(..), presToCol)
-import qualified Language.CQL.Instance.Presentation as IP (typecheck, Presentation(eqs))
+import           Language.CQL.Instance.Presentation (Presentation(..))
+import qualified Language.CQL.Instance.Presentation as IP (toCollage, typecheck, Presentation(eqs))
 import           Language.CQL.Mapping  as Mapping
 import           Language.CQL.Options
 import           Language.CQL.Prover
@@ -221,7 +221,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
     dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
     initialAlgebra = simplifyAlg this
     this  = Algebra sch en' nf''' nf'''2 id ty' nf'''' repr'''' teqs'
-    col   = presToCol sch p
+    col   = IP.toCollage sch p
     ens'  = assembleGens col (close col dp')
     en' k = ens' ! k
 
@@ -463,7 +463,7 @@ evalInstanceRaw ops ty' t is = do
     j <- saturatedInstance ty' r
     pure $ InstanceEx j
   else do
-    p <- createProver (presToCol ty' r) l
+    p <- createProver (IP.toCollage ty' r) l
     pure $ InstanceEx $ initialInstance r (prv p) ty'
   where
     prv p (EQ (l,r)) = prove p (Map.fromList []) (EQ (l,  r))
@@ -601,7 +601,7 @@ evalSigmaInst
   -> Instance var ty sym en fk att gen sk x y -> Options
   -> Err (Instance var ty sym en' fk' att' gen sk (Carrier en' fk' gen) (TalgGen en' fk' att' gen sk))
 evalSigmaInst f i o = do
-  d <- createProver (presToCol s p) o
+  d <- createProver (IP.toCollage s p) o
   return $ initialInstance p (\(EQ (l, r)) -> prove d Map.empty (EQ (l, r))) s
   where
     p = subs f $ pres i

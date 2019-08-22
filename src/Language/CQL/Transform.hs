@@ -48,7 +48,7 @@ import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Instance              as I
-import           Language.CQL.Instance.Presentation as IP
+import qualified Language.CQL.Instance.Presentation as IP (Presentation(eqs, gens, sks), toCollage)
 import           Language.CQL.Instance.Algebra      (Algebra(..), nf, nf'')
 import           Language.CQL.Mapping               as M hiding (toMorphism)
 import           Language.CQL.Morphism              (Morphism(..), translate, translate')
@@ -106,7 +106,7 @@ validateTransform
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
 validateTransform m@(Transform src' dst' _ _) =
-  mapM_ f (Set.toList $ eqs $ pres src')
+  mapM_ f (Set.toList $ IP.eqs $ pres src')
   where
     f :: (EQ Void ty sym en fk att gen sk) -> Err () -- need type signature
     f (EQ (l, r)) = let
@@ -121,8 +121,8 @@ toMorphism
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
 toMorphism (Transform src' dst' gens' sks') =
-  Morphism (presToCol (I.schema src') (pres src'))
-           (presToCol (I.schema src') (pres dst'))
+  Morphism (IP.toCollage (I.schema src') (pres src'))
+           (IP.toCollage (I.schema src') (pres dst'))
            ens0 fks0 atts0 gens' sks'
   where
     ens0  = Map.fromSet id                          (S.ens  $ I.schema src')
