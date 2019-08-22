@@ -325,8 +325,8 @@ simplifyTheory th subst0 = case simplifyTheoryStep th of
   Nothing            -> (th, subst0)
   Just (th', subst1) -> simplifyTheory th' $ subst0 ++ [subst1]
 
--- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
--- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
+-- | Does a one step simplification of a theory, looking for equations @gen/sk = term@, yielding also a
+--   translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Theory var ty sym en fk att gen sk

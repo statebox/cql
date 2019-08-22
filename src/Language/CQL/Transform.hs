@@ -49,7 +49,7 @@ import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Instance              as I
 import qualified Language.CQL.Instance.Presentation as IP (Presentation(eqs, gens, sks), toCollage)
-import           Language.CQL.Instance.Algebra      (Algebra(..), nf, nf'')
+import           Language.CQL.Instance.Algebra      (Algebra(..), Carrier, nf, nf'', TalgGen(..))
 import           Language.CQL.Mapping               as M hiding (toMorphism)
 import           Language.CQL.Morphism              (Morphism(..), translate, translate')
 import           Language.CQL.Morphism              as Morphism (typeOf)

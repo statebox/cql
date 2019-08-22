@@ -102,6 +102,7 @@ attsFrom sch en' = f $ Map.assocs $ catts sch
   where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
 
+-- TODO Carrier is duplicated here from Instance.Algebra (Carrier) because it is used in assembleGens.
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 
 assembleGens

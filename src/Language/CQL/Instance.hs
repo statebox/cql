@@ -50,7 +50,7 @@ import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
 import           Language.CQL.Common   (elem', fromListAccum, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
-import           Language.CQL.Instance.Algebra (Algebra(..), aAtt, down1, evalSchTerm, evalSchTerm', nf, nf'', repr'')
+import           Language.CQL.Instance.Algebra (Algebra(..), aAtt, Carrier, down1, evalSchTerm, evalSchTerm', nf, nf'', repr'', TalgGen(..))
 import qualified Language.CQL.Instance.Algebra as A (simplify)
 import           Language.CQL.Instance.Presentation (Presentation(..))
 import qualified Language.CQL.Instance.Presentation as IP (toCollage, typecheck, Presentation(eqs))
@@ -198,13 +198,6 @@ saturatedInstance sch (Presentation gens sks eqs) = do
 ---------------------------------------------------------------------------------------------------------------
 -- Initial algebras
 
--- | The carrier for the initial algebra of an instance; they are just terms.
---   Made into a separate type so this could be changed; cql-java for example just uses natural numbers as the carrier.
-type Carrier en fk gen = Term Void Void Void en fk Void gen Void
-
--- | The generating labelled nulls for the type algebra of the associated instance.
-newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
-
 -- | Computes an initial instance (minimal model of a presentation).
 -- Actually, computes the cannonical term model, where the underlying elements
 -- of the carriers are equivalence class of terms modulo provable equality
@@ -263,17 +256,6 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
 
 instance NFData InstanceEx where
   rnf (InstanceEx x) = rnf x
-
-instance TyMap NFData '[en, fk, att, gen, sk] => NFData (TalgGen en fk att gen sk) where
-  rnf (MkTalgGen x) = rnf x
-
-instance TyMap Show '[en, fk, att, gen, sk] => Show (TalgGen en fk att gen sk) where
-  show (MkTalgGen (Left  x)) = show x
-  show (MkTalgGen (Right x)) = show x
-
-deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att gen sk)
-
-deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
 
 -- TODO move to Collage? Algebra?
 -- TODO move to Collage? Algebra?
