@@ -271,7 +271,7 @@ occurs h x = case x of
 -- where @gen@ does not occur in @term@.
 findSimplifiableEqs
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
-  => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+  => Theory var ty sym en fk att gen sk
   -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
 findSimplifiableEqs = procEqs . Set.toList
   where
@@ -317,19 +317,19 @@ replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 -- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplify (extend) it.
 simplifyTheory
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
-  => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
+  => Theory var ty sym en fk att gen sk
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
-  -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
-simplifyTheory eqs subst0 = case simplifyTheoryStep eqs of
-  Nothing             -> (eqs, subst0)
-  Just (eqs1, subst1) -> simplifyTheory eqs1 $ subst0 ++ [subst1]
+  -> (Theory var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplifyTheory th subst0 = case simplifyTheoryStep th of
+  Nothing            -> (th, subst0)
+  Just (th', subst1) -> simplifyTheory th' $ subst0 ++ [subst1]
 
 -- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
 simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
-  => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
-  -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
+  => Theory var ty sym en fk att gen sk
+  -> Maybe (Theory var ty sym en fk att gen sk, (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
 simplifyTheoryStep eqs = case findSimplifiableEqs eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
@@ -367,6 +367,8 @@ instance Up y (x + y) where
 
 --------------------------------------------------------------------------------------------------------------------
 -- Theories
+
+type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
 
 -- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever put twice
 type Ctx k v = Map k v
