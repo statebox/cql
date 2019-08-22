@@ -40,7 +40,6 @@ module Language.CQL.Instance where
 
 import           Control.DeepSeq
 import           Control.Monad
-import qualified Data.Foldable         as Foldable
 import           Data.List             as List hiding (intercalate)
 import           Data.Map.Strict       (Map, member, unionWith, (!))
 import qualified Data.Map.Strict       as Map
@@ -50,7 +49,8 @@ import qualified Data.Set              as Set
 import           Data.Typeable         hiding (typeOf)
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
-import           Language.CQL.Common   (elem', intercalate, fromListAccum, mapl, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
+import           Language.CQL.Common   (elem', fromListAccum, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
+import           Language.CQL.Instance.Algebra (Algebra(..), aAtt, down1, evalSchTerm, evalSchTerm', nf, nf'', repr'')
 import           Language.CQL.Instance.Presentation (Presentation(..), presToCol)
 import qualified Language.CQL.Instance.Presentation as IP (typecheck, Presentation(eqs))
 import           Language.CQL.Mapping  as Mapping
@@ -61,78 +61,10 @@ import           Language.CQL.Schema   as Schema
 import           Language.CQL.Term     as Term
 import           Language.CQL.Typeside as Typeside
 import           Prelude               hiding (EQ)
-import qualified Text.Tabular          as T
-import qualified Text.Tabular.AsciiArt as Ascii
 
 
 --------------------------------------------------------------------------------------------------------------------
 -- Algebras
-
--- | An algebra (model) of a 'Schema'.
---
---   * For entities, consists of a carrier set, evaluation function @nf@, and its "inverse" @repr@.
---
---   * For types, consists of a generating set of labelled nulls, evaluation function @nf'@, and its "inverse" @repr'@,
---     as well as a set of equations (the so-called type algebra).
---
--- The @Eq@ instance is not defined because for now we define instance equality to be based on equations.
---
--- @x@: type of Carrier
--- @y@: type of generators for type algebra presentation
-data Algebra var ty sym en fk att gen sk x y
-  = Algebra
-  { aschema :: Schema var ty sym en fk att
-
-  , en      :: en -> Set x -- globally unique xs
-  , aGen    :: gen -> x
-  , aFk     :: fk  -> x -> x
-  , repr    :: x   -> Term Void Void Void en fk Void gen Void
-
-  , ty      :: ty -> Set y -- globally unique ys
-  , nf'     :: sk + (x, att) -> Term Void ty sym Void Void Void Void y
-  , repr'   :: y -> Term Void ty sym en fk att gen sk
-
-  , teqs    :: Set (EQ Void ty sym Void Void Void Void y)
-  }
-
-instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
-  => NFData (Algebra var ty sym en fk att gen sk x y)
-  where
-    rnf (Algebra s0 e0 nf0 nf02 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ deepseq nf02 $ rnf eqs1
-      where
-        f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
-        w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
-
--- | Evaluate an entity-side schema term with one free variable, given a value for that variable.
-evalSchTerm' :: Algebra var ty sym en fk att gen sk x y -> x -> Term () Void Void en fk Void Void Void -> x
-evalSchTerm' alg x term = case term of
-  Var _   -> x
-  Fk  f a -> aFk alg f $ evalSchTerm' alg x a
-  Gen g   -> absurd g
-  Sk  g   -> absurd g
-  Sym f _ -> absurd f
-  Att f _ -> absurd f
-
--- | Evaluate a type-side schema term with one free variable, given a value for that variable.
-evalSchTerm :: Algebra var ty sym en fk att gen sk x y -> x -> Term () ty sym en fk att Void Void
-  -> Term Void ty sym Void Void Void Void y
-evalSchTerm alg x term = case term of
-  Att f a  -> aAtt alg f $ evalSchTerm' alg x $ down1 a
-  Sk  g    -> absurd g
-  Sym f as -> Sym f $ fmap (evalSchTerm alg x) as
-  _        -> error "Impossibility in evalSchTerm, please report.  Given a term of non-type sort."
-
-
--- | Helper function used by checkSatisfaction to convert terms in the Collage of entity sort
--- into terms with Voids in the attribute etc slots.  Morally Collage should store two or more
--- classes of equation, but having to convert like this is relatively rare.  Indeed, checkSatisfaction
--- itself is redundant - a properly functioning CQL would not generate unsatisfying instances.
-down1 :: Term x ty sym en fk att gen sk -> Term x Void Void en fk Void gen Void
-down1 (Var v)  = Var v
-down1 (Gen g)  = Gen g
-down1 (Fk f a) = Fk f $ down1 a
-down1 _        = error "Anomaly: please report.  Function name: down1."
 
 -- | Checks that an 'Instance' satisfies its 'Schema'.
 satisfiesSchema
@@ -150,40 +82,6 @@ satisfiesSchema (Instance sch pres' dp' alg) = do
     report l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
     schEqE l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
     schEqT l r e = foldr (\x b -> dp' (EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
-
-
--- | Evaluates a type side term to a term in the type algebra.  Crashes if given a term of entity sort.
-nf'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym en fk att gen sk -> Term Void ty sym Void Void Void Void y
-nf'' alg t = case t of
-  Sym f as -> Sym f (nf'' alg <$> as)
-  Att f a  -> nf' alg $ Right (nf alg (down1 a), f)
-  Sk  s    -> nf' alg $ Left s
-  _        -> error "Impossible, please report. Non typeside term passed to nf''."
-
--- | Evaluates a entity side term to a carrier.  Crashes if given a term of type sort.
-nf :: Algebra var ty sym en fk att gen sk x y -> Term Void ty' sym' en fk att' gen sk' -> x
-nf alg (Gen g  ) = aGen alg g
-nf alg (Fk  f a) = aFk  alg f $ nf alg a
-nf _ _           = error "Impossible, error in nf"
-
--- | "Reverse evaluates" a type algebra term to a term in instance.
-repr'' :: Algebra var ty sym en fk att gen sk x y -> Term Void ty sym Void Void Void Void y -> Term Void ty sym en fk att gen sk
-repr'' alg t = case t of
-  Sym f as -> Sym f (repr'' alg <$> as)
-  Sk  s    -> repr' alg s
-  Gen g    -> absurd g
-  Att a _  -> absurd a
-  Fk  f _  -> absurd f
-  Var v    -> absurd v
-
--- | Evaluates an attribute on a value.
-aAtt :: Algebra var ty sym en fk att gen sk x y -> att -> x -> Term Void ty sym Void Void Void Void y
-aAtt alg f x = nf'' alg $ Att f $ upp $ repr alg x
-
--- | Evaluates a labelled null.
-aSk :: Algebra var ty sym en fk att gen sk x y -> sk -> Term Void ty sym Void Void Void Void y
-aSk alg g = nf'' alg $ Sk g
-
 
 -------------------------------------------------------------------------------------------------------------------
 
@@ -770,73 +668,3 @@ instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, 
       [ section "presentation" $ show p
       , section "algebra"      $ show alg
       ]
-
-instance (TyMap Show '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq en, Eq fk, Eq att)
-  => Show (Algebra var ty sym en fk att gen sk x y) where
-  show alg@(Algebra sch _ _ _ _ ty' _ _ teqs') =
-    unlines $
-      [ section "entities"     $ unlines prettyEntities
-      , section "type-algebra" $ intercalate "\n" prettyTypeEqns
-      , section "nulls"        $ intercalate "\n" w
-      ]
-    where
-      w = mapl w2 . Typeside.tys . Schema.typeside $ sch
-      w2 ty'' = show ty'' ++ " (" ++ (show . Set.size $ ty' ty'') ++ ") = " ++ show (Foldable.toList $ ty' ty'') ++ " "
-      prettyEntities = prettyEntityTable alg `mapl` Schema.ens sch
-      prettyTypeEqns = Set.map show teqs'
-
-prettyEntity
-  :: forall var ty sym en fk att gen sk x y
-   . (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
-  => Algebra var ty sym en fk att gen sk x y
-  -> en
-  -> String
-prettyEntity alg@(Algebra sch en' _ _ _ _ _ _ _) es =
-  show es ++ " (" ++ (show . Set.size $ en' es) ++ ")\n" ++
-  "--------------------------------------------------------------------------------\n" ++
-  intercalate "\n" (prettyEntityRow es `mapl` en' es)
-  where
-    prettyEntityRow :: en -> x -> String
-    prettyEntityRow en'' e =
-      show e ++ ": " ++
-      intercalate "," (prettyFk  e <$> fksFrom'  sch en'') ++ ", " ++
-      intercalate "," (prettyAtt e <$> attsFrom' sch en'')
-
-    prettyAtt :: x -> (att, w) -> String
-    prettyAtt x (att,_) = show att ++ " = " ++ prettyTerm (aAtt alg att x)
-    prettyFk  x (fk, _) = show fk  ++ " = " ++ show (aFk alg fk x)
-    prettyTerm = show
-
--- TODO unquote identifiers; stick fks and attrs in separate `Group`s?
-prettyEntityTable
-  :: forall var ty sym en fk att gen sk x y
-   . (TyMap Show '[ty, sym, en, fk, att, x, y], Eq en)
-  => Algebra var ty sym en fk att gen sk x y
-  -> en
-  -> String
-prettyEntityTable alg@(Algebra sch en' _ _ _ _ _ _ _) es =
-  show es ++ " (" ++ show (Set.size (en' es)) ++ ")\n" ++
-  Ascii.render show id id tbl
-  where
-    tbl :: T.Table x String String
-    tbl = T.Table
-      (T.Group T.SingleLine (T.Header <$> Foldable.toList (en' es)))
-      (T.Group T.SingleLine (T.Header <$> prettyColumnHeaders))
-      (prettyRow <$> Foldable.toList (en' es))
-
-    prettyColumnHeaders :: [String]
-    prettyColumnHeaders =
-      (prettyTypedIdent <$> fksFrom'  sch es) ++
-      (prettyTypedIdent <$> attsFrom' sch es)
-
-    prettyRow e =
-      (prettyFk e <$> fksFrom' sch es) ++ (prettyAtt e <$> attsFrom' sch es)
-
-    prettyTypedIdent (ident, typ) = show ident ++ " : " ++ show typ
-
-    prettyFk x (fk, _) = show $ aFk alg fk x
-
-    prettyAtt :: x -> (att, ty) -> String
-    prettyAtt x (att,_) = prettyTerm $ aAtt alg att x
-
-    prettyTerm = show
