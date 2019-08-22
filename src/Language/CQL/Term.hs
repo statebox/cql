@@ -268,7 +268,7 @@ occurs h x = case x of
   Sym h' as -> h == HSym h' || any (occurs h) as
 
 -- | If there is one, finds an equation of the form empty |- @gen/sk = term@,
--- where @gen@ does not occur in @term@.
+--   where @gen@ does not occur in @term@.
 findSimplifiableEqs
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Theory var ty sym en fk att gen sk
@@ -280,13 +280,14 @@ findSimplifiableEqs = procEqs . Set.toList
     g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
     g (Sym _ []) _ = Nothing
     g _ _          = Nothing
-    procEqs []  = Nothing
+
+    procEqs []                             = Nothing
     procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
-    procEqs ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
-      Nothing -> case g rhs lhs of
-        Nothing -> procEqs tl
-        Just y  -> Just y
-      Just   y -> Just y
+    procEqs ((_, EQ (lhs, rhs)):tl)        = case g lhs rhs of
+                                               Nothing -> case g rhs lhs of
+                                                 Nothing -> procEqs tl
+                                                 Just y  -> Just y
+                                               Just   y -> Just y
 
 -- | Replaces a symbol by a term in a term.
 replace'
@@ -343,7 +344,8 @@ simplifyTheoryStep eqs = case findSimplifiableEqs eqs of
 class Up x y where
   upgr :: x -> y
 
-upp :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
+upp
+  :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
   => Term var  ty  sym  en  fk  att  gen  sk
   -> Term var' ty' sym' en' fk' att' gen' sk'
 upp (Var v  ) = Var $ upgr v
@@ -374,8 +376,9 @@ type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en
 type Ctx k v = Map k v
 
 -- Our own pair type for pretty printing purposes
+-- | This type indicates that the two terms are equal.
 newtype EQ var ty sym en fk att gen sk
-  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord,Eq)
+  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord, Eq)
 
 instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] => Show (EQ var ty sym en fk att gen sk) where
   show (EQ (lhs,rhs)) = show lhs ++ " = " ++ show rhs

@@ -86,8 +86,8 @@ data Algebra var ty sym en fk att gen sk x y
 instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, NFData x, NFData y)
   => NFData (Algebra var ty sym en fk att gen sk x y)
   where
-    rnf (Algebra s0 e0 nf0 nf02 repr0 ty0 nf1 repr1 eqs1) = deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0
-      $ w ty0 $ deepseq nf1 $ deepseq repr1 $ deepseq nf02 $ rnf eqs1
+    rnf (Algebra s0 e0 nf0 nf02 repr0 ty0 nf1 repr1 eqs1) =
+      deepseq s0 $ f e0 $ deepseq nf0 $ deepseq repr0 $ w ty0 $ deepseq nf1 $ deepseq repr1 $ deepseq nf02 $ rnf eqs1
       where
         f g = deepseq (Set.map (rnf . g) $ Schema.ens s0)
         w g = deepseq (Set.map (rnf . g) $ tys (typeside s0))
@@ -110,7 +110,6 @@ evalSchTerm alg x term = case term of
   Sk  g    -> absurd g
   Sym f as -> Sym f $ fmap (evalSchTerm alg x) as
   _        -> error "Impossibility in evalSchTerm, please report.  Given a term of non-type sort."
-
 
 -- | Helper to convert terms in the 'Collage' of entity sort into terms with 'Void's in the attribute etc slots.
 --   Morally, 'Collage' should store two or more classes of equation, but having to convert like this is relatively rare.

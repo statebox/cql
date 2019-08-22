@@ -98,9 +98,9 @@ data InstanceEx :: * where
     -> InstanceEx
 
 
--- | Converts an algebra into a presentation: adds one equation per fact in the algebra
--- and one generator per element.  Presentations in this form are called saturated because
--- they are maximally large without being redundant.  @I(fk.x) = I(fk)(I(x))@
+-- | Converts an algebra into a presentation: adds one equation per fact in the algebra,
+--   and one generator per element.  Presentations in this form are called saturated because
+--   they are maximally large without being redundant.  @I(fk.x) = I(fk)(I(x))@
 algebraToPresentation :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk], Ord y, Ord x)
   => Algebra var ty sym en fk att gen sk x y
   -> Presentation var ty sym en fk att x y
@@ -240,7 +240,7 @@ initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
     nf'''' (Left g)          = Sk $ MkTalgGen $ Left   g
     nf'''' (Right (gt, att)) = Sk $ MkTalgGen $ Right (gt, att)
 
-    --repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
+    repr'''' :: TalgGen en fk att gen sk -> Term Void ty sym en fk att gen sk
     repr'''' (MkTalgGen (Left g))         = Sk g
     repr'''' (MkTalgGen (Right (x, att))) = Att att $ upp x
 
@@ -417,12 +417,12 @@ evalInstanceRaw' sch (InstExpRaw' _ gens0 eqs' _ _) is = do
       rest <- transEq gens' sks' eqs''
       pure $ Set.insert (EQ (lhs', rhs')) rest
 
-    --transPath :: forall en fk gen . [String] -> RawTerm -> Err (Term Void Void Void en fk Void Gen Void)
+    transPath :: forall var' ty' sym' en' att'. [String] -> RawTerm -> Err (Term var' ty' sym' en' fk att' String Sk)
     transPath gens' (RawApp x [])  | elem  x gens' = pure $ Gen x
     transPath gens' (RawApp x [a]) | elem' x (Map.keys $ sch_fks sch) = Fk (fromJust $ cast x) <$> transPath gens' a
     transPath _ x = Left $ "cannot type " ++ show x
 
-    --transTerm :: forall ty sym en fk att Gen Sk . [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)
+    transTerm :: [String] -> [String] -> RawTerm -> Err (Term Void ty sym en fk att Gen Sk)
     transTerm gens' _    (RawApp x [])  | elem  x gens' = pure $ Gen x
     transTerm _     sks' (RawApp x [])  | elem  x sks'  = pure $ Sk  x
     transTerm gens' _    (RawApp x [a]) | elem' x (Map.keys $ sch_fks  sch) = Fk  (fromJust $ cast x) <$> transPath gens' a
@@ -462,7 +462,9 @@ evalInstanceRaw ops ty' t is = do
 
 -- | The empty instance on a schema has no data, so the types of its generators and carriers are 'Void'.
 emptyInstance :: Schema var ty sym en fk att -> Instance var ty sym en fk att Void Void Void Void
-emptyInstance ts'' = Instance ts''
+emptyInstance ts'' =
+  Instance
+    ts''
     (Presentation Map.empty Map.empty Set.empty)
     (const undefined)
     (Algebra ts''
@@ -470,15 +472,18 @@ emptyInstance ts'' = Instance ts''
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
 
--- | Pivots an instance. The returned schema will not have strings as fks etc, so it will be impossible to write a literal on it, at least for now. 
--- (Java CQL hacks around this by landing on String.)
-pivot :: forall var ty sym en fk att gen sk x y
+-- | Pivot an instance. The returned schema will not have strings as fks etc, so it will be impossible to write a literal on it, at least for now. 
+--   (Java CQL hacks around this by landing on String.)
+pivot
+  :: forall var ty sym en fk att gen sk x y
    . (MultiTyMap '[Show, Ord, Typeable] '[var, ty, sym, en, fk, att, gen, sk, x, y])
-  => Instance  var ty sym     en      fk      att                    gen  sk  x  y
-  -> (Schema   var ty sym (x, en) (x, fk) (x, att)
-  ,  Instance  var ty sym (x, en) (x, fk) (x, att)  (x, en) y (x, en)  y
-  ,  Mapping   var ty sym (x, en) (x, fk) (x, att)      en  fk att)
-pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) = (sch', inst, mapp)
+  => Instance   var ty sym     en      fk      att                    gen  sk  x  y
+  -> ( Schema   var ty sym (x, en) (x, fk) (x, att)
+     , Instance var ty sym (x, en) (x, fk) (x, att)  (x, en) y  (x, en)           y
+     , Mapping  var ty sym (x, en) (x, fk) (x, att)      en  fk att
+     )
+pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) =
+  (sch', inst, mapp)
   where
     sch'_ens  = Set.fromList [  (x, en)                                | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en)]
     sch'_fks  = Map.fromList [ ((x, fk0 ), ((x, en), (fk fk0 x, en'))) | en <- Set.toList (Schema.ens sch), x <- Set.toList (ens en), (fk0,  en') <- fksFrom'  sch en ]
@@ -536,7 +541,6 @@ pivot (Instance sch _ idp (Algebra _ ens _ fk fn tys nnf rep2'' teqs)) = (sch', 
       Fk (_, f) a  -> Fk f $ instToInst a
       Gen (x, _)   -> upp $ fn x
 
--- coproducts, etc
 
 ---------------------------------------------------------------------------------------------------------------
 -- Functorial data migration
@@ -550,7 +554,6 @@ subs (Mapping _ _ ens' fks' atts') (Presentation gens' sks' eqs') = Presentation
   where
     gens'' = Map.map (\k -> ens' ! k) gens'
     eqs''  = Set.map (\(EQ (l, r)) -> EQ (changeEn fks' atts' l, changeEn fks' atts' r)) eqs'
-
 
 changeEn
   :: (Ord k1, Ord k2, Eq var)
