@@ -39,6 +39,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Language.CQL.Term where
 
+import           Control.Applicative   ((<|>))
 import           Control.DeepSeq
 import           Data.Map.Merge.Strict
 import           Data.Map.Strict       as Map hiding (foldr, size)
@@ -267,27 +268,26 @@ occurs h x = case x of
   Att h' a  -> h == HAtt h' || occurs h a
   Sym h' as -> h == HSym h' || any (occurs h) as
 
--- | If there is one, finds an equation of the form empty |- @gen/sk = term@,
+-- | If there is one, finds an equation of the form @empty |- gen/sk = term@,
 --   where @gen@ does not occur in @term@.
-findSimplifiableEqs
+findSimplifiableEq
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Theory var ty sym en fk att gen sk
   -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
-findSimplifiableEqs = procEqs . Set.toList
+findSimplifiableEq = goEqs . Set.toList
   where
-    g (Var _)    _ = Nothing
-    g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
-    g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
-    g (Sym _ []) _ = Nothing
-    g _ _          = Nothing
+    goEqs []                                      = Nothing
+    goEqs ((ctx, _ ):ctxEqs) | not (Map.null ctx) = goEqs ctxEqs
+    goEqs ((_  , eq):ctxEqs)                      = goEq eq <|> goEqs ctxEqs
 
-    procEqs []                             = Nothing
-    procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
-    procEqs ((_, EQ (lhs, rhs)):tl)        = case g lhs rhs of
-                                               Nothing -> case g rhs lhs of
-                                                 Nothing -> procEqs tl
-                                                 Just y  -> Just y
-                                               Just   y -> Just y
+    goEq (EQ (lhs, rhs)) = g lhs rhs <|> g rhs lhs
+
+    g (Var _)    _ = Nothing
+    g (Sk  y)    t = if HSk  y `occurs` t then Nothing else Just (HSk  y, t)
+    g (Gen y)    t = if HGen y `occurs` t then Nothing else Just (HGen y, t)
+    g (Sym _ []) _ = Nothing
+    g _          _ = Nothing
+
 
 -- | Replaces a symbol by a term in a term.
 replace
@@ -331,7 +331,7 @@ simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Theory var ty sym en fk att gen sk
   -> Maybe (Theory var ty sym en fk att gen sk, (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
-simplifyTheoryStep eqs = case findSimplifiableEqs eqs of
+simplifyTheoryStep eqs = case findSimplifiableEq eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
     eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace toRemove replacer lhs, replace toRemove replacer rhs))) eqs
