@@ -63,28 +63,6 @@ import           Language.CQL.Typeside as Typeside
 import           Prelude               hiding (EQ)
 
 
---------------------------------------------------------------------------------------------------------------------
--- Algebras
-
--- | Checks that an 'Instance' satisfies its 'Schema'.
-satisfiesSchema
-  :: (MultiTyMap '[Show] '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq x)
-  => Instance var ty sym en fk att gen sk x y
-  -> Err ()
-satisfiesSchema (Instance sch pres' dp' alg) = do
-  mapM_ (\(      EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ IP.eqs pres'
-  mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqT l r en'')) $ Set.toList $ obs_eqs sch
-  mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqE l r en'')) $ Set.toList $ path_eqs sch
-  where
-    instEqE l r = nf alg (down1 l) == nf alg (down1 r)
-    instEqT l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r))) --morally we should create a new dp for the talg, but that's computationally intractable and this check still helps
-    report _ _ True  = return ()
-    report l r False = Left $ "Not satisified: " ++ l ++ " = " ++ r
-    schEqE l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
-    schEqT l r e = foldr (\x b -> dp' (EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
-
--------------------------------------------------------------------------------------------------------------------
-
 -- | A database instance on a schema.  Contains a presentation, an algebra, and a decision procedure.
 data Instance var ty sym en fk att gen sk x y
   = Instance
@@ -141,6 +119,26 @@ algebraToPresentation alg@(Algebra sch en' _ _ _ ty' _ _ _) =
 
 reify :: (Ord x, Ord en) => (en -> Set x) -> Set en -> [(x, en)]
 reify f s = concat $ Set.toList $ Set.map (\en'-> Set.toList $ Set.map (, en') $ f en') s
+
+-- | Checks that an 'Instance' satisfies its 'Schema'.
+satisfiesSchema
+  :: (MultiTyMap '[Show] '[var, ty, sym, en, fk, att, gen, sk, x, y], Eq x)
+  => Instance var ty sym en fk att gen sk x y
+  -> Err ()
+satisfiesSchema (Instance sch pres' dp' alg) = do
+  mapM_ (\(      EQ (l, r)) -> if hasTypeType l then report (show l) (show r) (instEqT l r) else report (show l) (show r) (instEqE l r)) $ Set.toList $ IP.eqs pres'
+  mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqT l r en'')) $ Set.toList $ obs_eqs sch
+  mapM_ (\(en'', EQ (l, r)) -> report (show l) (show r) (schEqE l r en'')) $ Set.toList $ path_eqs sch
+  where
+    -- Morally, we should create a new dp (decision procedure) for the talg, but that's computationally intractable, and this check still helps.
+    instEqE l r = nf alg (down1 l) == nf alg (down1 r)
+    instEqT l r = dp' $ EQ ((repr'' alg (nf'' alg l)), (repr'' alg (nf'' alg r)))
+
+    report _ _ True  = return ()
+    report l r False = Left $ "Not satisfied: " ++ l ++ " = " ++ r
+
+    schEqE l r e = foldr (\x b -> (evalSchTerm' alg x l == evalSchTerm' alg x r) && b) True (en alg e)
+    schEqT l r e = foldr (\x b -> dp' (EQ (repr'' alg (evalSchTerm alg x l), repr'' alg (evalSchTerm alg x r))) && b) True (en alg e)
 
 -- | Constructs an algebra from a saturated theory with a free type algebra.
 -- Needs to have satisfaction checked.
