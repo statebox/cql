@@ -76,6 +76,15 @@ data Term var ty sym en fk att gen sk
   -- | Skolem term or labelled null; like a generator for a type rather than an entity.
   | Sk  sk
 
+-- | A symbol (non-variable).
+data Head ty sym en fk att gen sk
+  = HSym  sym
+  | HFk   fk
+  | HAtt  att
+  | HGen  gen
+  | HSk   sk
+  deriving (Eq, Ord)
+
 instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
   NFData (Term var ty sym en fk att gen sk) where
     rnf x = case x of
@@ -108,15 +117,6 @@ show' :: Show a => a -> String
 show' = dropQuotes . show
 
 deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
-
--- | A symbol (non-variable).
-data Head ty sym en fk att gen sk
-  = HSym  sym
-  | HFk   fk
-  | HAtt  att
-  | HGen  gen
-  | HSk   sk
-  deriving (Eq, Ord)
 
 instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
   => Show (Head ty sym en fk att gen sk) where
