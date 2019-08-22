@@ -269,11 +269,11 @@ occurs h x = case x of
 
 -- | If there is one, finds an equation of the form empty |- @gen/sk = term@,
 -- where @gen@ does not occur in @term@.
-findSimplifiable
+findSimplifiableEqs
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
-findSimplifiable = procEqs . Set.toList
+findSimplifiableEqs = procEqs . Set.toList
   where
     g (Var _)    _ = Nothing
     g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
@@ -330,7 +330,7 @@ simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
-simplifyTheoryStep eqs = case findSimplifiable eqs of
+simplifyTheoryStep eqs = case findSimplifiableEqs eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
     eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
