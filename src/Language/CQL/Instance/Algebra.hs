@@ -171,12 +171,12 @@ type Carrier en fk gen = Term Void Void Void en fk Void gen Void
 newtype TalgGen en fk att gen sk = MkTalgGen (Either sk (Carrier en fk gen, att))
 
 -- | Inlines type-algebra equations of the form @gen = term@.
--- The hard work is delegated to functions from the 'Term' module.
-simplifyAlg
+--   The hard work is delegated to functions from the 'Term' module.
+simplify
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
   => Algebra var ty sym en fk att gen sk x y
   -> Algebra var ty sym en fk att gen sk x y
-simplifyAlg
+simplify
   (Algebra sch en' nf''' nf'''2 repr''' ty'  nf''''  repr'''' teqs'   ) =
    Algebra sch en' nf''' nf'''2 repr''' ty'' nf''''' repr'''' teqs''''
     where

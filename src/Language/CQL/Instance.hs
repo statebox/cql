@@ -51,6 +51,7 @@ import           Data.Void
 import           Language.CQL.Collage  (Collage(..), assembleGens, attsFrom, fksFrom, typeOf)
 import           Language.CQL.Common   (elem', fromListAccum, section, toMapSafely, Deps(..), Err, Kind(INSTANCE), MultiTyMap, TyMap, type (+))
 import           Language.CQL.Instance.Algebra (Algebra(..), aAtt, down1, evalSchTerm, evalSchTerm', nf, nf'', repr'')
+import qualified Language.CQL.Instance.Algebra as A (simplify)
 import           Language.CQL.Instance.Presentation (Presentation(..))
 import qualified Language.CQL.Instance.Presentation as IP (toCollage, typecheck, Presentation(eqs))
 import           Language.CQL.Mapping  as Mapping
@@ -219,7 +220,7 @@ initialInstance
 initialInstance p dp' sch = Instance sch p dp'' $ initialAlgebra
   where
     dp'' (EQ (lhs, rhs)) = dp' $ EQ (upp lhs, upp rhs)
-    initialAlgebra = simplifyAlg this
+    initialAlgebra = A.simplify this
     this  = Algebra sch en' nf''' nf'''2 id ty' nf'''' repr'''' teqs'
     col   = IP.toCollage sch p
     ens'  = assembleGens col (close col dp')
@@ -259,22 +260,6 @@ assembleSks col ens' = unionWith Set.union sks' $ fromListAccum gens'
       (Map.toList ens')
     sks'  = foldr (\(sk,t) m -> Map.insert t (Set.insert (MkTalgGen . Left $ sk) (m ! t)) m) ret $ Map.toList $ csks col
     ret   = Map.fromSet (const Set.empty) $ ctys col
-
--- | Inlines type-algebra equations of the form @gen = term@.
--- The hard work is delegated to functions from the 'Term' module.
-simplifyAlg
-  :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
-  => Algebra var ty sym en fk att gen sk x y
-  -> Algebra var ty sym en fk att gen sk x y
-simplifyAlg
-  (Algebra sch en' nf''' nf'''2 repr''' ty'  nf''''  repr'''' teqs'   ) =
-   Algebra sch en' nf''' nf'''2 repr''' ty'' nf''''' repr'''' teqs''''
-    where
-      teqs''       = Set.map (\x -> (Map.empty, x)) teqs'
-      (teqs''', f) = simplifyFix teqs'' []
-      teqs''''     = Set.map snd teqs'''
-      ty'' t       = Set.filter (\x -> notElem (HSk x) $ map fst f) $ ty' t
-      nf''''' e    = replaceRepeatedly f $ nf'''' e
 
 instance NFData InstanceEx where
   rnf (InstanceEx x) = rnf x
