@@ -46,8 +46,8 @@ import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Term     (Head(..), Term(..), simplifyFix, occsTerm, upp)
-import           Language.CQL.Term     (EQ(..), Ctx)
+import           Language.CQL.Term     (Ctx, EQ(..), Head(..), Term(..), occsTerm, upp)
+import qualified Language.CQL.Term     as T (simplifyTheory)
 import           Prelude               hiding (EQ)
 
 data Collage var ty sym en fk att gen sk
@@ -83,7 +83,7 @@ simplify
 simplify (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
   =      (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
   where
-    (ceqs'', f) = simplifyFix ceqs' []
+    (ceqs'', f) = T.simplifyTheory ceqs' []
     cgens''     = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HGen x) $ fmap fst f) $ Map.toList cgens'
     csks''      = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HSk  x) $ fmap fst f) $ Map.toList csks'
 

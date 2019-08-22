@@ -49,7 +49,7 @@ import qualified Data.Set              as Set
 import           Data.Void
 import           Language.CQL.Common   (intercalate, mapl, section, MultiTyMap, TyMap, type (+))
 import           Language.CQL.Schema   as Schema
-import           Language.CQL.Term     as Term
+import           Language.CQL.Term     (EQ(..), Head(HSk), Term(..), subst, upp, replaceRepeatedly, simplifyTheory)
 import           Language.CQL.Typeside as Typeside
 import           Prelude               hiding (EQ)
 import qualified Text.Tabular          as T
@@ -181,7 +181,7 @@ simplify
    Algebra sch en' nf''' nf'''2 repr''' ty'' nf''''' repr'''' teqs''''
     where
       teqs''       = Set.map (\x -> (Map.empty, x)) teqs'
-      (teqs''', f) = simplifyFix teqs'' []
+      (teqs''', f) = simplifyTheory teqs'' []
       teqs''''     = Set.map snd teqs'''
       ty'' t       = Set.filter (\x -> notElem (HSk x) $ map fst f) $ ty' t
       nf''''' e    = replaceRepeatedly f $ nf'''' e

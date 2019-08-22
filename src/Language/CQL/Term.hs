@@ -314,23 +314,23 @@ replaceRepeatedly
 replaceRepeatedly [] t        = t
 replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
 
--- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
-simplifyFix
+-- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplify (extend) it.
+simplifyTheory
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
   -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
-simplifyFix eqs subst0 = case simplify eqs of
+simplifyTheory eqs subst0 = case simplifyTheoryStep eqs of
   Nothing             -> (eqs, subst0)
-  Just (eqs1, subst1) -> simplifyFix eqs1 $ subst0 ++ [subst1]
+  Just (eqs1, subst1) -> simplifyTheory eqs1 $ subst0 ++ [subst1]
 
 -- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
 -- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
-simplify
+simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
   => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
-simplify eqs = case findSimplifiable eqs of
+simplifyTheoryStep eqs = case findSimplifiable eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
     eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
