@@ -275,11 +275,14 @@ deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att ge
 
 deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
 
+-- TODO move to Collage? Algebra?
+-- TODO move to Collage? Algebra?
+-- TODO move to Collage? Algebra?
 close
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var  ty   sym  en fk att  gen sk
   -> (EQ     var  ty   sym  en fk att  gen sk    -> Bool)
-  -> [Term   Void Void Void en fk Void gen Void]
+  -> [Carrier en fk gen]
 close col dp' =
   y (close1m dp' col) $ fmap Gen $ Map.keys $ cgens col
   where
@@ -290,21 +293,21 @@ close1m
   => (EQ var ty sym en fk att gen sk -> Bool)
   -> Collage var ty sym en fk att gen sk
   -> t (Term Void Void Void en fk Void gen Void)
-  -> [Term Void Void Void en fk Void gen Void]
+  -> [Carrier en fk gen]
 close1m dp' col = dedup dp' . concatMap (close1 col dp')
 
 dedup
   :: (EQ var ty sym en fk att gen sk -> Bool)
-  -> [Term Void Void Void en fk Void gen Void]
-  -> [Term Void Void Void en fk Void gen Void]
+  -> [Carrier en fk gen]
+  -> [Carrier en fk gen]
 dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
 close1
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> (EQ var ty sym en fk att gen sk -> Bool)
-  -> Term Void Void Void en fk Void gen Void
-  -> [Term Void Void Void en fk Void gen Void]
+  -> Carrier en fk gen
+  -> [Carrier en fk gen]
 close1 col _ e = e:(fmap (\(x,_) -> Fk x e) l)
   where
     t = typeOf col e
