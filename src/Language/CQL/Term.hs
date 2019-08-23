@@ -49,14 +49,6 @@ import           Data.Void
 import           Language.CQL.Common
 import           Prelude               hiding (EQ)
 
-data RawTerm = RawApp String [RawTerm]
-  deriving Eq
-
-instance Show RawTerm where
-  show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
-
---------------------------------------------------------------------------------------------
--- Terms
 
 data Term var ty sym en fk att gen sk
   -- | Variable.
@@ -86,47 +78,39 @@ data Head ty sym en fk att gen sk
   | HSk   sk
   deriving (Eq, Ord)
 
-instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
-  NFData (Term var ty sym en fk att gen sk) where
-    rnf x = case x of
-      Var v   -> rnf v
-      Sym f a -> let _ = rnf f in rnf a
-      Fk  f a -> let _ = rnf f in rnf a
-      Att f a -> let _ = rnf f in rnf a
-      Gen   a -> rnf a
-      Sk    a -> rnf a
-
-instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
-  NFData (EQ var ty sym en fk att gen sk) where
-    rnf (EQ (x, y)) = deepseq x $ rnf y
-
-
-instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] =>
-  Show (Term var ty sym en fk att gen sk)
-  where
-    show x = case x of
-      Var v      -> show' v
-      Gen g      -> show' g
-      Sk  s      -> show' s
-      Fk  fk  a  -> show' a ++ "." ++ show' fk
-      Att att a  -> show' a ++ "." ++ show' att
-      Sym sym [] -> show' sym
-      Sym sym az -> show' sym ++ "(" ++ (intercalate "," . fmap show' $ az) ++ ")"
-      where
-
-show' :: Show a => a -> String
-show' = dropQuotes . show
+deriving instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
 
 deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
 
-instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
-  => Show (Head ty sym en fk att gen sk) where
+instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] => NFData (Term var ty sym en fk att gen sk) where
+  rnf x = case x of
+    Var v   -> rnf v
+    Sym f a -> let _ = rnf f in rnf a
+    Fk  f a -> let _ = rnf f in rnf a
+    Att f a -> let _ = rnf f in rnf a
+    Gen   a -> rnf a
+    Sk    a -> rnf a
+
+instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] => Show (Term var ty sym en fk att gen sk) where
+  show x = case x of
+    Var v      -> show' v
+    Gen g      -> show' g
+    Sk  s      -> show' s
+    Fk  fk  a  -> show' a ++ "." ++ show' fk
+    Att att a  -> show' a ++ "." ++ show' att
+    Sym sym [] -> show' sym
+    Sym sym az -> show' sym ++ "(" ++ (intercalate "," . fmap show' $ az) ++ ")"
+
+instance TyMap Show '[ty, sym, en, fk, att, gen, sk] => Show (Head ty sym en fk att gen sk) where
   show x = case x of
     HSym  sym -> show' sym
     HFk   fk  -> show' fk
     HAtt  att -> show' att
     HGen  gen -> show' gen
     HSk   sk  -> show' sk
+
+show' :: Show a => a -> String
+show' = dropQuotes . show
 
 -- | Maps functions through a term.
 mapTerm
@@ -208,7 +192,7 @@ hasTypeType'' t = case t of
   Fk  _ _ -> False
 
 ----------------------------------------------------------------------------------------------------------
--- Substitution and simplification of theories
+-- Substitution and simplification on terms
 
 -- | Experimental
 subst2
@@ -267,6 +251,41 @@ occurs h x = case x of
   Fk  h' a  -> h == HFk  h' || occurs h a
   Att h' a  -> h == HAtt h' || occurs h a
   Sym h' as -> h == HSym h' || any (occurs h) as
+
+
+--------------------------------------------------------------------------------------------------------------------
+-- Equality, especially on Terms
+
+-- | A value of this type means the lhs and rhs are equal.
+--   One reason for its existence is to allow pretty-printing.
+type EQ var ty sym en fk att gen sk = EQF (Term var ty sym en fk att gen sk)
+
+newtype EQF a = EQ (a, a)
+
+instance Functor EQF where
+  fmap f (EQ (l, r)) = EQ (f l, f r)
+
+instance (Show a) => Show (EQF a) where
+  show (EQ (lhs, rhs)) = show lhs ++ " = " ++ show rhs
+
+deriving instance (Ord a) => Ord (EQF a)
+
+deriving instance (Eq a) => Eq (EQF a)
+
+instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] => NFData (EQ var ty sym en fk att gen sk) where
+  rnf (EQ (x, y)) = deepseq x $ rnf y
+
+hasTypeType' :: EQ Void ty sym en fk att gen sk -> Bool
+hasTypeType' (EQ (lhs, _)) = hasTypeType lhs
+
+
+--------------------------------------------------------------------------------------------------------------------
+-- Theories
+
+type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+
+-- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever inserted twice
+type Ctx k v = Map k v
 
 -- | If there is one, finds an equation of the form @empty |- gen/sk = term@,
 --   where @gen@ does not occur in @term@.
@@ -367,31 +386,10 @@ instance Up x (x + y) where
 instance Up y (x + y) where
   upgr = Right
 
---------------------------------------------------------------------------------------------------------------------
--- Theories
+--------------------------------------------------------------------------------
 
-type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+data RawTerm = RawApp String [RawTerm]
+  deriving Eq
 
--- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever put twice
-type Ctx k v = Map k v
-
--- | A value of this type means the lhs and rhs are equal.
---   One reason for its existence is to allow pretty-printing.
-type EQ var ty sym en fk att gen sk = EQF (Term var ty sym en fk att gen sk)
-
-newtype EQF a = EQ (a, a)
-
-instance Functor EQF where
-  fmap f (EQ (l, r)) = EQ (f l, f r)
-
-instance (Show a) => Show (EQF a) where
-  show (EQ (lhs, rhs)) = show lhs ++ " = " ++ show rhs
-
-deriving instance (Ord a) => Ord (EQF a)
-
-deriving instance (Eq a) => Eq (EQF a)
-
-deriving instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
-
-hasTypeType' :: EQ Void ty sym en fk att gen sk -> Bool
-hasTypeType' (EQ (lhs, _)) = hasTypeType lhs
+instance Show RawTerm where
+  show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"
