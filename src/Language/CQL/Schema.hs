@@ -112,9 +112,9 @@ toCollage (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
   where
     tscol = tsToCol ts
 
-    eqs1 = Set.map (unitCtx *** uppEQ) path_eqs'
-    eqs2 = Set.map (unitCtx *** uppEQ) obs_eqs'
-    eqs3 = Set.map (up1Ctx  *** uppEQ) (ceqs tscol)
+    eqs1 = Set.map (unitCtx *** fmap upp) path_eqs'
+    eqs2 = Set.map (unitCtx *** fmap upp) obs_eqs'
+    eqs3 = Set.map (up1Ctx  *** fmap upp) (ceqs tscol)
 
     unitCtx en = Map.singleton (Left ()) (Right en)
 
