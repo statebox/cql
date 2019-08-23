@@ -46,7 +46,7 @@ import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..))
 import           Language.CQL.Common
-import           Language.CQL.Term     (Ctx, Term(..), EQ(..), subst, upp)
+import           Language.CQL.Term     (Ctx, Term(..), EQ, EQF(..), subst, upp)
 import           Prelude               hiding (EQ)
 
 -- | A morphism between 'Collage's.

@@ -46,7 +46,7 @@ import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Term     (Ctx, EQ(..), Head(..), Term(..), occsTerm, upp)
+import           Language.CQL.Term     (Ctx, EQ, EQF(..), Head(..), Term(..), occsTerm, upp)
 import qualified Language.CQL.Term     as T (simplifyTheory)
 import           Prelude               hiding (EQ)
 

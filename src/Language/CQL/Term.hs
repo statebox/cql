@@ -382,13 +382,18 @@ type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en
 -- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever put twice
 type Ctx k v = Map k v
 
--- Our own pair type for pretty printing purposes
--- | This type indicates that the two terms are equal.
-newtype EQ var ty sym en fk att gen sk
-  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord, Eq)
+-- | A value of this type means the lhs and rhs are equal.
+--   One reason for its existence is to allow pretty-printing.
+type EQ var ty sym en fk att gen sk = EQF (Term var ty sym en fk att gen sk)
 
-instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] => Show (EQ var ty sym en fk att gen sk) where
-  show (EQ (lhs,rhs)) = show lhs ++ " = " ++ show rhs
+newtype EQF a = EQ (a, a)
+
+instance (Show a) => Show (EQF a) where
+  show (EQ (lhs, rhs)) = show lhs ++ " = " ++ show rhs
+
+deriving instance (Ord a) => Ord (EQF a)
+
+deriving instance (Eq a) => Eq (EQF a)
 
 deriving instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
 
