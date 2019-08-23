@@ -367,6 +367,13 @@ instance Up x (x + y) where
 instance Up y (x + y) where
   upgr = Right
 
+uppEQ
+  :: ( Up var var', Up ty  ty' , Up sym sym', Up en en'
+     , Up fk  fk' , Up att att', Up gen gen', Up sk sk' )
+  => EQ var  ty  sym  en  fk  att  gen  sk
+  -> EQ var' ty' sym' en' fk' att' gen' sk'
+uppEQ (EQ (l,r)) = EQ (upp l, upp r)
+
 --------------------------------------------------------------------------------------------------------------------
 -- Theories
 

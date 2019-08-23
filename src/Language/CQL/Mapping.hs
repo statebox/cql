@@ -105,7 +105,7 @@ toMorphism
   :: MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, en', fk', att']
   => Mapping var ty sym en fk att en' fk' att'
   -> Morphism var ty sym en fk att Void Void en' fk' att' Void Void
-toMorphism (Mapping src' dst' ens' fks' atts') = Morphism (schToCol src') (schToCol dst') ens' fks' atts' Map.empty Map.empty
+toMorphism (Mapping src' dst' ens' fks' atts') = Morphism (Schema.toCollage src') (Schema.toCollage dst') ens' fks' atts' Map.empty Map.empty
 
 -- | Checks well-typedness of underlying theory.
 typecheckMapping
