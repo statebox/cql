@@ -33,6 +33,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -45,8 +46,8 @@ import           Data.Map.Strict       as Map hiding (foldr, size)
 import           Data.Set              as Set hiding (foldr, size)
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Term     (Head(..), Term(..), simplifyFix, occsTerm, upp)
-import           Language.CQL.Term     (EQ(..), Ctx)
+import           Language.CQL.Term     (Ctx, EQ(..), Head(..), Term(..), occsTerm, upp)
+import qualified Language.CQL.Term     as T (simplifyTheory)
 import           Prelude               hiding (EQ)
 
 data Collage var ty sym en fk att gen sk
@@ -54,9 +55,9 @@ data Collage var ty sym en fk att gen sk
   { ceqs  :: Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
   , ctys  :: Set ty
   , cens  :: Set en
-  , csyms :: Map sym ([ty],ty)
-  , cfks  :: Map fk (en, en)
-  , catts :: Map att (en, ty)
+  , csyms :: Map sym ([ty], ty)
+  , cfks  :: Map fk  (en  , en)
+  , catts :: Map att (en  , ty)
   , cgens :: Map gen en
   , csks  :: Map sk ty
   } deriving (Eq, Show)
@@ -80,9 +81,9 @@ simplify
   =>  Collage var ty sym en fk att gen sk
   -> (Collage var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
 simplify (Collage ceqs'  ctys' cens' csyms' cfks' catts' cgens'  csks'    )
-  =         (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
+  =      (Collage ceqs'' ctys' cens' csyms' cfks' catts' cgens'' csks'', f)
   where
-    (ceqs'', f) = simplifyFix ceqs' []
+    (ceqs'', f) = T.simplifyTheory ceqs' []
     cgens''     = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HGen x) $ fmap fst f) $ Map.toList cgens'
     csks''      = Map.fromList $ Prelude.filter (\(x,_) -> notElem (HSk  x) $ fmap fst f) $ Map.toList csks'
 
@@ -100,6 +101,21 @@ attsFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(att,ty)]
 attsFrom sch en' = f $ Map.assocs $ catts sch
   where f []               = []
         f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+
+-- TODO Carrier is duplicated here from Instance.Algebra (Carrier) because it is used in assembleGens.
+type Carrier en fk gen = Term Void Void Void en fk Void gen Void
+
+assembleGens
+ :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
+ => Collage var ty sym en fk att gen sk
+ -> [Carrier en fk gen]
+ -> Map en (Set (Carrier en fk gen))
+assembleGens col []     = Map.fromList $ mapl (, Set.empty) $ cens col
+assembleGens col (e:tl) = Map.insert t (Set.insert e s) m
+  where
+    m = assembleGens col tl
+    t = typeOf col e
+    s = m ! t
 
 -- | Gets the type of a term that is already known to be well-typed.
 typeOf
@@ -196,8 +212,8 @@ typeOfEq' col (ctx, EQ (lhs, rhs)) = do
 initGround :: (Ord ty, Ord en) => Collage var ty sym en fk att gen sk -> (Map en Bool, Map ty Bool)
 initGround col = (me', mt')
   where
-    me  = Map.fromList $ Prelude.map (\en -> (en, False)) $ Set.toList $ cens col
-    mt  = Map.fromList $ Prelude.map (\ty -> (ty, False)) $ Set.toList $ ctys col
+    me  = Map.fromList $ fmap (\en -> (en, False))              $ Set.toList $ cens  col
+    mt  = Map.fromList $ fmap (\ty -> (ty, False))              $ Set.toList $ ctys  col
     me' = Prelude.foldr (\(_, en) m -> Map.insert en True m) me $ Map.toList $ cgens col
     mt' = Prelude.foldr (\(_, ty) m -> Map.insert ty True m) mt $ Map.toList $ csks  col
 

@@ -39,6 +39,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Language.CQL.Term where
 
+import           Control.Applicative   ((<|>))
 import           Control.DeepSeq
 import           Data.Map.Merge.Strict
 import           Data.Map.Strict       as Map hiding (foldr, size)
@@ -76,6 +77,15 @@ data Term var ty sym en fk att gen sk
   -- | Skolem term or labelled null; like a generator for a type rather than an entity.
   | Sk  sk
 
+-- | A symbol (non-variable).
+data Head ty sym en fk att gen sk
+  = HSym  sym
+  | HFk   fk
+  | HAtt  att
+  | HGen  gen
+  | HSk   sk
+  deriving (Eq, Ord)
+
 instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] =>
   NFData (Term var ty sym en fk att gen sk) where
     rnf x = case x of
@@ -108,15 +118,6 @@ show' :: Show a => a -> String
 show' = dropQuotes . show
 
 deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
-
--- | A symbol (non-variable).
-data Head ty sym en fk att gen sk
-  = HSym  sym
-  | HFk   fk
-  | HAtt  att
-  | HGen  gen
-  | HSk   sk
-  deriving (Eq, Ord)
 
 instance (Show ty, Show sym, Show en, Show fk, Show att, Show gen, Show sk)
   => Show (Head ty sym en fk att gen sk) where
@@ -267,35 +268,35 @@ occurs h x = case x of
   Att h' a  -> h == HAtt h' || occurs h a
   Sym h' as -> h == HSym h' || any (occurs h) as
 
--- | If there is one, finds an equation of the form empty |- @gen/sk = term@,
--- where @gen@ does not occur in @term@.
-findSimplifiable
+-- | If there is one, finds an equation of the form @empty |- gen/sk = term@,
+--   where @gen@ does not occur in @term@.
+findSimplifiableEq
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
-  => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+  => Theory var ty sym en fk att gen sk
   -> Maybe (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)
-findSimplifiable = procEqs . Set.toList
+findSimplifiableEq = goEqs . Set.toList
   where
+    goEqs []                                      = Nothing
+    goEqs ((ctx, _ ):ctxEqs) | not (Map.null ctx) = goEqs ctxEqs
+    goEqs ((_  , eq):ctxEqs)                      = goEq eq <|> goEqs ctxEqs
+
+    goEq (EQ (lhs, rhs)) = g lhs rhs <|> g rhs lhs
+
     g (Var _)    _ = Nothing
-    g (Sk  y)    t = if occurs (HSk  y) t then Nothing else Just (HSk  y, t)
-    g (Gen y)    t = if occurs (HGen y) t then Nothing else Just (HGen y, t)
+    g (Sk  y)    t = if HSk  y `occurs` t then Nothing else Just (HSk  y, t)
+    g (Gen y)    t = if HGen y `occurs` t then Nothing else Just (HGen y, t)
     g (Sym _ []) _ = Nothing
-    g _ _          = Nothing
-    procEqs []  = Nothing
-    procEqs ((m, _):tl) | not (Map.null m) = procEqs tl
-    procEqs ((_, EQ (lhs, rhs)):tl) = case g lhs rhs of
-      Nothing -> case g rhs lhs of
-        Nothing -> procEqs tl
-        Just y  -> Just y
-      Just   y -> Just y
+    g _          _ = Nothing
+
 
 -- | Replaces a symbol by a term in a term.
-replace'
+replace
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
   => Head ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
-replace' toReplace replacer x = case x of
+replace toReplace replacer x = case x of
   Sk  s    -> if HSk  s == toReplace then replacer else Sk  s
   Gen s    -> if HGen s == toReplace then replacer else Gen s
   Sym f [] -> if HSym f == toReplace then replacer else Sym f []
@@ -304,7 +305,7 @@ replace' toReplace replacer x = case x of
   Att f a  -> Att f $ self a
   Var v    -> Var v
   where
-    self = replace' toReplace replacer
+    self = replace toReplace replacer
 
 replaceRepeatedly
   :: (Eq ty, Eq sym, Eq en, Eq fk, Eq att, Eq gen, Eq sk)
@@ -312,28 +313,28 @@ replaceRepeatedly
   -> Term var ty sym en fk att gen sk
   -> Term var ty sym en fk att gen sk
 replaceRepeatedly [] t        = t
-replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace' s t e
+replaceRepeatedly ((s,t):r) e = replaceRepeatedly r $ replace s t e
 
--- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplfiy (extend) it.
-simplifyFix
+-- | Takes in a theory and a translation function and repeatedly (to fixpoint) attempts to simplify (extend) it.
+simplifyTheory
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
-  => Set (Ctx var (ty + en), EQ var ty sym en fk att gen sk)
+  => Theory var ty sym en fk att gen sk
   -> [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)]
-  -> (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
-simplifyFix eqs subst0 = case simplify eqs of
-  Nothing             -> (eqs, subst0)
-  Just (eqs1, subst1) -> simplifyFix eqs1 $ subst0 ++ [subst1]
+  -> (Theory var ty sym en fk att gen sk, [(Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk)])
+simplifyTheory th subst0 = case simplifyTheoryStep th of
+  Nothing            -> (th, subst0)
+  Just (th', subst1) -> simplifyTheory th' $ subst0 ++ [subst1]
 
--- | Does a one step simplifcation of a theory, looking for equations @gen/sk = term@, yielding also a
--- translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
-simplify
+-- | Does a one step simplification of a theory, looking for equations @gen/sk = term@, yielding also a
+--   translation function from the old theory to the new, encoded as a list of (symbol, term) pairs.
+simplifyTheoryStep
   :: (MultiTyMap '[Ord] '[var, ty, sym, en, fk, att, gen, sk])
-  => Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
-  -> Maybe (Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk), (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
-simplify eqs = case findSimplifiable eqs of
+  => Theory var ty sym en fk att gen sk
+  -> Maybe (Theory var ty sym en fk att gen sk, (Head ty sym en fk att gen sk, Term var ty sym en fk att gen sk))
+simplifyTheoryStep eqs = case findSimplifiableEq eqs of
   Nothing -> Nothing
   Just (toRemove, replacer) -> let
-    eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace' toRemove replacer lhs, replace' toRemove replacer rhs))) eqs
+    eqs2 = Set.map    (\(ctx, EQ (lhs, rhs)) -> (ctx, EQ (replace toRemove replacer lhs, replace toRemove replacer rhs))) eqs
     eqs3 = Set.filter (\(_  , EQ (x,   y  )) -> not $ x == y) eqs2
     in Just (eqs3, (toRemove, replacer))
 
@@ -343,8 +344,10 @@ simplify eqs = case findSimplifiable eqs of
 class Up x y where
   upgr :: x -> y
 
-upp :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
-  => Term var ty sym en fk att gen sk -> Term var' ty' sym' en' fk' att' gen' sk'
+upp
+  :: (Up var var', Up ty ty', Up sym sym', Up en en', Up fk fk', Up att att', Up gen gen', Up sk sk')
+  => Term var  ty  sym  en  fk  att  gen  sk
+  -> Term var' ty' sym' en' fk' att' gen' sk'
 upp (Var v  ) = Var $ upgr v
 upp (Sym f a) = Sym (upgr f) $ fmap upp a
 upp (Fk  f a) = Fk  (upgr f) $      upp a
@@ -367,12 +370,15 @@ instance Up y (x + y) where
 --------------------------------------------------------------------------------------------------------------------
 -- Theories
 
+type Theory var ty sym en fk att gen sk = Set (Ctx var (ty+en), EQ var ty sym en fk att gen sk)
+
 -- TODO wrap Map class to throw an error (or do something less ad hoc) if a key is ever put twice
 type Ctx k v = Map k v
 
 -- Our own pair type for pretty printing purposes
+-- | This type indicates that the two terms are equal.
 newtype EQ var ty sym en fk att gen sk
-  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord,Eq)
+  = EQ (Term var ty sym en fk att gen sk, Term var ty sym en fk att gen sk) deriving (Ord, Eq)
 
 instance TyMap Show '[var, ty, sym, en, fk, att, gen, sk] => Show (EQ var ty sym en fk att gen sk) where
   show (EQ (lhs,rhs)) = show lhs ++ " = " ++ show rhs

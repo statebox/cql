@@ -40,22 +40,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 module Language.CQL.Transform where
 
 import           Control.DeepSeq
-import           Data.Map              (Map, mapWithKey)
-import qualified Data.Map.Strict       as Map
+import           Data.Map                           (Map, mapWithKey)
+import qualified Data.Map.Strict                    as Map
 import           Data.Maybe
-import qualified Data.Set              as Set
+import qualified Data.Set                           as Set
 import           Data.Typeable
 import           Data.Void
 import           Language.CQL.Common
-import           Language.CQL.Instance as I
-import           Language.CQL.Mapping  as M hiding (toMorphism)
-import           Language.CQL.Morphism (Morphism(..), translate, translate')
-import           Language.CQL.Morphism as Morphism (typeOf)
+import           Language.CQL.Instance              as I
+import qualified Language.CQL.Instance.Presentation as IP (Presentation(eqs, gens, sks), toCollage)
+import           Language.CQL.Instance.Algebra      (Algebra(..), Carrier, nf, nf'', TalgGen(..))
+import           Language.CQL.Mapping               as M hiding (toMorphism)
+import           Language.CQL.Morphism              (Morphism(..), translate, translate')
+import           Language.CQL.Morphism              as Morphism (typeOf)
 import           Language.CQL.Options
 import           Language.CQL.Query
-import           Language.CQL.Schema   as S
+import           Language.CQL.Schema                as S
 import           Language.CQL.Term
-import           Prelude               hiding (EQ)
+import           Prelude                            hiding (EQ)
 
 
 -- | Map from one 'Instance' to another of the same 'Schema'.
@@ -104,7 +106,7 @@ validateTransform
   => Transform var ty sym en fk att gen sk x y gen' sk' x' y'
   -> Err ()
 validateTransform m@(Transform src' dst' _ _) =
-  mapM_ f (Set.toList $ eqs $ pres src')
+  mapM_ f (Set.toList $ IP.eqs $ pres src')
   where
     f :: (EQ Void ty sym en fk att gen sk) -> Err () -- need type signature
     f (EQ (l, r)) = let
@@ -119,8 +121,8 @@ toMorphism
   => Transform var ty sym en' fk' att' gen sk x1  y1       gen' sk' x2 y2
   -> Morphism  var ty sym en' fk' att' gen sk en' fk' att' gen' sk'
 toMorphism (Transform src' dst' gens' sks') =
-  Morphism (presToCol (I.schema src') (pres src'))
-           (presToCol (I.schema src') (pres dst'))
+  Morphism (IP.toCollage (I.schema src') (pres src'))
+           (IP.toCollage (I.schema src') (pres dst'))
            ens0 fks0 atts0 gens' sks'
   where
     ens0  = Map.fromSet id                          (S.ens  $ I.schema src')
@@ -222,8 +224,8 @@ evalDeltaSigmaUnit
 evalDeltaSigmaUnit m i o = do
   j <- evalSigmaInst m i o
   k <- evalDeltaInst m j o
-  pure $ Transform i k (mapWithKey (f j) $ I.gens $ pres i)
-                       (mapWithKey (g j) $ I.sks  $ pres i)
+  pure $ Transform i k (mapWithKey (f j) $ IP.gens $ pres i)
+                       (mapWithKey (g j) $ IP.sks  $ pres i)
   where
     f j gen en' = Gen (en', nf   (algebra j) $ Gen gen)
     g j sk  _   = upp $     nf'' (algebra j) $ Sk  sk
@@ -237,7 +239,7 @@ evalDeltaSigmaCoUnit
 evalDeltaSigmaCoUnit m i o = do
   j <- evalDeltaInst m i o
   k <- evalSigmaInst m j o
-  return $ Transform k i (Map.fromList $ fmap (f j) $ Map.toList $ I.gens $ pres k) $ (Map.fromList $ fmap (g j) $ Map.toList $ I.sks $ pres k)
+  return $ Transform k i (Map.fromList $ fmap (f j) $ Map.toList $ IP.gens $ pres k) $ (Map.fromList $ fmap (g j) $ Map.toList $ IP.sks $ pres k)
   where
     f _ ((en', x), _) = ((en', x), repr  (algebra i) x )
     g _ (sk      , _) = (sk      , repr' (algebra i) sk)
@@ -253,8 +255,8 @@ evalDeltaTrans m h o = do
   j <- evalDeltaInst m (dstT h) o
   pure $ Transform i j (gens' i) (sks' i)
   where
-    gens' i = mapWithKey (\(_,x) en' -> Gen (en', nf   (algebra $ dstT h) $ translate' (toMorphism h) $ repr  (algebra $ srcT h) x)) $ I.gens $ pres i
-    sks'  i = mapWithKey (\y     _   -> upp  $    nf'' (algebra $ dstT h) $ translate  (toMorphism h) $ repr' (algebra $ srcT h) y)  $ I.sks  $ pres i
+    gens' i = mapWithKey (\(_,x) en' -> Gen (en', nf   (algebra $ dstT h) $ translate' (toMorphism h) $ repr  (algebra $ srcT h) x)) $ IP.gens $ pres i
+    sks'  i = mapWithKey (\y     _   -> upp  $    nf'' (algebra $ dstT h) $ translate  (toMorphism h) $ repr' (algebra $ srcT h) y)  $ IP.sks  $ pres i
 
 ---------------------------------------------------------------------------------------------------------
 -- Raw literals
@@ -304,12 +306,12 @@ evalTransformRaw' src' dst' (TransExpRaw' _ _ sec _ _) is = do
     addImportGens x = foldr (Map.union . tGens) x is
     addImportSks  y = foldr (Map.union . tSks)  y is
 
-    gens'' = I.gens $ pres src'
-    sks''  = I.sks  $ pres src'
-    gens'  = I.gens $ pres dst'
-    sks'   = I.sks  $ pres dst'
-    gens0  =  filter (\(x,_) -> x `member'` gens'') sec
-    sks0   =  filter (\(x,_) -> x `member'` sks'' ) sec
+    gens'' = IP.gens $ pres src'
+    sks''  = IP.sks  $ pres src'
+    gens'  = IP.gens $ pres dst'
+    sks'   = IP.sks  $ pres dst'
+    gens0  = filter (\(x,_) -> x `member'` gens'') sec
+    sks0   = filter (\(x,_) -> x `member'` sks'' ) sec
 
     evalGens []             = pure Map.empty
     evalGens  ((gen, t):ts) = do

@@ -42,23 +42,24 @@ module Language.CQL where
 import           Control.Concurrent
 import           Control.DeepSeq
 import           Control.Exception
-import           Data.List                   (nub)
-import qualified Data.Map.Strict             as Map
+import           Data.List                          (nub)
+import qualified Data.Map.Strict                    as Map
 import           Data.Maybe
 import           Data.Typeable
-import           Language.CQL.Common         as C
+import           Language.CQL.Common                as C
 import           Language.CQL.Graph
-import           Language.CQL.Instance       as I
-import           Language.CQL.Mapping        as M
+import           Language.CQL.Instance              as I
+import qualified Language.CQL.Instance.Presentation as IP
+import           Language.CQL.Mapping               as M
 import           Language.CQL.Options
-import           Language.CQL.Parser.Program (parseProgram)
-import           Language.CQL.Program        as P
-import           Language.CQL.Query          as Q
-import           Language.CQL.Schema         as S
-import           Language.CQL.Term           as Term
-import           Language.CQL.Transform      as Tr
-import           Language.CQL.Typeside       as T
-import           Prelude                     hiding (EQ, exp)
+import           Language.CQL.Parser.Program        (parseProgram)
+import           Language.CQL.Program               as P
+import           Language.CQL.Query                 as Q
+import           Language.CQL.Schema                as S
+import           Language.CQL.Term                  as Term
+import           Language.CQL.Transform             as Tr
+import           Language.CQL.Typeside              as T
+import           Prelude                            hiding (EQ, exp)
 import           System.IO.Unsafe
 
 -- | Times out a computation after @i@ microseconds.
@@ -88,7 +89,7 @@ timeout' i p = unsafePerformIO $ do
 class Typecheck e e' where
   typecheck :: Types -> e -> Err e'
 
--- | Checks that e.g. in @sigma F I@ that @F : S -> T and I : S-Inst@.
+-- | Checks that e.g. in @sigma F I@ that @F : S -> T@ and @I : S-Inst@.
 -- Checking that @S@ is well-formed is done by 'validate'.
 typecheckCqlProgram :: [(String,Kind)] -> Prog -> Types -> Err Types
 typecheckCqlProgram [] _ x = pure x
@@ -319,11 +320,9 @@ instance Evalable SchemaExp SchemaEx where
   getOptions = getOptionsSchema
 
 instance Evalable InstanceExp InstanceEx where
-
-  -- | Calls @checkSatisfaction@.
   validate (InstanceEx x) = do
-    typecheckPresentation (schema x) (pres x)
-    checkSatisfaction x
+    IP.typecheck (schema x) (pres x)
+    I.satisfiesSchema x
   eval prog env exp = do
     i  <- evalInstance prog env exp
     o' <- toOptions (other env) $ getOptions exp
@@ -359,6 +358,7 @@ getOptions' e = case e of
   ExpM  e' -> getOptions e'
   ExpT  e' -> getOptions e'
   ExpQ  e' -> getOptions e'
+
 ------------------------------------------------------------------------------------------------------------
 
 evalTypeside :: Prog -> Env -> TypesideExp -> Err TypesideEx
@@ -382,8 +382,8 @@ evalTransform p env (TransformId s) = do
   (InstanceEx i) <- evalInstance p env s
   pure $ TransformEx $ Transform i i (h i) (g i)
   where
-    h i = foldr (\(gen,_) m -> Map.insert gen (Gen gen) m) Map.empty $ Map.toList $ I.gens $ pres i
-    g i = foldr (\(sk ,_) m -> Map.insert sk  (Sk  sk)  m) Map.empty $ Map.toList $ I.sks  $ pres i
+    h i = foldr (\(gen,_) m -> Map.insert gen (Gen gen) m) Map.empty $ Map.toList $ IP.gens $ pres i
+    g i = foldr (\(sk ,_) m -> Map.insert sk  (Sk  sk)  m) Map.empty $ Map.toList $ IP.sks  $ pres i
 
 evalTransform p env (TransformComp f g) = do
   (TransformEx (f' :: Transform var  ty  sym  en  fk  att  gen  sk  x  y  gen'  sk'  x'  y' )) <- evalTransform p env f

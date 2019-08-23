@@ -264,20 +264,22 @@ initState col = Set.foldr (\z s -> addAxiom defaultConfig s (toAxiom z)) initial
 -- lhs -> rhs where the lhs is larger than the rhs, adding additional equations whenever
 -- critical pairs (rule overlaps) are detected.
 kbProver
-  :: forall                     var  ty  sym  en  fk  att  gen  sk
+  :: forall var  ty  sym  en  fk  att  gen  sk
   .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])
   => Collage var ty sym en fk att gen sk
   -> Options
   -> Err (Prover var ty sym en fk att gen sk)
-kbProver col ops = if allSortsInhabited col || allow_empty
-      then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r)
-           in pure $ Prover col p'
-      else Left "Completion Error: contains uninhabited sorts"
+kbProver col ops =
+  if allSortsInhabited col || allow_empty
+  then let p' ctx (EQ (l, r)) = p ctx $ EQ (replaceRepeatedly f l, replaceRepeatedly f r)
+       in pure $ Prover col p'
+  else Left "Completion Error: contains uninhabited sorts"
   where
-    (col', f) = Collage.simplify col
+    (col', f)               = Collage.simplify col
     p ctx (EQ (lhs', rhs')) = normaliseTerm (completed ctx lhs' rhs') (convert col ctx lhs') == normaliseTerm (completed ctx lhs' rhs') (convert col ctx rhs')
-    completed g l r = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
-    allow_empty = bOps ops Allow_Empty_Sorts_Unsafe
+    completed g l r         = completePure defaultConfig $ addGoal defaultConfig (initState col') (toGoal g l r)
+    allow_empty             = bOps ops Allow_Empty_Sorts_Unsafe
+
     toGoal :: Ctx var (ty+en) -> S.Term var ty sym en fk att gen sk -> S.Term var ty sym en fk att gen sk -> Goal (Extended (Constant (Head ty sym en fk att gen sk)))
     toGoal ctx lhs0 rhs0 = goal 0 "" $ convert col ctx lhs0 :=: convert col ctx rhs0
 
