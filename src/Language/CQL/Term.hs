@@ -134,8 +134,11 @@ mapTerm v t r e f a g s x = case x of
   where
     mt = mapTerm v t r e f a g s
 
-mapVar :: var -> Term () ty sym en fk att gen sk -> Term var ty sym en fk att gen sk
-mapVar v = mapTerm (const v) id id id id id id id
+mapTermVar
+  :: (var -> var')
+  -> Term var  ty sym en fk att gen sk
+  -> Term var' ty sym en fk att gen sk
+mapTermVar f = mapTerm f id id id id id id id
 
 -- | The number of variable and symbol occurrences in a term.
 size :: Term var ty sym en fk att gen sk -> Integer

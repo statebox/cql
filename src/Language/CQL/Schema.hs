@@ -90,9 +90,9 @@ instance TyMap Show '[var, ty, sym, en, fk, att]
       , section "observation_equations " $ unlines $ eqs'' obs_eqs'
       ]
     where
-      fks''   = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList fks'
-      atts''  = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList atts'
-      eqs'' x = (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) <$> Set.toList x
+      fks''   = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                                                    <$> Map.toList fks'
+      atts''  = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                                                    <$> Map.toList atts'
+      eqs'' x = (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapTermVar (const "x") l) ++ " = " ++ show (mapTermVar (const "x") r)) <$> Set.toList x
 
 -- | Checks that the underlying theory is well-sorted.
 -- I.e. rule out "1" = one kind of errors.
