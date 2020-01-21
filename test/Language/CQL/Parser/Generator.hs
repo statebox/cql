@@ -48,7 +48,10 @@ lowerIdGen =
       (`notElem` reservedWords)
 
 specialIdGen :: Gen String
-specialIdGen = (:) <$> idCharGen <*> listOf (oneof [idCharGen, digitCharGen])
+specialIdGen =
+  ((:) <$> idCharGen <*>
+    listOf (oneof [idCharGen, digitCharGen])) `suchThat`
+      (`notElem` reservedWords)
 
 identifierGen :: Gen String
 identifierGen = oneof [lowerIdGen, upperIdGen, specialIdGen]
