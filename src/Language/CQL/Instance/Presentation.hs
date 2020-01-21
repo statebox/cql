@@ -47,7 +47,8 @@ import qualified Data.Set              as Set
 import           Data.Void
 import           Language.CQL.Collage  (Collage(..), typeOfCol)
 import           Language.CQL.Common   (Err, MultiTyMap, TyMap, type (+), section, sepTup, intercalate)
-import           Language.CQL.Schema   (Schema, schToCol)
+import           Language.CQL.Schema   (Schema)
+import qualified Language.CQL.Schema   as Schema (toCollage)
 import           Language.CQL.Term     as Term
 import           Prelude               hiding (EQ)
 
@@ -88,6 +89,6 @@ toCollage
 toCollage sch (Presentation gens' sks' eqs') =
   Collage (Set.union e1 e2) (ctys schcol) (cens schcol) (csyms schcol) (cfks schcol) (catts schcol) gens' sks'
   where
-    schcol = schToCol sch
+    schcol = Schema.toCollage sch
     e1 = Set.map (\(   EQ (l,r)) -> (Map.empty, EQ (upp l, upp r))) $ eqs'
     e2 = Set.map (\(g, EQ (l,r)) -> (g,         EQ (upp l, upp r))) $ ceqs schcol

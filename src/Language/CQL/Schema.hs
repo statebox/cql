@@ -38,13 +38,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Schema where
+
+import           Control.Arrow ((***))
 import           Control.DeepSeq
+import           Data.Bifunctor        (second)
 import           Data.List             (nub)
 import           Data.Map.Strict       as Map
 import           Data.Maybe
 import           Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
+
 import           Language.CQL.Collage (Collage(..), typeOfCol)
 import           Language.CQL.Common
 import           Language.CQL.Options
@@ -88,9 +92,9 @@ instance TyMap Show '[var, ty, sym, en, fk, att]
       , section "observation_equations " $ unlines $ eqs'' obs_eqs'
       ]
     where
-      fks''   = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList fks'
-      atts''  = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                            <$> Map.toList atts'
-      eqs'' x = (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapVar "x" l) ++ " = " ++ show (mapVar "x" r)) <$> Set.toList x
+      fks''   = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                                                    <$> Map.toList fks'
+      atts''  = (\(k,(s,t))     -> show k ++ " : " ++ show s ++ " -> " ++ show t)                                                                    <$> Map.toList atts'
+      eqs'' x = (\(en,EQ (l,r)) -> "forall x : " ++ show en ++ " . " ++ show (mapTermVar (const "x") l) ++ " = " ++ show (mapTermVar (const "x") r)) <$> Set.toList x
 
 -- | Checks that the underlying theory is well-sorted.
 -- I.e. rule out "1" = one kind of errors.
@@ -98,26 +102,29 @@ typecheckSchema
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
   => Schema var ty sym en fk att
   -> Err ()
-typecheckSchema t = typeOfCol $ schToCol  t
+typecheckSchema = typeOfCol . toCollage
 
 -- | Converts a schema to a collage.
-schToCol
+toCollage
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att])
-  => Schema var ty sym en fk att
+  => Schema        var  ty sym en fk att
   -> Collage (() + var) ty sym en fk att Void Void
-schToCol (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
-  Collage (Set.union e3 $ Set.union e1 e2) (ctys tscol)
-    ens' (csyms tscol) fks' atts' Map.empty Map.empty
+toCollage (Schema ts ens' fks' atts' path_eqs' obs_eqs' _) =
+  Collage (eqs1 <> eqs2 <> eqs3) (ctys tscol) ens' (csyms tscol) fks' atts' Map.empty Map.empty
   where
     tscol = tsToCol ts
-    e1 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) path_eqs'
-    e2 = Set.map (\(en, EQ (l,r))->(Map.fromList [(Left (),Right en)], EQ (upp l, upp r))) obs_eqs'
-    e3 = Set.map (\(g,EQ (l,r))->(up1Ctx g, EQ (upp l, upp r))) $ ceqs tscol
 
-up1Ctx :: (Ord var) => Ctx var (ty+Void) -> Ctx (()+var) (ty+x)
-up1Ctx g = Map.map (\x -> case x of
-  Left ty -> Left ty
-  Right v -> absurd v) $ Map.mapKeys Right g
+    eqs1 = Set.map (unitCtx *** fmap upp) path_eqs'
+    eqs2 = Set.map (unitCtx *** fmap upp) obs_eqs'
+    eqs3 = Set.map (up1Ctx  *** fmap upp) (ceqs tscol)
+
+    unitCtx en = Map.singleton (Left ()) (Right en)
+
+up1Ctx
+  :: (Ord var)
+  => Ctx var      (ty+Void)
+  -> Ctx (()+var) (ty+x)
+up1Ctx = (second absurd <$>) . Map.mapKeys Right
 
 typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
 typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty $ \x _ -> absurd x
@@ -306,7 +313,7 @@ evalSchemaRaw ops ty t a' = do
   (a :: [Schema var ty sym En Fk Att]) <- doImports a'
   r <- evalSchemaRaw' ty t a
   o <- toOptions ops $ schraw_options t
-  p <- createProver (schToCol r) o
+  p <- createProver (toCollage r) o
   pure $ SchemaEx $ Schema ty (ens r) (fks r) (atts r) (path_eqs r) (obs_eqs r) (mkProver p)
   where
     mkProver p en (EQ (l,r)) = prove p (Map.fromList [(Left (),Right en)]) (EQ (upp l, upp r))
