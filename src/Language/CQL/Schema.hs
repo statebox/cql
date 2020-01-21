@@ -38,6 +38,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Schema where
+
+import           Control.Arrow ((***))
 import           Control.DeepSeq
 import           Data.Bifunctor        (second)
 import           Data.List             (nub)
@@ -46,7 +48,7 @@ import           Data.Maybe
 import           Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
-import           Control.Arrow ((***))
+
 import           Language.CQL.Collage (Collage(..), typeOfCol)
 import           Language.CQL.Common
 import           Language.CQL.Options
@@ -122,7 +124,7 @@ up1Ctx
   :: (Ord var)
   => Ctx var      (ty+Void)
   -> Ctx (()+var) (ty+x)
-up1Ctx ctx = second absurd <$> Map.mapKeys Right ctx
+up1Ctx = (second absurd <$>) . Map.mapKeys Right
 
 typesideToSchema :: Typeside var ty sym -> Schema var ty sym Void Void Void
 typesideToSchema ts'' = Schema ts'' Set.empty Map.empty Map.empty Set.empty Set.empty $ \x _ -> absurd x
