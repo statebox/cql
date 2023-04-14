@@ -34,6 +34,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Instance.Algebra where
@@ -41,7 +42,6 @@ module Language.CQL.Instance.Algebra where
 import           Control.DeepSeq
 import           Control.Monad
 import qualified Data.Foldable         as Foldable
-import           Data.List             as List hiding (intercalate)
 import           Data.Map.Strict       (Map, (!))
 import qualified Data.Map.Strict       as Map
 import           Data.Set              (Set)
@@ -192,9 +192,9 @@ instance TyMap Show '[en, fk, att, gen, sk] => Show (TalgGen en fk att gen sk) w
   show (MkTalgGen (Left  x)) = show x
   show (MkTalgGen (Right x)) = show x
 
-deriving instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att gen sk)
+deriving stock instance TyMap Ord '[en, fk, att, gen, sk] => Ord (TalgGen en fk att gen sk)
 
-deriving instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
+deriving stock instance TyMap Eq '[fk, att, gen, sk] => Eq (TalgGen en fk att gen sk)
 
 ---------------------------------------------------------------------------------------------------------------
 -- Functorial data migration

@@ -35,6 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Term where
@@ -76,11 +77,11 @@ data Head ty sym en fk att gen sk
   | HAtt  att
   | HGen  gen
   | HSk   sk
-  deriving (Eq, Ord)
+  deriving stock (Eq, Ord)
 
-deriving instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
+deriving stock instance TyMap Eq '[var, sym, fk, att, gen, sk] => Eq (Term var ty sym en fk att gen sk)
 
-deriving instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
+deriving stock instance TyMap Ord '[var, ty, sym, en, fk, att, gen, sk] => Ord (Term var ty sym en fk att gen sk)
 
 instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] => NFData (Term var ty sym en fk att gen sk) where
   rnf x = case x of
@@ -271,9 +272,9 @@ instance Functor EQF where
 instance (Show a) => Show (EQF a) where
   show (EQ (lhs, rhs)) = show lhs ++ " = " ++ show rhs
 
-deriving instance (Ord a) => Ord (EQF a)
+deriving stock instance (Ord a) => Ord (EQF a)
 
-deriving instance (Eq a) => Eq (EQF a)
+deriving stock instance (Eq a) => Eq (EQF a)
 
 instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk] => NFData (EQ var ty sym en fk att gen sk) where
   rnf (EQ (x, y)) = deepseq x $ rnf y
@@ -392,7 +393,7 @@ instance Up y (x + y) where
 --------------------------------------------------------------------------------
 
 data RawTerm = RawApp String [RawTerm]
-  deriving Eq
+  deriving stock Eq
 
 instance Show RawTerm where
   show (RawApp sym az) = show sym ++ "(" ++ (intercalate "," . fmap show $ az) ++ ")"

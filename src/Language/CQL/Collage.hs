@@ -21,22 +21,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ExplicitForAll        #-}
+
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ImpredicativeTypes    #-}
 {-# LANGUAGE IncoherentInstances   #-}
-{-# LANGUAGE InstanceSigs          #-}
+
 {-# LANGUAGE LiberalTypeSynonyms   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
+
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
+
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
+
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Collage where
 
@@ -60,7 +61,7 @@ data Collage var ty sym en fk att gen sk
   , catts :: Map att (en  , ty)
   , cgens :: Map gen en
   , csks  :: Map sk ty
-  } deriving (Eq, Show)
+  } deriving stock (Eq, Show)
 
 --------------------------------------------------------------------------------
 
@@ -95,12 +96,12 @@ eqsAreGround col = Prelude.null [ x | x <- Set.toList $ ceqs col, not $ Map.null
 fksFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(fk,en)]
 fksFrom sch en' = f $ Map.assocs $ cfks sch
   where f []               = []
-        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : f l else f l
 
 attsFrom :: Eq en => Collage var ty sym en fk att gen sk -> en -> [(att,ty)]
 attsFrom sch en' = f $ Map.assocs $ catts sch
   where f []               = []
-        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : (f l) else f l
+        f ((fk,(en1,t)):l) = if en1 == en' then (fk,t) : f l else f l
 
 -- TODO Carrier is duplicated here from Instance.Algebra (Carrier) because it is used in assembleGens.
 type Carrier en fk gen = Term Void Void Void en fk Void gen Void
@@ -176,13 +177,13 @@ typeOf' col _ (Sk s) = case Map.lookup s $ csks col of
 typeOf' col ctx xx@(Fk f a) = case Map.lookup f $ cfks col of
   Nothing     -> Left $ "Unknown foreign key: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx a
-                    if (Right s) == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
-                     show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
+                    if Right s == s' then pure $ Right t else Left $ "Expected argument to have entity " ++
+                     show s ++ " but given " ++ show s' ++ " in " ++ show xx
 typeOf' col ctx xx@(Att f a) = case Map.lookup f $ catts col of
   Nothing -> Left $ "Unknown attribute: " ++ show f
   Just (s, t) -> do s' <- typeOf' col ctx a
-                    if (Right s) == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
-                     show s ++ " but given " ++ show s' ++ " in " ++ (show xx)
+                    if Right s == s' then pure $ Left t else Left $ "Expected argument to have entity " ++
+                     show s ++ " but given " ++ show s' ++ " in " ++ show xx
 typeOf' col ctx xx@(Sym f a) = case Map.lookup f $ csyms col of
   Nothing -> Left $ "Unknown function symbol: " ++ show f
   Just (s, t) -> do s' <- mapM (typeOf' col ctx) a
@@ -190,9 +191,9 @@ typeOf' col ctx xx@(Sym f a) = case Map.lookup f $ csyms col of
                     then if (Left <$> s) == s'
                          then pure $ Left t
                          else Left $ "Expected arguments to have types " ++
-                     show s ++ " but given " ++ show s' ++ " in " ++ (show $ xx)
+                     show s ++ " but given " ++ show s' ++ " in " ++ show xx
                     else Left $ "Expected argument to have arity " ++
-                     show (length s) ++ " but given " ++ show (length s') ++ " in " ++ (show $ xx)
+                     show (length s) ++ " but given " ++ show (length s') ++ " in " ++ show xx
 
 typeOfEq'
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])

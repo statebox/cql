@@ -35,14 +35,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Instance where
 
 import           Control.DeepSeq
 import           Control.Monad
-import           Data.List             as List hiding (intercalate)
+import qualified Data.List             as List hiding (intercalate)
 import           Data.Map.Strict       (Map, member, unionWith, (!))
 import qualified Data.Map.Strict       as Map
+import           Data.Kind
 import           Data.Maybe
 import           Data.Set              (Set)
 import qualified Data.Set              as Set
@@ -90,7 +92,7 @@ instance TyMap NFData '[var, ty, sym, en, fk, att, gen, sk, x, y]
   rnf (Instance s0 p0 dp0 a0) = deepseq s0 $ deepseq p0 $ deepseq dp0 $ rnf a0
 
 -- | A dynamically typed instance.
-data InstanceEx :: * where
+data InstanceEx :: Type where
   InstanceEx
     :: forall var ty sym en fk att gen sk x y
     .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y])
@@ -282,7 +284,7 @@ dedup
   :: (EQ var ty sym en fk att gen sk -> Bool)
   -> [Carrier en fk gen]
   -> [Carrier en fk gen]
-dedup dp' = nubBy (\x y -> dp' (EQ (upp x, upp y)))
+dedup dp' = List.nubBy (\x y -> dp' (EQ (upp x, upp y)))
 
 close1
   :: (MultiTyMap '[Show, Ord, NFData] '[var, ty, sym, en, fk, att, gen, sk])
@@ -313,7 +315,7 @@ data InstanceExp where
   InstanceRaw     :: InstExpRaw'                                     -> InstanceExp
   InstancePivot   :: InstanceExp                                     -> InstanceExp
 
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Deps InstanceExp where
   deps x = case x of
@@ -351,7 +353,7 @@ data InstExpRaw' =
   , instraw_oeqs    :: [(RawTerm, RawTerm)]
   , instraw_options :: [(String, String)]
   , instraw_imports :: [InstanceExp]
-} deriving (Eq, Show)
+} deriving stock (Eq, Show)
 
 type Gen = String
 type Sk  = String
@@ -457,7 +459,7 @@ emptyInstance ts'' =
       (const Set.empty) (const undefined) (const undefined)
       Set.empty)
 
--- | Pivot an instance. The returned schema will not have strings as fks etc, so it will be impossible to write a literal on it, at least for now. 
+-- | Pivot an instance. The returned schema will not have strings as fks etc, so it will be impossible to write a literal on it, at least for now.
 --   (Java CQL hacks around this by landing on String.)
 pivot
   :: forall var ty sym en fk att gen sk x y

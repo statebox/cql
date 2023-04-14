@@ -36,15 +36,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Mapping where
 
 import           Control.DeepSeq
-import           Data.Map.Strict       (Map)
 import           Data.Map.Strict       as Map
 import           Data.Maybe
 import qualified Data.Set              as Set
 import           Data.Typeable
+import           Data.Kind
 import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Morphism (Morphism(..), translate, translate')
@@ -149,7 +150,7 @@ data MappingExp where
   MappingId      :: SchemaExp                -> MappingExp
   MappingRaw     :: MappingExpRaw'           -> MappingExp
   MappingComp    :: MappingExp -> MappingExp -> MappingExp
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 getOptionsMapping :: MappingExp -> [(String, String)]
 getOptionsMapping x = case x of
@@ -165,13 +166,13 @@ instance Deps MappingExp where
     MappingComp f g -> deps f ++ deps g
     MappingRaw (MappingExpRaw' s t _ _ _ _ i) -> deps s ++ deps t ++ concatMap deps i
 
-data MappingEx :: * where
+data MappingEx :: Type where
   MappingEx
     :: forall var ty sym en fk att en' fk' att' . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
     => Mapping var ty sym en fk att en' fk' att'
     -> MappingEx
 
-deriving instance Show MappingEx
+deriving stock instance Show MappingEx
 
 instance NFData MappingEx where
   rnf (MappingEx x) = rnf x
@@ -205,7 +206,7 @@ data MappingExpRaw' =
   , mapraw_atts    :: [(String, (String, Maybe String, RawTerm)+[String])]
   , mapraw_options :: [(String, String)]
   , mapraw_imports :: [MappingExp]
-} deriving (Eq, Show)
+} deriving stock (Eq, Show)
 
 -- | Does the hard work of @evalMappingRaw@.
 evalMappingRaw'
