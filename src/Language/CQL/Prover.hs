@@ -33,12 +33,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Prover where
 
 import           Control.DeepSeq
-import           Data.List
+import           Data.List                   (elemIndex)
 import           Data.Map
 import           Data.Maybe
 import           Data.Rewriting.CriticalPair as CP
@@ -67,7 +68,7 @@ import           Language.CQL.Internal       (Term)
 -- Theorem proving ------------------------------------------------
 
 data ProverName = Free | Congruence | Orthogonal | Completion | Auto
-  deriving Show
+  deriving stock Show
 
 proverStringToName :: Options -> Err ProverName
 proverStringToName m = case sOps m prover_name of
@@ -183,7 +184,7 @@ data Constant x = Constant
   , con_arity :: !Int
   , con_size  :: !Int
   , con_bonus :: !(Maybe (Maybe Bool))
-  } deriving (Eq, Ord)
+  } deriving stock (Eq, Ord)
 
 instance Sized (Constant x) where
   size (Constant _ _ _ y _) = y
@@ -207,7 +208,7 @@ instance EqualsBonus (Constant x) where
   isFalse = fromJust . fromJust . con_bonus
 
 data Precedence = Precedence !Bool !(Maybe Int) !Int
-  deriving (Eq, Ord)
+  deriving stock (Eq, Ord)
 
 prec
   :: (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk])

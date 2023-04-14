@@ -26,6 +26,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
            , MultiParamTypeClasses
            , FunctionalDependencies
 #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 module Language.CQL.Internal where
 
 import           Prelude                       hiding (abs, any)
@@ -33,15 +35,14 @@ import           Prelude                       hiding (abs, any)
 import           Control.Arrow
 import           Control.Monad
 import           Control.Monad.Trans.UnionFind (Point, UnionFindT, fresh)
-import qualified Control.Monad.Trans.UnionFind as U
+import Control.Monad.Trans.UnionFind qualified as U
 
-import qualified Data.List                     as L
+import Data.List qualified                     as L
 --import           Data.Sequence (Seq)
 import           Data.Foldable                 (traverse_)
 import           Data.Graph.Inductive          hiding (Graph)
 import           Data.Map                      (Map)
 import           Data.Maybe                    (fromJust)
-import           Data.Traversable              (traverse)
 
 
 
@@ -51,10 +52,10 @@ data Equation t
   =    Equal (Term t) (Term t)
   | NotEqual (Term t) (Term t)
 data Term t = Function t [Term t]
-  deriving (Eq, Ord)
+  deriving stock (Eq, Ord)
 
 data Satisfiability t = Satisfiable (Model t) | Unsatisfiable
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 type Model t = Map (Term t) (Term t)
 

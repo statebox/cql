@@ -34,6 +34,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Program where
@@ -67,7 +68,7 @@ data Val
   | ValM  MappingEx
   | ValT  TransformEx
   | ValQ  QueryEx
-  deriving Show
+  deriving stock Show
 
 instance NFData Val where
   rnf v = case v of
