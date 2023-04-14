@@ -36,6 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Schema where
 
@@ -45,6 +46,7 @@ import           Data.Bifunctor        (second)
 import           Data.List             (nub)
 import           Data.Map.Strict       as Map
 import           Data.Maybe
+import           Data.Kind
 import           Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
@@ -159,7 +161,7 @@ data SchemaExp where
   SchemaRaw     :: SchemaExpRaw'          -> SchemaExp
   -- hold off for now, causes cyclic import
   -- SchemaPivot   :: InstanceExp            -> SchemaExp
-  deriving (Eq,Show)
+  deriving stock (Eq,Show)
 
 getOptionsSchema :: SchemaExp -> [(String, String)]
 getOptionsSchema x = case x of
@@ -175,7 +177,7 @@ instance Deps SchemaExp where
     SchemaCoProd a b                          -> deps a ++ deps b
     SchemaRaw (SchemaExpRaw' t _ _ _ _ _ _ i) -> deps t ++ concatMap deps i
 
-data SchemaEx :: * where
+data SchemaEx :: Type where
   SchemaEx
     :: forall var ty sym en fk att . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att])
     => Schema var ty sym en fk att
@@ -200,7 +202,7 @@ data SchemaExpRaw' = SchemaExpRaw'
   , schraw_oeqs    :: [(String, Maybe String, RawTerm, RawTerm)]
   , schraw_options :: [(String, String)]
   , schraw_imports :: [SchemaExp]
-} deriving (Eq, Show)
+} deriving stock (Eq, Show)
 
 -- | Type of entities for literal schemas.
 type En = String

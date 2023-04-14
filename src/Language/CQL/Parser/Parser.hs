@@ -25,7 +25,7 @@ import           Language.CQL.Parser.ReservedWords
 
 -- base
 import           Data.Char
-import           Data.Functor                  (($>), (<$))
+import           Data.Functor                  (($>))
 
 -- megaparsec
 import           Text.Megaparsec

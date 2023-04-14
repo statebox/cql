@@ -35,6 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Query where
@@ -42,6 +43,7 @@ import           Control.DeepSeq
 import           Data.Map.Strict      as Map
 import           Data.Set             as Set
 import           Data.Typeable
+import           Data.Kind
 import           Data.Void
 import           Language.CQL.Common
 import           Language.CQL.Schema
@@ -74,7 +76,7 @@ instance (NFData var, NFData ty, NFData sym, NFData en, NFData fk, NFData att, N
   => NFData (Query var ty sym en fk att en' fk' att') where
   rnf (Query s t e f a) = deepseq s $ deepseq t $ deepseq e $ deepseq f $ rnf a
 
-data QueryEx :: * where
+data QueryEx :: Type where
   QueryEx
     :: forall var ty sym en fk att en' fk' att'
     .  (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, en', fk', att'])
@@ -83,13 +85,13 @@ data QueryEx :: * where
 instance NFData QueryEx where
   rnf (QueryEx x) = rnf x
 
-deriving instance Show QueryEx
+deriving stock instance Show QueryEx
 
 data QueryExp where
   QueryVar     :: String       -> QueryExp
   QueryId      :: SchemaExp    -> QueryExp
   QueryRaw     :: QueryExpRaw' -> QueryExp
-  deriving (Eq)
+  deriving stock (Eq)
 
 instance Show QueryExp where
   show _ = error "todo"
@@ -115,7 +117,7 @@ data QueryExpRaw' = QueryExpRaw'
   , qraw_atts    :: [(String, RawTerm)]
   , qraw_options :: [(String, String)]
   , qraw_imports :: [QueryExp]
-} deriving (Eq, Show)
+} deriving stock (Eq, Show)
 
 typecheckQuery
   :: Query var ty sym en fk att en' fk' att'

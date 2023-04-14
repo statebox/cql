@@ -18,6 +18,7 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
+{-# LANGUAGE DerivingStrategies #-}
 module Api.Config.Environment where
 
 -- wai
@@ -29,7 +30,7 @@ import           Network.Wai.Middleware.RequestLogger (logStdout, logStdoutDev)
 data Environment
   = Development
   | Production
-  deriving (Show, Read)
+  deriving stock (Show, Read)
 
 logger :: Environment -> Middleware
 logger Development = logStdoutDev

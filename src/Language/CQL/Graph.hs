@@ -18,12 +18,12 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
-
+{-# LANGUAGE DerivingStrategies #-}
 module Language.CQL.Graph where
 
 import           Prelude
 
-data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving Show
+data Graph a = Graph { vertices :: [a], edges :: [(a, a)] } deriving stock Show
 
 removeEdge :: (Eq a) => (a, a) -> Graph a -> Graph a
 removeEdge x (Graph v e) = Graph v (filter (/=x) e)

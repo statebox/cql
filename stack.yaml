@@ -37,7 +37,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-12.0
+resolver: lts-18.28
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -53,13 +53,26 @@ resolver: lts-12.0
 #  - auto-update
 #  - wai
 packages:
-- .
-- http
+  - .
+  - http
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-extra-deps: [multiset-0.3.4, union-find-array-0.1.0.2, term-rewriting-0.2.1.1, jukebox-0.3.7, twee-lib-2.1.5, minisat-0.1.2, PropLogic-0.9.0.4, fgl-5.6.0.0]
-
+extra-deps:
+  [
+    binary-0.8.9.1,
+    text-1.2.5.0,
+    Cabal-3.6.3.0,
+    parsec-3.1.15.1,
+    containers-0.5.11.0,
+    multiset-0.3.4,
+    union-find-array-0.1.0.2,
+    term-rewriting-0.4.0.2,
+    jukebox-0.3.7,
+    twee-lib-2.1.5,
+    minisat-0.1.2,
+    PropLogic-0.9.0.4,
+  ]
 # Override default flag values for local packages and extra-deps
 # flags: {}
 
