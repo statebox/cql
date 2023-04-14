@@ -1,0 +1,132 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           cql
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/statebox/cql#readme>
+homepage:       https://github.com/statebox/cql#readme
+bug-reports:    https://github.com/statebox/cql/issues
+author:         Statebox
+maintainer:     Statebox
+copyright:      2019 Statebox
+license:        AGPL
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/statebox/cql
+
+library
+  exposed-modules:
+      Language.CQL
+      Language.CQL.Collage
+      Language.CQL.Common
+      Language.CQL.Congruence
+      Language.CQL.Graph
+      Language.CQL.Instance
+      Language.CQL.Instance.Algebra
+      Language.CQL.Instance.Presentation
+      Language.CQL.Internal
+      Language.CQL.Mapping
+      Language.CQL.Morphism
+      Language.CQL.Options
+      Language.CQL.Parser.Instance
+      Language.CQL.Parser.LexerRules
+      Language.CQL.Parser.Mapping
+      Language.CQL.Parser.Parser
+      Language.CQL.Parser.Program
+      Language.CQL.Parser.ReservedWords
+      Language.CQL.Parser.Schema
+      Language.CQL.Parser.Transform
+      Language.CQL.Parser.Typeside
+      Language.CQL.Program
+      Language.CQL.Prover
+      Language.CQL.Query
+      Language.CQL.Schema
+      Language.CQL.Term
+      Language.CQL.Transform
+      Language.CQL.Typeside
+  other-modules:
+      Paths_cql
+  hs-source-dirs:
+      src
+  ghc-options: -Weverything -Werror -Wno-implicit-prelude -Wno-missing-export-lists -Wno-missing-import-lists -Wno-safe -Wno-missing-safe-haskell-mode -Wno-missing-local-signatures -Wno-unsafe -Wno-monomorphism-restriction -Wno-unused-type-patterns -Wno-name-shadowing -Wno-prepositive-qualified-module -Wno-unused-packages
+  build-depends:
+      PropLogic >=0.9.0.4
+    , QuickCheck
+    , base >=4.7 && <5
+    , containers
+    , deepseq
+    , fgl >=5.5
+    , megaparsec
+    , mtl >=2.0
+    , pretty
+    , scientific
+    , semigroups
+    , tabular
+    , term-rewriting
+    , twee-lib
+    , union-find ==0.2.*
+  default-language: Haskell2010
+
+executable cql
+  main-is: Main.hs
+  other-modules:
+      Paths_cql
+  hs-source-dirs:
+      cli
+  ghc-options: -Weverything -Werror -Wno-implicit-prelude -Wno-missing-export-lists -Wno-missing-import-lists -Wno-safe -Wno-missing-safe-haskell-mode -Wno-missing-local-signatures -Wno-unsafe -Wno-monomorphism-restriction -Wno-unused-type-patterns -Wno-name-shadowing -Wno-prepositive-qualified-module -Wno-unused-packages -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      PropLogic >=0.9.0.4
+    , QuickCheck
+    , base >=4.7 && <5
+    , containers
+    , cql
+    , deepseq
+    , fgl >=5.5
+    , megaparsec
+    , mtl >=2.0
+    , pretty
+    , scientific
+    , semigroups
+    , tabular
+    , term-rewriting
+    , twee-lib
+    , union-find ==0.2.*
+  default-language: Haskell2010
+
+test-suite cql-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      CQLSpec
+      Language.CQL.Parser.Generator
+      Parser.ParserSpec
+      Paths_cql
+  hs-source-dirs:
+      test
+  ghc-options: -Weverything -Werror -Wno-implicit-prelude -Wno-missing-export-lists -Wno-missing-import-lists -Wno-safe -Wno-missing-safe-haskell-mode -Wno-missing-local-signatures -Wno-unsafe -Wno-monomorphism-restriction -Wno-unused-type-patterns -Wno-name-shadowing -Wno-prepositive-qualified-module -Wno-unused-packages -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      PropLogic >=0.9.0.4
+    , QuickCheck
+    , base >=4.7 && <5
+    , containers
+    , cql
+    , deepseq
+    , fgl >=5.5
+    , hspec
+    , megaparsec
+    , mtl >=2.0
+    , pretty
+    , scientific
+    , semigroups
+    , tabular
+    , term-rewriting
+    , twee-lib
+    , union-find ==0.2.*
+  default-language: Haskell2010

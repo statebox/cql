@@ -35,6 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Typeside where
@@ -47,6 +48,7 @@ import           Data.Set              (Set)
 import qualified Data.Set              as Set
 import           Data.Typeable
 import           Data.Void
+import           Data.Kind
 import           Language.CQL.Collage  (Collage(..), typeOfCol)
 import           Language.CQL.Common
 import           Language.CQL.Options
@@ -95,7 +97,7 @@ tsToCol (Typeside tys syms eqs _) =
   where
     leftify = Set.map (first (fmap Left))
 
-data TypesideEx :: * where
+data TypesideEx :: Type where
   TypesideEx
     :: forall var ty sym. (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym])
     => Typeside var ty sym
@@ -121,7 +123,7 @@ data TypesideRaw' = TypesideRaw'
   , tsraw_eqs     :: [([(String, Maybe String)], RawTerm, RawTerm)]
   , tsraw_options :: [(String, String)]
   , tsraw_imports :: [TypesideExp]
-  } deriving (Eq, Show)
+  } deriving stock (Eq, Show)
 
 
 evalTypesideRaw :: Options -> TypesideRaw' -> [TypesideEx] -> Err TypesideEx
@@ -221,8 +223,8 @@ data TypesideExp where
   TypesideRaw     :: TypesideRaw' -> TypesideExp
   TypesideSql     ::                 TypesideExp
 
-deriving instance Eq TypesideExp
-deriving instance Show TypesideExp
+deriving stock instance Eq TypesideExp
+deriving stock instance Show TypesideExp
 
 instance Deps TypesideExp where
   deps x = case x of

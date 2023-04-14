@@ -19,6 +19,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -}
 {-# LANGUAGE EmptyDataDeriving #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Options where
 
@@ -150,7 +151,7 @@ data BoolOption =
 --  | Eval_Approx_Sql_Unsafe
 --  | Eval_Sql_PersistentIndices
 --  | Coproduct_Allow_Collisions
-  deriving (Eq, Ord, Show, Enum)
+  deriving stock (Eq, Ord, Show, Enum)
 
 data StringOption =
  --   Csv_File_Extension
@@ -159,7 +160,7 @@ data StringOption =
  -- | Jdbc_Default_String
  -- | Completion_Precedence
     Prover
-  deriving (Eq, Ord, Show, Enum)
+  deriving stock (Eq, Ord, Show, Enum)
 
 -- | Accessor due to namespace colision.
 prover_name :: StringOption
@@ -175,10 +176,10 @@ data IntOption =
 --  | Gui_Max_String_Size
 --  | Gui_Rows_To_Display
 --  | Eval_Max_Plan_Depth
-  deriving (Eq, Ord, Show, Enum)
+  deriving stock (Eq, Ord, Show, Enum)
 
 type CharOption = Void
  --data CharOption =
  --  Csv_Escape_Char
  --  Csv_Quote_Char
- --  deriving (Eq, Ord, Show, Enum)
+ --  deriving stock (Eq, Ord, Show, Enum)

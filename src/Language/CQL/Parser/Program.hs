@@ -21,7 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module Language.CQL.Parser.Program where
 
-import           Data.List
+import qualified Data.List                      as List
 import           Data.Map                       as Map hiding ((\\))
 import           Data.Maybe
 import           Language.CQL.Common            as C
@@ -37,10 +37,10 @@ import           Text.Megaparsec
 
 parseProgram :: String -> Err Prog
 parseProgram s = case runParser parseProgram' "" s of
-  Left err           -> Left $ "Parse error: " ++ parseErrorPretty err
-  Right (opts, prog) -> if length (fst $ unzip prog) == length (nub $ fst $ unzip prog)
+  Left err           -> Left $ "Parse error: " ++ errorBundlePretty err
+  Right (opts, prog) -> if length (fst $ unzip prog) == length (List.nub $ fst $ unzip prog)
     then Right $ toProg opts prog
-    else Left  $ "Duplicate definition: " ++ show (nub (fmap fst prog \\ nub (fmap fst prog)))
+    else Left  $ "Duplicate definition: " ++ show (List.nub (fmap fst prog List.\\ List.nub (fmap fst prog)))
 
 -- | Returns a list of config option key-value paired with programs.
 parseProgram' :: Parser ([(String, String)], [(String, Exp)])

@@ -37,17 +37,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module Language.CQL.Common where
 
 import           Control.Arrow   (left)
 import           Data.Char
-import           Data.Foldable   as Foldable (foldl, toList)
+import           Data.Foldable   as Foldable (toList)
 import           Data.Kind
 import           Data.Map.Strict as Map hiding (foldl)
 import           Data.Maybe
 import           Data.Set        as Set (Set, empty, insert, member, singleton)
-import           Data.String     (lines)
 import           Data.Typeable
 
 split' :: [(a, Either b1 b2)] -> ([(a, b1)], [(a, b2)])
@@ -101,7 +101,7 @@ note :: b -> Maybe a -> Either b a
 note n = maybe (Left n) Right
 
 data Kind = CONSTRAINTS | TYPESIDE | SCHEMA | INSTANCE | MAPPING | TRANSFORM | QUERY | COMMAND | GRAPH | COMMENT | SCHEMA_COLIMIT
-  deriving (Show, Eq, Ord)
+  deriving stock (Show, Eq, Ord)
 
 type ID = Integer
 
@@ -153,7 +153,7 @@ mergeMaps = foldl Map.union Map.empty
 -- `(Show a, Show b, Show c)`
 -- The drawback of using this is that the compiler will treat this as a unique
 -- constraint, so it won't be able to detect specific unused constraints
-type family TyMap (f :: * -> Constraint) (xs :: [*]) :: Constraint
+type family TyMap (f :: Type -> Constraint) (xs :: [Type]) :: Constraint
 type instance TyMap f '[] = ()
 type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 
@@ -163,6 +163,6 @@ type instance TyMap f (t ': ts) = (f t, TyMap f ts)
 -- `(Show a, Ord a, Show b, Ord b, Show c, Ord c)`
 -- The drawback of using this is that the compiler will treat this as a unique
 -- constraint, so it won't be able to detect specific unused constraints
-type family MultiTyMap (fs :: [* -> Constraint]) (xs :: [*]) :: Constraint
+type family MultiTyMap (fs :: [Type -> Constraint]) (xs :: [Type]) :: Constraint
 type instance MultiTyMap '[] _ = ()
 type instance MultiTyMap (f : fs) xs = (TyMap f xs, MultiTyMap fs xs)
