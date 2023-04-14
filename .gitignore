@@ -1,5 +1,4 @@
 .stack-work/
-cql.cabal
 http/cql-http.cabal
 *~
 .DS_Store
