@@ -35,6 +35,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Language.CQL.Transform where
@@ -42,6 +43,7 @@ module Language.CQL.Transform where
 import           Control.DeepSeq
 import           Data.Map                           (Map, mapWithKey)
 import qualified Data.Map.Strict                    as Map
+import           Data.Kind
 import           Data.Maybe
 import qualified Data.Set                           as Set
 import           Data.Typeable
@@ -132,7 +134,7 @@ toMorphism (Transform src' dst' gens' sks') =
 ------------------------------------------------------------------------------------------------------------
 -- Expressions
 
-data TransformEx :: * where
+data TransformEx :: Type where
   TransformEx
     :: forall var ty sym en fk att gen sk x y gen' sk' x' y'
     . (MultiTyMap '[Show, Ord, Typeable, NFData] '[var, ty, sym, en, fk, att, gen, sk, x, y, gen', sk', x', y'])
@@ -142,7 +144,7 @@ data TransformEx :: * where
 instance NFData TransformEx where
   rnf (TransformEx x) = rnf x
 
-deriving instance Show TransformEx
+deriving stock instance Show TransformEx
 
 data TransformExp  where
   TransformComp             :: TransformExp              -> TransformExp       -> TransformExp
@@ -160,7 +162,7 @@ data TransformExp  where
   TransformCoEval           :: QueryExp   -> TransformExp                      -> TransformExp
   TransformEval             :: QueryExp   -> TransformExp                      -> TransformExp
   TransformRaw              :: TransExpRaw'                                    -> TransformExp
- deriving Show
+ deriving stock Show
 
 instance Deps TransformExp where
   deps x = case x of
@@ -268,7 +270,7 @@ data TransExpRaw'
   , transraw_gens    :: [(String, RawTerm)]
   , transraw_options :: [(String, String)]
   , transraw_imports :: [TransformExp]
-} deriving Show
+} deriving stock Show
 
 -- | Evaluates a literal into a transform.
 evalTransformRaw

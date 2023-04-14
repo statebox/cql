@@ -64,11 +64,14 @@ ghc-options:
 - -Wno-missing-export-lists
 - -Wno-missing-import-lists
 - -Wno-safe
+- -Wno-missing-safe-haskell-mode
 - -Wno-missing-local-signatures
 - -Wno-unsafe
 - -Wno-monomorphism-restriction
 - -Wno-unused-type-patterns
 - -Wno-name-shadowing
+- -Wno-prepositive-qualified-module
+- -Wno-unused-packages
 
 executables:
   cql:
